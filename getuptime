@@ -1,0 +1,88 @@
+#!/bin/ksh
+# This shell gathers daily uptime statistics.  Should be run out of cron,
+# with something like:
+# 0 7 * * * /usr/add-on/adm/bin/getuptime 1800 22 >/dev/null 2>&1
+# This will provide an uptime check once every 30 minutes (60*30=1800)
+# beginning at 7:00 A.M. for 22 iterations (ends at 5:30 P.M.)
+# This script will work with the getstats script. See the header of
+# that script for its usage.
+#
+PATH=$PATH:/usr/lbin:/usr/add-on/adm/bin:/usr/add-on/exptools/bin:/usr/etc:/usr/add-on/local/bin
+HOSTNAME=`hostname`
+DATE=`date +%D`
+REPT=$HOSTNAME.up
+LOG=`logdir troot`/log/usage
+RECORD=$LOG/$REPT
+TMPRECORD=`logdir troot`/tmp/${HOSTNAME}/uptime
+USAGE="USAGE: $0 sleep_time num_of_iterations"
+
+if [ $# != 2 ]
+then
+	echo $USAGE
+	exit
+fi
+if [ ! -d $LOG ]
+then
+	mkdir $LOG 2>/tmp/fail.mail
+fi
+if [ $? != 0 ]
+then
+	Mail -s "getuptime cannot create log" root < /tmp/fail.mail
+fi
+
+CNT=0
+NUM=$2
+typeset -i CNT NUM
+
+echo "___________________________
+Max values for $DATE
+___________________________" >> $RECORD
+
+while [ $CNT -lt $NUM ]
+do
+	uptime|awk ' {
+{ if ($3 > days) {
+	days = $3
+	print "days up -", days
+	}
+}
+{ if ($6 > users) {
+	users = $6
+	print "max users -", users
+	} 
+}
+{ if ($10 > load1) {
+	load1 = $10
+	print "1_minute load_avg -", load1
+	} 
+}
+{ if ($11 > load5) {
+	load5 = $11
+	print "5_minute load_avg -", load5
+	} 
+}
+{ if ($12 > load15) {
+	load15 = $12
+	print "15_minute load_avg -", load15
+	} 
+}
+}'  >> $TMPRECORD
+	sleep $1
+	CNT=CNT+1
+done 
+
+typeset -i HOLD TRI
+for i in days max 1_minute 5_minute 15_minute
+do
+	HOLD=0
+	for TRI in `cat $TMPRECORD|grep $i|sed 's/,//g'|cut -f4 -d" "`
+	do
+		if [ $TRI -gt $HOLD ]
+		then
+			HOLD=$TRI
+		fi
+	done
+	cat $TMPRECORD | grep "$i.*$HOLD" | head -1 >> $RECORD
+done
+
+rm $TMPRECORD

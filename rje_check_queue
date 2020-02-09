@@ -1,0 +1,108 @@
+#!/bin/sh
+#
+# rje_check_queue
+#
+# @(#) This script will check the rje punch queues on the IBM and punch
+# @(#) out if there are and jobs queued.
+#
+# History
+# 07-08-94 markos;  updated to make mail got to RJE_ADMIN
+# 04-20-94 quayle;  Changed the way script checked to see if rje was running.
+# 05-03-93 shearer; Changed the sleep command from 30 second to 60.
+# 04-02-92 shearer; Moved program to release directory.
+# 11-06-91 shearer; Removed the mail message when nothing is found.
+# 09-19-91 shearer; Added the check for the queue class of "S" and remove
+#                 ; the signon output file.
+# 09-16-91 shearer; Added full path names and gateway name to rje commands.
+# 09-09-91 shearer; Released
+# 09-06-91 shearer; Testing
+# 09-05-91 shearer; Created
+#
+
+RJE_ADMIN="root markos"
+
+ps -x|grep -v grep|grep -s rje.signon
+if [ $? -ne 0 ]
+then 
+	echo "RJE process not running!" | /usr/ucb/Mail -s "rje_check_queue ERROR on raven" $RJE_ADMIN
+	exit 1
+fi
+
+cd /var/spool/bscrje/raven_rje
+touch testfile >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	echo "Unable to write to /var/spool/bscrje/raven_rje" | /usr/ucb/Mail -s "rje_check_queue ERROR on raven" $RJE_ADMIN
+	exit 1
+else
+	rm -f testfile
+fi
+
+/usr/sunlink/bscrje/rje -s rje.signon -h raven_rje >queue.record 2>&1
+grep -s ERROR queue.record
+if [ $? -eq 0 ]
+then
+	/usr/ucb/Mail -s "rje_check_queue error on raven" $RJE_ADMIN < queue.record
+	exit 1
+fi
+
+sleep 60	# This sleep command is here so the output file has time to
+		# be generated and the LOGFILE updated.
+
+outfile=`tail -1 LOGFILE | awk '{ print $5 }'|cut -c2-20`
+
+if [ -f "$outfile" ]
+then
+	rm $outfile
+	if [ $? -ne 0 ]
+	then
+		echo "Unable to remove $outfile"| /usr/ucb/Mail -s "rje_check_queue ERROR on raven" $RJE_ADMIN
+		exit 1
+	fi
+fi
+
+/usr/sunlink/bscrje/rje -s rje.display -h raven_rje >queue.record 2>&1
+grep -s ERROR queue.record
+if [ $? -eq 0 ]
+then
+	/usr/ucb/Mail -s "rje_check_queue error on raven" $RJE_ADMIN < queue.record
+	exit 1
+fi
+
+
+sleep 30	# This sleep command is here so the output file has time to
+		# be generated and the LOGFILE updated.
+
+outfile=`tail -1 LOGFILE | awk '{ print $5 }'|cut -c2-20`
+
+punch=`awk 'BEGIN {punch="no"}{ 
+           if($2 == "SMSS009" && $6 == "S")
+               punch = "YES"			
+           else
+            if($2 == "SMFG292" && $6 == "S")
+               punch = "YES"
+            }END{if( punch != "YES")			
+                   print "NO" 			
+                 else				
+                   print "YES"			
+                 }' $outfile`	
+
+
+if [ "$punch" = "YES" ]
+then
+	/usr/sunlink/bscrje/rje -s rje.punch -h raven_rje >queue.record 2>&1
+	/usr/ucb/Mail -s "rje_check_queue punch queue started on raven" $RJE_ADMIN < queue.record
+	rm $outfile
+	if [ $? -ne 0 ]
+	then
+		echo "Unable to remove $outfile"| /usr/ucb/Mail -s "rje_check_queue ERROR on raven" $RJE_ADMIN
+		exit 1
+	fi
+else
+	rm $outfile
+	if [ $? -ne 0 ]
+	then
+		echo "Unable to remove $outfile"| /usr/ucb/Mail -s "rje_check_queue ERROR on raven" $RJE_ADMIN
+		exit 1
+	fi
+fi

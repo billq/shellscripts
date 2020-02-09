@@ -1,0 +1,4 @@
+#!/bin/ksh
+PATH=/usr1/tracktool/bin:$PATH
+export TRACKTOOL=/usr1/tracktool/itasca
+/usr1/tracktool/bin/TrackTool

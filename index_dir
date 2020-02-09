@@ -1,0 +1,20 @@
+#!/bin/ksh
+HEADER=$HOME/lib/templates/osgheader.html
+echo "Index which dir? \c"
+read TARGET
+[[ -f "index.html" ]] && {
+  echo "index.html exists in ."
+  exit 1
+}
+[[ -f "$HEADER" ]] || {
+  echo "Can't find $HEADER"
+  exit 1
+}
+cat $HEADER|sed 's/MY_TITLE/Index for '`basename $TARGET`'/'>index.html
+[[ -d "$TARGET" ]] && {
+  for i in `ls $TARGET`
+  do
+    echo $i|sed 's/.*/<LI><A HREF="\/cgi-bin\/&">&<\/A><BR>/'>>index.html
+  done
+}
+echo "</BODY></HTML>">>index.html

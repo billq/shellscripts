@@ -1,0 +1,48 @@
+#!/bin/ksh
+#
+# looks at $1 on any/all suns
+#
+file=$1
+if [ -z $1 ]
+then
+	echo "USAGE:`basename $0` file"
+	exit 1
+fi
+for i in `suns`
+do
+	tmpfile=/tmp/`basename ${file}`.${i}
+	echo "doing $i"
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			rsh $i -l root "[ -f $file ] && cat $file" >${tmpfile} 2>&1
+			STRINGA=`cat ${tmpfile}`
+			if [ "$STRINGA" = "permission denied" ]
+			then
+				echo "$i has a bad .rhosts"
+			elif [ "$STRINGA" != "" ]
+			then
+				echo "${file} is on ${i}"
+				more ${tmpfile}
+				echo "preserve ${tmpfile}? [Y|n]\c"
+				read preserve
+				case ${preserve} in
+				""|Y*|y*)
+					echo "${tmpfile} preserved"
+				;;
+				*)
+					echo "${tmpfile} removed"
+					rm ${tmpfile}
+				;;
+				esac
+			fi
+		else
+			echo "$i not pingable"
+		fi
+	else
+		echo "$i not in hosts"
+	fi
+done

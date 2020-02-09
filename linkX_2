@@ -1,0 +1,27 @@
+#!/bin/ksh
+for LIB in /usr/lib /usr/openwin/lib
+do
+	if [ -d $LIB ]
+	then
+        	cd $LIB
+        	for lib in `ls /apps/X11R5/lib`
+        	do
+			echo "Fixing X libraries in $LIB"
+                	if [ -f "/apps/X11R5/lib/$lib" ] && [ ! -f $lib ]
+                	then
+                        	ln -s /apps/X11R5/lib/$lib $lib
+                	fi
+        	done
+        	for lib in `ls /apps/motif/lib`
+        	do
+			echo "Fixing Motif libraries in $LIB"
+               		if [ -f "/apps/motif/lib/$lib" ] && [ ! -f $lib ]
+               		then
+                       	 	ln -s /apps/motif/lib/$lib $lib
+                	fi
+        	done
+	else
+		echo "WHOA! Can't grok $LIB"
+		exit 1
+	fi
+done

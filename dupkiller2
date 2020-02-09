@@ -1,0 +1,162 @@
+#!/bin/ksh
+#
+# dupkiller - eliminate duplicate files.
+#
+spinner () {
+  N=${N:-0}
+  case $N in
+  0) print "\r| \c"
+     N=1		;;
+  1) print "\r/ \c"
+     N=2		;;
+  2) print "\r- \c"
+     N=3		;;
+  3) print "\r\\ \c"
+     N=0		;;
+  esac
+}
+
+case `uname -s`
+in
+ Linux)
+  SUM=/usr/bin/cksum
+  MD5=/usr/bin/md5sum
+ ;;
+ SunOS)
+  SUM=/bin/sum
+  MD5=/usr/local/bin/gmd5sum
+ ;;
+ *)
+ ;;
+esac
+
+SPACE2_=/home/billq/scripts/space2_
+MYTMP=/tmp/dupkiller
+mkdir $MYTMP 2>/dev/null
+if [ $? -ne 0 ]
+then
+  print "Can't creat tmp dir $MYTMP"
+  exit 1
+fi
+
+USAGE="`basename $0` [-i] [-d starting_directory] [-s suffix]"
+
+if [ $# -ne 0 ]
+then
+ while getopts id:s: i 2>/dev/null
+  do
+   case $i in
+   i) INTERACTIVE="1"
+   ;;
+   d) CDIR="$OPTARG"   
+      if [ -d $CDIR ]
+      then
+        DIR=$CDIR
+      fi
+   ;;
+   s) SUFFIX="-name *.$OPTARG"
+   ;;
+   \?)print "USAGE: $USAGE"
+      exit 2
+   ;;
+   esac
+  done
+  shift `expr $OPTIND - 1`
+else
+  print "Interactive delete? [Y|n] \c"
+  read I
+  case $I in
+  N*|n*)
+    INTERACTIVE=0
+  ;;
+  *)
+    INTERACTIVE=1
+  ;;
+  esac
+  print "Restricted suffix? [Y|n] \c"
+  read I
+  case $I in
+  N*|n*)
+    SUFFIX=""
+  ;;
+  *)
+    print "Suffix? \c"
+    read SSUFFIX
+    SUFFIX="-name *$SSUFFIX"
+  ;;
+  esac
+fi
+
+if [ -z $DIR ]
+then
+  DIR=/etc/hosts
+  while [ ! -d $DIR ]
+  do
+    print "Starting dir? [$PWD] \c"
+    read SDIR
+    DIR=${SDIR:-$PWD}
+  done
+fi
+
+rm -f $MYTMP/sumsfile $MYTMP/mdsumsfile $MYTMP/mdfile
+
+print "Cleaning filenames in $DIR ..."
+$SPACE2_ -d $DIR
+if [ $? -ne 0 ]
+then
+  print "Error cleaning filenames."
+  exit 1
+fi
+
+print "Waiting for checksum calcs to complete ..."
+for FILE in `find $DIR -type f $SUFFIX`
+do
+  $SUM "$FILE" >> $MYTMP/sumsfile
+  spinner
+done
+print "done."
+for sum in `cat $MYTMP/sumsfile|sort|awk '{print $1}'|uniq -d`
+do
+  print "\rmarking dups associated with $sum \c"
+  grep $sum $MYTMP/sumsfile|awk '{print $3}'>>$MYTMP/mdfile
+done
+
+if [ -f $MYTMP/mdfile ]
+then
+  print "\nCalculating md5 checksums for likely dups under $DIR."
+
+  print "Waiting for md5sum calcs to complete ..."
+  for FILE in `cat $MYTMP/mdfile` 
+  do
+    $MD5 $FILE >> $MYTMP/mdsumsfile
+    spinner
+  done
+
+  print "done."
+
+  if (( $INTERACTIVE ))
+  then
+    for sum in `cat $MYTMP/mdsumsfile|sort|awk '{print $1}'|uniq -d`
+    do
+      print "Found the following dup files under $DIR:"
+      grep $sum $MYTMP/mdsumsfile|awk '{print $2}'
+      for file in `grep $sum $MYTMP/mdsumsfile|awk '{print $2}'`
+      do
+        rm -i $file
+      done
+    done
+  else
+    FC=0
+    for sum in `cat $MYTMP/mdsumsfile|sort|awk '{print $1}'|uniq -d`
+    do
+      print "\rkilling dups associated with $sum \c"
+      FILE=$(grep $sum $MYTMP/mdsumsfile|sed '1d'|awk '{print $2}')
+      rm $FILE
+      FC=$((FC + 1))
+    done
+    print "\nRemoved $FC duplicates!"
+  fi
+else
+  print "I didn't find no dups."
+fi
+rm -fr $MYTMP

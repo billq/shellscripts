@@ -1,0 +1,42 @@
+#! /bin/ksh
+
+rm  -f /tmp/switch_net
+for net in 116 117 118 119 120 121 122 123
+do
+	exec 3> /tmp/${net}_net
+	print -n -u3 "${net}_net"
+	ypcat hosts | grep 131\.198\.${net} | grep Sun \
+		| awk '{print $2}' | sort -d > /tmp/${net}_tmp
+	exec 4< /tmp/${net}_tmp
+	cnt=1
+	while read -u4 sysname
+	do
+		test ${cnt} = 1 \
+			&& print -u3 " \\"
+		case ${cnt} in
+		1)
+			print -n -u3 "\t\t(${sysname},,)"
+			test ${#sysname} -lt 4 \
+				&& print -n -u3 "\t"
+		;;
+		2|3)
+			print -n -u3 "\t(${sysname},,)"
+			test ${#sysname} -lt 4 \
+				&& print -n -u3 "\t"
+		;;
+		4)
+			print -n -u3 "\t(${sysname},,)"
+		;;
+		esac
+		test ${cnt} = 4 \
+			&& cnt=1  \
+			|| let cnt=cnt+1
+	done
+	print -u3 ""
+	exec 3>&-
+	exec 4<&-
+	cat /tmp/${net}_net >> /tmp/switch_net
+	rm -f /tmp/${net}_net /tmp/${net}_tmp
+done
+
+mv /tmp/switch_net /etc/security/netgroup.switch

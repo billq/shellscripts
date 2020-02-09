@@ -1,0 +1,50 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                    billq@technologist.com        			       #
+#                                                                              #
+################################################################################
+USAGE="USAGE:$0 -l level -p process_name"
+if [ $# -lt 2 ]
+then
+	echo $USAGE
+	exit 1
+else
+	set -- `getopt l:p:? $*`
+	for i in $*
+	do
+    	case $i in
+        	-l)     LEVEL="$2";          shift 2;;
+        	-p)     NAME="$2";          shift 2;;
+        	-\?)    echo "$USAGE 2" >&2;      exit 1;;
+    	esac
+	done
+	echo "Setting the name of the doomed process to $NAME"
+fi
+case $LEVEL in
+9)	LEVEL=9		;;
+*)	LEVEL=15	;;
+esac
+ps -aux |grep $NAME|sed '/grep/d'
+/bin/echo "killing all of these!"
+kill -$LEVEL `ps -aux|grep $NAME |sed 's/  */:/g'|sed '/grep/d'|cut -f2 -d":"`

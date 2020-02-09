@@ -1,0 +1,3 @@
+#!/bin/sh
+find /export/doc/tmp/* -mtime +7 -exec rm -fr {} \;
+cp /home/admin/adm/lib/readme.doc.tmp /export/doc/tmp/readme

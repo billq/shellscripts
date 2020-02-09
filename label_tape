@@ -1,0 +1,102 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1993 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+DATE="`date +%D`"
+AGAIN="y"
+while [ "$AGAIN" = "y" ]
+do
+ case $0 in
+  label_tape)
+  TEMPLATE=/usr/local/lib/postscript/archive_label.ps
+  /bin/echo -n "User name: [$USER] "
+  read N_USER
+  USER=${N_USER:-${USER}}
+  /bin/echo -n "Dept name: [$DEPT] "
+  read N_DEPT
+  DEPT=${N_DEPT:-${DEPT}}
+  /bin/echo -n "User's extension: [$PHONE] "
+  read N_PHONE
+  PHONE=${N_PHONE:-${PHONE}}
+  /bin/echo -n "User's email: [$EMAIL] "
+  read N_EMAIL
+  EMAIL=${N_EMAIL:-${EMAIL}}
+  ;;
+  dump_label)
+  TEMPLATE=/usr/local/lib/postscript/dump_label.ps
+  /bin/echo -n "System name: [$USER] "
+  read N_USER
+  USER=${N_USER:-${USER}}
+  /bin/echo -n "Location: [1431 Opus Place, Downers Grove, Il.] "
+  read N_DEPT
+  DEPT=${N_DEPT:-${DEPT}}
+  /bin/echo -n "Full or Incremental: [$PHONE] "
+  read N_PHONE
+  PHONE="${N_PHONE:-${PHONE}} backup"
+  /bin/echo -n "Drive information: [$EMAIL] "
+  read N_EMAIL
+  EMAIL=${N_EMAIL:-${EMAIL}}
+  ;;
+ esac
+  cat $TEMPLATE|sed 's/USER/'"${USER}"'/'|sed 's/DEPT/'"${DEPT}"'/'|sed 's/PHONE/'"${PHONE}"'/'|sed 's/EMAIL/'"${EMAIL}"'/'>>/tmp/label.$$
+  typeset -i LAST
+  LAST=0
+  ANOTHER="y"
+  echo "
+-----------------------------------------------------
+Enter a brief description of the tape contents.
+To end, enter nothing. Up to 30 entries are possible.
+-----------------------------------------------------
+  "
+  while [ "$ANOTHER" = "y" ]
+  do
+    /bin/echo -n "Record ${LAST}:"
+    read REC
+    if [ "$REC" = "" ]
+    then
+      ANOTHER="n"
+      cat /tmp/label.$$|sed 's/(REC.*)/()/'|sed 's/(DATE.*)/()/'>/tmp/nlabel.$$
+      mv /tmp/nlabel.$$ /tmp/label.$$
+    else
+      NR=`echo $REC|sed 's/\//\\\\\\//g'`
+      /bin/echo -n "Date for Record ${LAST}: [$DATE] "
+      read NDATE
+      DATE=${NDATE:-${DATE}}
+      ND=`echo $DATE|sed 's/\//\\\\\\//g'`
+      cat /tmp/label.$$|sed s/\(REC${LAST}\)/"(${NR})"/|sed s/\(DATE${LAST}\)/"(${ND})"/ > /tmp/nlabel.$$
+      mv /tmp/nlabel.$$ /tmp/label.$$
+      ANOTHER="y"	
+      LAST="LAST + 1"
+    fi
+  done
+  lpr /tmp/label.$$
+  rm /tmp/label.$$
+  /bin/echo -n "Another label? [y/n] "
+  read AGAIN
+  case $AGAIN in
+  y*|Y*|"")	AGAIN="y"	;;
+  n*|N*)		AGAIN="n"	;;
+  esac
+done

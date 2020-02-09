@@ -1,0 +1,51 @@
+#!/bin/ksh
+#
+# mod.wrap - replace standard in.* daemons with wrappers
+#
+#
+if [ "`tty`" != "/dev/console" ]
+then
+	echo "This HAS to be run from the console"
+	exit 1
+else
+	echo "
+***********************READ THIS*****************************
+
+Running this script will cause all currently connected remote
+sessions to terminate immediately.
+
+If you want to bail out, do a ^C NOW!!!
+***********************READ THIS*****************************
+"
+	read go
+fi
+if [ -f /usr/etc/rdd/safe_finger ]
+then
+	echo "
+This server has already been configured with the tcp wrappers.
+"
+	exit 1
+fi
+mkdir /usr/etc/rdd
+for FILE in in.comsat in.rexecd in.talkd in.fingerd in.rlogind in.telnetd in.ftpd in.tftpd in.rshd
+do
+	cp /usr/etc/$FILE /usr/etc/rdd/$FILE
+	cp /home/admin/adm/lib/rdd/tcpd /usr/etc/$FILE
+	chown root.staff /usr/etc/$FILE
+	chmod 755 /usr/etc/$FILE
+done
+cp /home/admin/adm/lib/rdd/hosts.allow /etc/hosts.allow
+cp /home/admin/adm/lib/rdd/safe_finger /usr/etc/rdd/safe_finger
+cp /home/admin/adm/lib/rdd/libc.so.1.9 /usr/lib/libc.so.1.9
+ldconfig
+mkdir /etc/banners
+cp /home/admin/adm/lib/rdd/in.rlogind.banner /etc/banners/in.rlogind
+cp /home/admin/adm/lib/rdd/in.telnetd.banner /etc/banners/in.telnetd
+cp /home/admin/adm/lib/rdd/in.ftpd.banner /etc/banners/in.ftpd
+chown root.staff /etc/hosts.allow
+chmod 755 /etc/hosts.allow
+chown root.staff /etc/banners/*
+chmod 755 /etc/banners/*
+chown root.staff /usr/etc/rdd/*
+chmod 755 /usr/etc/rdd/*
+

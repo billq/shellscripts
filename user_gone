@@ -1,0 +1,29 @@
+#!/bin/ksh
+MYQF=`grep -l $1 qf*`
+if [ "$MYQF" = "" ]
+then
+	STDIN=`grep -l $1`
+	Mail -s "USER_GONE error" quayle < /etc/motd
+else
+	SENDER=`cat $MYQF|grep -v "Subject"|grep "^S"|sed 's/^S//'`
+echo "$SENDER attempted to send mail to $1 on `date`" >> /tmp/user_gone_log
+echo "
+
+$1 is no longer employed by Rockwell International Switching
+Systems Division.  No further information or forwarding of this
+users email is available.  If this is in response to an alias
+mailing, please remove $1 from your alias.
+
+Questions regarding this user should be forwarded to the
+personell department at Rockwell International SSD.
+Questions regarding this procedure or assistance in the
+resolution of your problem may be mailed to:
+
+Postmaster@switch.rockwell.com
+
+
+Thank you.
+
+"|/usr/ucb/Mail -s "Invalid destination, $1" $SENDER
+
+fi

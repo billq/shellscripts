@@ -1,0 +1,72 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+FLAG=1
+while [ "$FLAG" = "1" ]
+do
+	/bin/echo -n "
+How often would you like to poll the dk connections?
+
+	(number of times per day) [4] -> "
+	read COUNT
+	case $COUNT in
+	""|4)	FREAK="7,10,16,22";FLAG=0	;;
+	1)	FREAK="15";FLAG=0	;;
+	2)	FREAK="10,15";FLAG=0	;;
+	3)	FREAK="9,12,15";FLAG=0	;;
+	5)	FREAK="9,11,13,15,17";FLAG=0	;;
+	6)	FREAK="7,9,11,13,15,17";FLAG=0	;;
+	7)	FREAK="7,9,11,13,15,17,19";FLAG=0	;;
+	8)	FREAK="7,9,11,13,15,17,19,21";FLAG=0	;;
+	*)	echo "That is not acceptable.  Please chose a number
+between 1 and 8.  This is how many times per day the tty's will
+be polled for activity."
+		FLAG=1			;;
+	esac
+done
+/bin/echo -n "O.K., we're ready to make an addition to the root crontab.
+the following will be echo'd into the crontab:
+
+0 $FREAK * * * who|grep tty0>>$LOGDIR/dkmon >/dev/null 2>&1
+
+O.K. to do this? [Y|n] -> "
+read GOFORIT
+case $GOFORIT in
+""|Y*|y*)
+echo "0 $FREAK * * * /bin/who|grep tty0>>$LOGDIR/dkmon >/dev/null 2>&1">>/usr/spool/cron/crontabs/root
+;;
+*)	echo "Nothing done!"
+	sleep 3
+	exit 1
+;;
+esac
+echo "When you want to stop monitoring the dk line usage, as root do:
+
+crontab -e
+
+and delete the line entered above."
+sleep 20
+exit 0

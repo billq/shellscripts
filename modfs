@@ -1,0 +1,53 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+for SUB in 117 118 119
+do
+	for WS in `ypcat hosts|grep "Sun"|grep \.${SUB}\. |grep -v xhost|grep -v xterm|awk '{print $2}'`
+	do
+		echo "checking $WS"
+		ping $WS 2 >/dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			spray -c 1 -l 86 $WS >/dev/null 2>&1
+			if [ $? = 0 ]
+			then
+				STAT=`rsh $WS 'grep -s mail /etc/fstab;echo $?' 2>&1`
+				if [ $STAT = 0 ]
+				then
+					echo "fixin $WS"
+					rsh $WS "cat /etc/fstab|sed /usr6\\\/mail/d>/etc/fstab.new;mv /etc/fstab /etc/fstab.old;mv /etc/fstab.new /etc/fstab"
+				else
+					echo $WS >> /tmp/noaccess.stats
+				fi
+			else
+				echo $WS >> /tmp/nospray.stats
+			fi
+		else
+			echo $WS >> /tmp/deadsun.stats
+		fi
+	done
+done

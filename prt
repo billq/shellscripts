@@ -1,0 +1,17 @@
+#! /bin/ksh
+while getopts p:f: i 2>/dev/null
+do
+  case $i in
+  p)	PRINTER="$OPTARG"	;;
+  f)	FILE="$OPTARG"		;;
+  *)	echo "USAGE: $0 [-p printer] -f [file]"
+	exit 1			;;
+  esac
+done
+shift `expr $OPTIND - 1`
+
+[[ -r ${FILE} ]] || echo "Can't read $FILE";exit 1
+
+echo printing ${FILE:-*}
+
+cat $FILE | /bin/unix2dos | mp -l | lp -t "Bill Quayle" -d ${PRINTER:-hp4000}

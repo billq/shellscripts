@@ -1,0 +1,14 @@
+#!/bin/ksh
+echo "Hit something"
+if [ -z "$something" ]
+then
+	case $something
+	in
+	a)	echo "you hit a"
+	;;
+	*)	echo "bozo"
+	;;
+	esac
+else
+	something=b
+fi

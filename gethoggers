@@ -1,0 +1,71 @@
+#!/usr/lbin/ksh
+echo "				GETHOGGERS!"
+echo "	gethoggers locates files untouched for more than X days,
+under user Y's login, and generates the report to a file named Z
+At this point, the user (root, you devil!) has a couple of choices;
+ o Exit gethoggers and examine the hoglist manually.
+ o For files larger than Q, send user that owns them mail, and spool
+   them off to tape.
+ o For files larger than Q, blast them away.
+
+X, Y, Z, and Q will be prompted for."
+echo ""
+echo ""
+echo ""
+/bin/echo -n "How dead is a dead file?
+(How far back in days do you consider dead? 0-99) "
+read DEAD
+case $DEAD in
+	[0-9]*) continue		;;
+	*) echo "A number 0 - 99, now start over!"
+		exit 1			;;
+esac
+/bin/echo -n "What's the name of the hoglist [/tmp/hoglist]? "
+read HOGLIST
+case $HOGLIST in
+	"") HOGLIST=/tmp/hoglist	;;
+	*) continue			;;
+esac
+/bin/echo -n "Who's the target? "
+read DEAD_HEAD
+DEAD_HEAD_DIR=`grep $DEAD_HEAD /etc/passwd|cut -d: -f6`
+if [ $? -eq "1" ]
+then
+	echo "The user must have a login on this system!
+Now start over!"
+	exit 1
+fi
+echo "O.K., we'll check this out, but hang in there, because 
+`uname -n` is slow!"
+find $DEAD_HEAD_DIR -atime +$DEAD -print | xargs du -s | sort -nr >$HOGLIST
+echo ""
+echo ""
+echo ""
+echo ""
+/bin/echo -n "HELLO! We're finally done examining $DEAD_HEAD's filesystem.
+
+How about it shall we do some 
+rm -fr $DEAD_HEAD/* ? "
+read choice
+case $choice in 
+Y* | y*) echo "We'll prompt you for the files, you hit a return to dust 'em,
+or a n or N to spare 'em."
+	for i in `cat $HOGLIST|sed 's/^.*	//'`
+	do
+		echo $i
+		/bin/echo -n "rm -fr $i ? [Y|n] "
+		read kill
+			case $kill in
+			"" | Y* | y*) echo "rm -fr $i"
+					rm -fr $i
+					echo "AH-H-H-H!"
+				;;
+			*)	echo "$i is still there"
+				continue
+				;;
+			esac
+	done
+	;;
+*)	echo "No files touched!"
+	;;
+esac

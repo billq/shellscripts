@@ -1,0 +1,65 @@
+#!/bin/ksh
+#
+# This little ditty cleans out old home directories interactively.
+#
+# wrq - 04/08/96
+#
+LOG=/home/admin/adm/log/userlog
+TODAY=`date +%m%d%y`
+
+for ENTRY in `ypcat passwd|grep ":\*:"|cut -f1,6 -d:|grep home`
+do
+	LOGIN=`echo $ENTRY|cut -f1 -d:`
+	HOMEDIR=`echo $ENTRY|cut -f2 -d:`
+	if [ -d $HOMEDIR ]
+	then
+		echo "Looking up ${LOGIN}..."
+		/usr/local/bin/ephone ${LOGIN}
+		echo "Hit enter to continue."
+		read go
+		echo "Looking at ${HOMEDIR}..."
+		ls -ld $HOMEDIR
+		echo "Hit enter to continue."
+		read go
+		echo "Looking at contents of ${HOMEDIR}..."
+		ls -la $HOMEDIR
+		/bin/echo -n "Archive it? "
+		read archiveit
+		case $archiveit in
+		""|Y*|y*)
+			tar -cvbf 126 /dev/nrst0 $HOMEDIR
+			echo $HOMEDIR >> ${LOG}/archivelist
+		;;
+		*)
+			echo "Not saving $HOMEDIR"
+		;;
+		esac
+		/bin/echo -n "Kill it? "
+		read killit
+		case $killit in
+		""|Y*|y*)
+			rm -fr $HOMEDIR
+			echo $HOMEDIR >> ${LOG}/rmlist
+		;;
+		*)
+			echo "Saving $HOMEDIR"
+			echo $HOMEDIR >> ${LOG}/preservelist
+		;;
+		esac
+	else
+		echo $HOMEDIR >> ${LOG}/gonelist
+	fi
+done
+
+cat ${LOG}/rmlist >> ${LOG}/rmlist.${TODAY}
+cat ${LOG}/preservelist >> ${LOG}/preservelist.${TODAY}
+cat ${LOG}/gonelist >> ${LOG}/gonelist.${TODAY}
+
+echo "You have removed the following directories:"
+more ${LOG}/rmlist.${TODAY}
+echo "Hit enter to view the preserved list:"
+read go
+more ${LOG}/preservelist.${TODAY}
+echo "Hit enter to view the list of entries in the password file that already had no home directory:"
+read go
+more ${LOG}/gonelist.${TODAY}

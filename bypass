@@ -1,0 +1,10 @@
+/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n moby -e rlogin moby -l root &
+/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n orca -e rlogin orca -l root &
+/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n byqaap1 -e rlogin byqaap1 -l root &
+/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n byqaap2 -e rlogin byqaap2 -l root &
+/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n byprap1 -e rlogin byprap1 -l root &
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n byprap2 -e rlogin byprap2 -l root &
+/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n rdqadb1 -e rlogin rdqadb1 -l root &
+/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n rdqadb2 -e rlogin rdqadb2 -l root &
+/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n rdprdb1 -e rlogin rdprdb1 -l root &
+/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n rdprdb2 -e rlogin rdprdb2 -l root &

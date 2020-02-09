@@ -1,0 +1,42 @@
+#!/bin/ksh
+BASEDIR=/etc/security
+rm -f /tmp/mapindex2 /tmp/mapindex3
+cd $BASEDIR
+for BASE in `cat auto.master|awk '{print $1}'`
+do
+	case $BASE in
+	"/-")
+		cat auto.direct|\
+	sed 's/-[a-z]*//'|\
+	sed 's/,[a-z]*//'|\
+	sed 's/	/:/g'|\
+	sed 's/\&$//'|\
+	sed 's/:/:direct:/'|\
+	sed 's/::/:/g'|\
+	sed 's/:$//'\
+	>>/tmp/mapindex2
+	;;
+	"/net")	continue
+	;;
+	*)
+	NAME=`echo $BASE|sed 's/\///'`
+	MAP=auto.$NAME
+	cat $MAP|\
+	sed 's/-[a-z]*//'|\
+	sed 's/,[a-z]*//'|\
+	sed s/^/\\${BASE}\\//|\
+	sed 's/	/:/g'|\
+	sed '/\*/d'|\
+	sed 's/\&$//'|\
+	sed s/:/:$NAME:/|\
+	sed 's/::/:/g'|\
+	sed 's/:$//'\
+	>>/tmp/mapindex2
+	esac
+done
+for LINE in `cat /tmp/mapindex2`
+do
+	GREPPER="`echo $LINE|cut -f1 -d:`:"
+	COMMENT=`grep "^$GREPPER" $BASEDIR/dirdefs|cut -f2 -d:`
+	echo ${LINE}:${COMMENT} >> /tmp/mapindex3
+done

@@ -1,0 +1,162 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1993 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+TAPES="
+
+	0	/dev/nrst0
+	1	/dev/nrst1
+	2	/dev/nrst2
+	3	/dev/nrst3
+"
+case `basename $0`
+in
+	dump)	LEVEL=""	;;
+	FULLDUMP)	LEVEL="0"	;;
+	INCDUMP)	LEVEL="5"	;;
+esac
+AGAIN=1
+while [ "$AGAIN" = "1" ]
+do
+/bin/echo -n "Which host?
+$SERVERS
+
+	[$MACH_ID] -> "
+read REMOTE
+
+if [ "$REMOTE" = "$MACH_ID" ] || [ "$REMOTE" = "" ]
+then
+	PREFIX=""
+	REMOTE=$MACH_ID
+else
+	PREFIX="rsh $REMOTE"
+fi
+
+DEVTP=`$PREFIX /etc/mount|grep dev|tail -1|awk '{print $1}'|sed 's/\/dev\///'|sed 's/[0-9].*//'`
+
+$PREFIX /etc/mount|grep dev
+
+RERUN=1
+while [ "$RERUN" -ne "0" ]
+do
+	/bin/echo -n "
+Which filesystem? [0-9][a-h] -> "
+	read FS
+	case $FS in
+	[0-9][a-h])
+		FS=/dev/r${DEVTP}$FS
+		RERUN=0
+		;;
+	*)	RERUN=1
+		echo "Reply not understood..."
+		;;
+	esac
+done
+
+RERUN=1
+while [ "$RERUN" -ne "0" ]
+do
+	/bin/echo -n "Which tape?
+
+$TAPES
+	-> "
+	read TAPE
+	TAPE=/dev/nrst$TAPE
+	DENSITY=12500
+	BLOCK=126
+	SIZE=165000
+	RERUN=0
+done
+
+/bin/echo -n "Tape drive is located on which host?
+
+$SERVERS
+
+	[$MACH_ID] -> "
+read DHOST
+
+case $DHOST in
+""|$MACH_ID)	if [ "$PREFIX" = "" ]
+		then
+			DHOST=""
+		else
+			DHOST="${MACH_ID}:"
+		fi
+;;
+*)		DHOST="${DHOST}:"	 ;;
+esac
+
+
+while [ "$LEVEL" = "" ]
+do
+/bin/echo -n "What level [0]? -> "
+read LEVEL
+	case ${LEVEL:-0} in
+	0)	LEVEL=0
+		;;
+	*)	LEVEL=$LEVEL
+		;;
+	esac
+done
+
+RERUN=1
+while [ "$RERUN" -ne "0" ]
+do
+	echo "The following is the dump to be done:
+
+	$PREFIX /etc/dump ${LEVEL}ubdfns 126 $DENSITY ${DHOST}$TAPE $SIZE $FS"
+
+	/bin/echo -n "
+O.K. to have at it? [Y|n] -> "
+read GOFORIT
+
+	case $GOFORIT in
+	""|Y*|y*)	$PREFIX /etc/dump ${LEVEL}ubdfns 126 $DENSITY ${DHOST}$TAPE $SIZE $FS
+		RERUN=0
+		;;
+	N*|n*)	echo "exiting"
+		RERUN=0
+		;;
+	*)	RERUN=1
+		echo "Reply not understood..."
+		;;
+	esac
+done
+echo ""
+sleep 2
+echo ""
+sleep 2
+echo ""
+/bin/echo -n "
+
+Dump has completed,
+
+Ready to dump some more? [Y|n] -> "
+read AGAIN
+case $AGAIN in
+""|Y*|y*)	AGAIN=1	;;
+*)		AGAIN=0	;;
+esac
+done

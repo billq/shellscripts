@@ -1,0 +1,30 @@
+#!/bin/bash
+export file_date
+TBS=/export/photo_album/TBS/Mavica
+if [ -f $TBS/.increment ]
+then
+  N=$(cat $TBS/.increment)
+else
+  N=1
+fi
+while true
+do
+  echo -n "Insert floppy and hit return ->"
+  read go
+  mount /media/floppy
+  for file_date in $(ls -l /media/floppy/*.jpg|awk '{print $6}'|sort -u)
+  do
+    echo "Achiving $file_date:"
+    mkdir $TBS/$file_date
+    for file in $(ls -l /media/floppy/*.jpg|gawk '$6 == ENVIRON["file_date"] {print $NF}')
+    do
+      echo -n "$file..."
+      cp $file $TBS/$file_date/photo_$N
+      N=$((N + 1))
+      echo $N > $TBS/.increment
+    done
+    echo "done."
+  done
+  umount /media/floppy
+done
+

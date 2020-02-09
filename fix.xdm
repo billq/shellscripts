@@ -1,0 +1,6 @@
+for i in shadow trooper bootes cetus raven hercules yooper tbsun2 chaos
+do
+	/usr/5bin/echo "Fixing xdm and fs on $i...\c"
+	rsh $i /home/admin/adm/bin.script/checkX
+	/usr/5bin/echo "\r"
+done

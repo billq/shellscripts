@@ -1,0 +1,10 @@
+#!/bin/ksh
+#		
+#
+for SUBNET in 117 119
+do
+	for NUM in `ypcat hosts|grep Sun|grep "\.${SUBNET}\."|grep "3/80"|awk '{print $2}'`
+	do
+		echo "${NUM} root=trooper:/export/root/Xkernel.sun3x"
+	done
+done

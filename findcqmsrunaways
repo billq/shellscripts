@@ -1,0 +1,35 @@
+#!/bin/ksh
+#
+# This little hack kills a cqms process has runaway on racerx.
+#
+typeset -i FREE MIN
+
+MIN=100000
+FREE=`/usr/ucb/df /tmp|grep -v Filesystem|awk '{print $2}'`
+
+if [ $FREE -le $MIN ]
+then
+	ps -efl|grep -v root|awk '{print $3, $10, $13, $15}'|grep [0-9][0-9][0-9][0-9][0-9]
+	if [ $? -ne 1 ]
+	then
+		USER=`ps -efl|grep -v root|awk '{print $3, $10, $13, $15}'|grep [0-9][0-9][0-9][0-9][0-9]|awk '{print $1}'`
+		APP=`ps -efl|grep -v root|awk '{print $3, $10, $13, $15}'|grep [0-9][0-9][0-9][0-9][0-9]|awk '{print $4}'`
+		ps -efl|grep ${USER}|grep "${APP}"|awk '{print $4, $10, $13, $15}'|grep "[0-9][0-9]:"
+		if [ $? -ne 1 ]
+		then
+			PROC=`ps -efl|grep ${USER}|grep "${APP}"|awk '{print $4, $10, $13, $15}'|grep "[0-9][0-9]:"|awk '{print $1}'`
+			echo "The following was found runaway on racerx:
+
+	USER: $USER
+	APP: $APP
+	PROC: $PROC
+
+This process needs to be killed.
+
+">/var/tmp/racerxrunaway
+			# kill $PROC
+			/usr/ucb/mail -s"runaway process killed on racerx!!" sysadmin < /var/tmp/racerxrunaway
+			rm -f /var/tmp/racerxrunaway
+		fi
+	fi
+fi

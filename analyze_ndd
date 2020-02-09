@@ -1,0 +1,11 @@
+for SPEC in tcp udp icmp hme ip arp
+do
+  for PARAM in `ndd /dev/$SPEC \?|awk '{print $1}'|grep -v "\?"|grep -v "_status"|grep -v "_hash"|grep -v "_report"|grep -v "obsolete"`
+  do
+    for file in slc sle xdf
+    do
+      grep "^$PARAM" $file |sort -u >> $PARAM
+    done
+    wc -l $PARAM
+  done
+done

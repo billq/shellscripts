@@ -1,0 +1,46 @@
+#!/bin/ksh
+typeset -i HOUR HOUR_12 MIN MINA MINB
+SOUNDFILE=~quayle/lib/sounds
+typeset -i HOUR_24
+HOUR_24="`date +%H`"
+MIN="`date +%M`"
+if [ $HOUR_24 -le 12 ]
+then
+	HOURFILE=${SOUNDFILE}/${HOUR_24}.au
+else
+	HOUR_12="HOUR_24 - 12"
+	HOURFILE=${SOUNDFILE}/${HOUR_12}.au
+fi
+
+case $MIN in
+00)		MINA=""
+		MINB="exactly"
+;;
+[1-9])		MINA="$MIN"
+		MINB="0"
+;;
+[10-19])	MINA=""
+		MINB="$MIN"
+;;
+[20-29])	MINA="MIN - 20"
+		MINB="20"
+;;
+[30-39])	MINA="MIN - 30"
+		MINB="30"
+;;
+[40-49])	MINA="MIN - 40"
+		MINB="40"
+;;
+[50-59])	MINA="MIN - 50"
+		MINB="50"
+;;
+esac
+
+if [ "$MINA" = "" ]
+then
+	MINFILE="${SOUNDFILE}/${MINB}.au"
+else
+	MINFILE="${SOUNDFILE}/${MINB}.au ${SOUNDFILE}/${MINA}.au"
+fi
+
+cat ${SOUNDFILE}/the_time_is.au $HOURFILE $MINFILE > /dev/audio

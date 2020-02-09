@@ -1,0 +1,4 @@
+for i in `find . -type f -exec file {} \;|grep text|grep -v "PostScript \| C program \| HTML \| uuencoded \| make commands"|awk '{print $1}'|grep -i -v "txt:$"|sed 's/:$//'`
+do
+mv $i ${i}.txt
+done

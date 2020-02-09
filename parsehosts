@@ -1,0 +1,9 @@
+#!/bin/ksh
+if [ $# -ne 1 ]
+then
+	echo "USAGE:$0 subnet"
+	exit 1
+else
+	SUB=$1
+fi
+ypcat hosts|grep "\.$SUB\."|sed 's/  */:/'|sed 's/		*/:/g'|sed 's/  *//g'

@@ -1,0 +1,27 @@
+#!/bin/ksh
+if [ "`whoami`" != "root" ]
+then
+	echo "ERROR: `basename $0` must be run by root"
+	exit 1
+fi
+
+for i in 116 117 118 119 120 122 123
+do
+	echo \"$i Workstations\"	TITLE > /tmp/${i}_net
+	ypcat hosts|grep Sun|grep "\.${i}\."|grep -v erver|grep -v xhost|grep -v xterm|awk '{print $2}'|sort|sed 's/[a-z][a-z]*/& xterm -j -rw -sl 1000 -sf -tm "intr ^c erase ^? kill ^u" -n & -e rlogin &/' >> /tmp/${i}_net
+	echo \"$i Workstations\"	END PIN >> /tmp/${i}_net
+	mv /tmp/${i}_net /usr/local/include/xmenus/${i}_net
+done
+
+for i in a-z a-e f-o p-s t-z
+do
+	echo \"Workstations ${i}\"	TITLE > /tmp/${i}.clients
+	cat /tmp/*_net|grep "^[${i}]"|sort>>/tmp/${i}.clients
+	echo \"Workstations ${i}\"	END PIN >> /tmp/${i}.clients
+	mv /tmp/${i}.clients /usr/local/include/xmenus/${i}.clients
+done
+mv /tmp/a-z.clients /usr/local/include/xmenus/rlclients
+echo \"Build Workstations\"	TITLE > /tmp/build
+ypcat hosts|grep Sun|grep "Build"|awk '{print $2}'|sort|sed 's/[a-z][a-z]*/& xterm -j -rw -sl 1000 -sf -tm "intr ^c erase ^? kill ^u" -n & -e rlogin &/' >> /tmp/build
+echo \"Build Workstations\"	END PIN >> /tmp/build
+mv /tmp/build /usr/local/include/xmenus/build

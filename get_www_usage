@@ -1,0 +1,33 @@
+#!/bin/ksh
+LOG=/usr/local/etc/httpd/logs/access_log
+echo "###############################################################################"
+echo "SSD Website hits from outside the rockwell.com domain"
+echo "###############################################################################"
+for i in `cat $LOG|awk '{print $1}'|grep "\."| awk -F"." '{print $NF}'|grep -v ".rockwell.com"|grep -v "^[0-9][0-9]*"|sort -u`
+do
+echo "-------------------------------------------------------------------------------"
+	echo "Access from $i domain"
+echo "-------------------------------------------------------------------------------"
+	grep "\.$i " $LOG|grep -v ".rockwell.com"|awk '{print $1, $4}'|sed 's/\[//'|sed 's/\]//'|awk -F: '{print $1}'
+done
+echo "###############################################################################"
+echo "SSD Website hits from outside the switch.rockwell.com domain"
+echo "###############################################################################"
+for i in `cat $LOG|awk '{print $1}'|grep "\."| awk -F"." '{print $NF}'|grep -v "switch.rockwell.com"|grep -v "^[0-9][0-9]*"|sort -u`
+do
+echo "-------------------------------------------------------------------------------"
+	echo "Access from $i domain"
+echo "-------------------------------------------------------------------------------"
+	grep "\.$i " $LOG|grep -v "switch.rockwell.com"|awk '{print $1, $4}'|sed 's/\[//'|sed 's/\]//'|awk -F: '{print $1}'
+done
+echo "###############################################################################"
+echo "SSD Website hits from outside the United States"
+echo "###############################################################################"
+for i in `cat $LOG|awk '{print $1}'|grep "\."| awk -F"." '{print $NF}'|grep -v "com"|grep -v edu|grep -v org|grep -v net|grep -v mil|grep -v "^[0-9][0-9]*"|grep -v "^[0-9]$"|sort -u`
+do
+echo "-------------------------------------------------------------------------------"
+	echo "Access from $i domain"
+echo "-------------------------------------------------------------------------------"
+	grep "\.$i " $LOG|awk '{print $1, $4}'|sed 's/\[//'|sed 's/\]//'|awk -F: '{print $1}'
+done
+echo "###############################################################################"

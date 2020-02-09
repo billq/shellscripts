@@ -1,0 +1,151 @@
+echo "SN\tHOSTNAME\tSYSTEM TYPE\t\tRFB\t\t\tMAC\t\tOS\tPATCH LEVEL\tJAVA VERSION\t\tIP ADDRESSES"
+#for i in `cat rdc|awk '{print $3}'`
+for i in `ypcat hosts|grep "^10.5."|awk '{print $2}'|grep -v "\-"|sort -u`
+do
+ping $i 1 > /dev/null 2>&1
+[[ $? -eq 0 ]] && {
+
+JAVAV=`rsh $i "java -version 2>&1"|head -1|awk '{print $3}'|sed 's/\"//g'`
+if [ "$JAVAV" = "" ]
+then
+	JAVAV="Not Installed"
+fi
+SYSTEMT=`rsh $i uname -i`
+if [ "$SYSTEMT" = "" ]
+then
+	echo "I can't determine SYSTEMT for $i.  Maybe you should try running this from another server?"
+	exit 1
+fi
+OSREV=`rsh $i uname -r`
+if [ "$OSREV" = "" ]
+then
+	echo "I can't determine OSREV for $i.  Maybe you should try running this from another server?"
+	exit 1
+fi
+PATCH=`rsh $i uname -v|sed 's/Generic_//'`
+if [ "$PATCH" = "" ]
+then
+	echo "I can't determine PATCH for $i.  Maybe you should try running this from another server?"
+	exit 1
+fi
+RFB=`rsh apdv1 /home/osg/database/run_sql /home/osg/database/rfb.sql|grep $i |awk '{print $2}'`
+if [ "$RFB" = "" ]
+then
+	case $i in
+	*pr*)	USE="prod"
+		PURPOSE=${i#*pr}
+		PRODUCT=${i%pr*}
+	;;
+	*ce*)	USE="cert"
+		PURPOSE=${i#*ce}
+		PRODUCT=${i%ce*}
+	;;
+	*qa*)	USE="qa"
+		PURPOSE=${i#*qa}
+		PRODUCT=${i%qa*}
+	;;
+	*dv*)	USE="dev"
+		PURPOSE=${i#*dv}
+		PRODUCT=${i%dv*}
+	;;
+	*adm*)	USE="adm"
+		PURPOSE=${i#*adm}
+		PRODUCT=${i%adm*}
+	;;
+	*)	
+		USE=""
+		PRODUCT=${i}
+		PURPOSE=${i}
+	;;
+	esac
+	PURPOSE=`echo $PURPOSE|sed 's/[0-9][0-9].*//'`
+	case $PRODUCT in
+	bt)	PRODUCT="Broker Trading"	;;
+	c2)	PRODUCT="Cubs 2"	;;
+	ex)	PRODUCT="FIXexpress"	;;
+	fc)	PRODUCT="Front-End Clearing"	;;
+	fs)	PRODUCT="Firmsoft"	;;
+	fx)	PRODUCT="FIX 2.3"	;;
+	gx)	PRODUCT="Galax-C"	;;
+	hh)	PRODUCT="HIP/HOP"	;;
+	il)	PRODUCT="iLink"	;;
+	ma)	PRODUCT="MindAlign"	;;
+	md)	PRODUCT="Market Data"	;;
+	mo)	PRODUCT="Monarch"	;;
+	nb|nbs)	PRODUCT="NetBackup"	;;
+	nm)	PRODUCT="Net Management"	;;
+	ns)	PRODUCT="Naming Services"	;;
+	or)	case $USE in
+		prod)	PRODUCT="ORAPI"	;;
+		adm)	PRODUCT="ORACLE"	;;
+		esac
+		;;
+	pa)	PRODUCT="Production assurance"	;;
+	qt)	PRODUCT="Quotes"	;;
+	sa)	PRODUCT="SWIFT"	;;
+	tv)	PRODUCT="CCTV"	;;
+	sle)	PRODUCT="Globex SLE"	;;
+	slc)	PRODUCT="Globex SLC"	;;
+	spi)	PRODUCT="Globex SPI"	;;
+	wb)	PRODUCT="Wallboard"	;;
+	xdf)	PRODUCT="Globex XDF"	;;
+	*)	PRODUCT=""	;;
+	esac
+	case $PURPOSE in
+	ap)	PURPOSE="application server"	;;
+	cm)	PURPOSE="communications server"	;;
+	db)	PURPOSE="generic database"	;;
+	fh)	PURPOSE="feed handler"	;;
+	gw)	PURPOSE="gateway server"	;;
+	hd)	PURPOSE="history database"	;;
+	log)	PURPOSE="log server"	;;
+	md)	PURPOSE="media server"	;;
+	mon)	PURPOSE="monitoring server"	;;
+	ms)	PURPOSE="master server"	;;
+	om)	PURPOSE="order manager database"	;;
+	sd)	PURPOSE="streaming data"	;;
+	ss)	PURPOSE="stores/serves server"	;;
+	su)	PURPOSE="Single User Entitlement server"	;;
+	web)	PURPOSE="web server"	;;
+	*)	PURPOSE=""	;;
+	esac
+	RFB="$PRODUCT $USE $PURPOSE"
+fi
+SSN=`rsh apdv1 /home/osg/database/run_sql /home/osg/database/rfb.sql|grep $i |awk '{print $1}'`
+if [ "$SSN" = "" ]
+then
+	SSN="unknown"
+fi
+IPINFO=`rsh $i 'ifconfig -a'| nawk '
+$1 ~ ":" {
+        IF = $1;
+        next;
+        }
+$1 ~ "inet" {
+        IP = $2;
+        next;
+        }
+$1 ~ "ether" {
+        MAC = $2;
+        printf("%s\t%s\t%s\n",IF,IP,MAC);
+        next;
+        }
+'`
+if [ "$IPINFO" = "" ]
+then
+	echo "I can't get IPINFO for $i.  Maybe you should try running this from another server?"
+	exit 1
+fi
+set $IPINFO
+echo "$SSN\t$i\t${SYSTEMT##SUNW,}\t$RFB\t$3\t$OSREV\t$PATCH\t$JAVAV\t${1}${2}\t\c"
+typeset NF
+NF=`echo $IPINFO|awk '{print NF}'`
+until [ $NF -eq 3 ]
+do
+	shift 3
+	echo "${1}${2}\t\c"
+	((NF-=3))
+done
+echo ""
+}
+done

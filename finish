@@ -1,0 +1,60 @@
+#
+export TERM=xterm
+resize
+#
+# Fixup the /etc/hosts to bootstrap NIS
+#
+echo "10.1.61.30        nsadm10" >> /etc/hosts
+#
+# Check the hosts file and remove dolly reference
+#
+vi /etc/hosts
+#
+# Add the DRL for VxFS
+#
+for i in rootvol swapvol var opt
+do
+vxassist -g rootdg addlog $i
+done
+#
+# Reset the password for production root
+#
+passwd
+#
+# Fix NTP to point to multicast
+#
+echo "multicastclient 224.0.1.1" > /etc/inet/ntp.conf
+#
+# Make server a yp slave:
+#
+domainname gb2.chicago.cme.com
+domainname > /etc/defaultdomain
+ypinit -c
+/usr/lib/netsvc/yp/ypstart
+#
+# Add the NISkit for slave server
+#
+mount dolly-6:/js/os/Solaris_8_2002-02/Solaris_8/Product /mnt
+pkgadd -d /mnt SUNWypr SUNWypu
+umount /mnt
+#
+# Init as slave NIS server
+#
+ypinit -s nsadm10
+#
+# Reset the client to localhost
+#
+ypinit -c
+/usr/lib/netsvc/yp/ypstop
+/usr/lib/netsvc/yp/ypstart
+#
+# add NIS pull to crontab:
+#
+crontab -e
+# on Non-Production servers:
+37 * * * * /usr/lib/netsvc/yp/ypxfr_1perhour
+22 18 * * * /usr/lib/netsvc/yp/ypxfr_1perday
+22 5,19 * * * /usr/lib/netsvc/yp/ypxfr_2perday
+# on Production servers: (pulls the passwd map at end of day and before trading)37 5,19 * * * /usr/lib/netsvc/yp/ypxfr_1perhour
+22 18 * * * /usr/lib/netsvc/yp/ypxfr_1perday
+22 5,19 * * * /usr/lib/netsvc/yp/ypxfr_2perday

@@ -1,0 +1,45 @@
+
+#!/bin/ksh
+for HOST in alpha apollo arizona athena atlantis \
+atlas aurora bambam batman beta bismark \
+blkbird bonzo bronco camelot canaveral ceti \
+chaos cobra columbia comet corsair cosmos dino \
+discovery dragon eagle eclipse endeavour enterprise essex \
+excelsior exeter falcon figment flash galaxy gamma \
+gary gemini george godzilla groucho harley hawaii hawk \
+hercules intrepid jaguar john jupiter kirk krypton lady \
+lexington lighting mccoy michigan midas midway mirage \
+mohawk montana moon mustang neptune nevada norton nova \
+orion palamino pandora paul pegasus phantom phoenix \
+picard piglet pluto popeye ralph ranger raven ringo \
+saratoga saturn sentry shadow sherlock skyhawk solaris2 \
+spider spitfire spock sprout stealth styx talon tbsun \
+tbsun2 thor titanic tomcat tornado tramp trooper unicorn \
+vector venus viking voodoo voyager warrior \
+warthog wasp watson wweasel wyoming yorktown \
+zeus zombie zorro
+do
+	ping $HOST 2 >/dev/null 2>&1
+	if [ $? = 0 ]
+	then
+		spray -c 1 -l 86 $HOST >/dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			STAT=`rsh $HOST 'sun;echo $?' 2>&1`
+			if [ "$STAT" = "0" ]
+			then
+				rsh ${HOST} "mkdir /tmp"
+				rsh ${HOST} chmod 3777 /tmp
+				rsh ${HOST} chmod go+st /tmp
+				echo did $HOST
+			else
+				echo "Can't rsh $HOST" >> /tmp/deadhost
+			fi
+		else
+			echo "Can't spray $HOST" >> /tmp/deadhost
+		fi
+	else
+		echo "$HOST is dead" >> /tmp/deadhost
+	fi
+done
+mail quayle < /tmp/deadhost

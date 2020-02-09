@@ -1,0 +1,16 @@
+#!/bin/ksh
+# This shell polls the list of $SUNS and checks for stale NFS mounts.
+PATH=/bin:/usr/lbin:/usr/local/bin:/usr/etc:$PATH
+HOSTNAME=`hostname`
+for i in $SUNS
+do
+  ping $i 2 > /dev/null 2>&1
+  if [ $? = 0 ]
+  then
+    STALE="`rsh -n $i df 2>&1 | grep Stale|cut -f1 -d:`"
+    if [ "$STALE" != "" ]
+    then
+          echo $i >> /tmp/fixthese
+    fi
+  fi
+done

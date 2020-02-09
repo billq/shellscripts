@@ -1,0 +1,14 @@
+#!/bin/ksh
+if [ "$MACH_ID" = "yooper" ]
+then
+	rsh blkbird /home/admin/adm/bin.script/fix.named
+fi
+ps -aux|grep in.named|grep -v grep
+if [ $? -ne 0 ]
+then
+	/usr/etc/in.named
+else
+	kill -15 `ps -aux|grep in.named|grep -v grep|awk '{print $2}'`
+	sleep 3
+	/usr/etc/in.named
+fi

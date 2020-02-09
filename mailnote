@@ -1,0 +1,16 @@
+#!/bin/ksh
+while true
+do
+	mail -e
+	if [ $? -eq 0 ]
+	then
+		echo "AT" > /dev/cua1
+		sleep 2
+		echo "AT" > /dev/cua1
+		sleep 2
+		echo "ATDT9,9395384,,,,,,,,5551212#" > /dev/cua1
+		sleep 60
+		echo "ATH" > /dev/cua1
+	fi
+	sleep 600
+done

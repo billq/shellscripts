@@ -1,0 +1,18 @@
+#
+# A nice sample script for arithmetic
+#
+if [[ $1 = -+([0-9]) ]]; then
+	let page_lines=${1#-}
+	shift
+else
+	let page_lines=66
+fi
+let file_lines="$(wc -l < $1)"
+
+let pages=file_lines/page_lines
+if (( file_lines % page_lines > 0 )); then
+	let pages=pages+1
+fi
+
+print "$1 has $pages pages of text."
+

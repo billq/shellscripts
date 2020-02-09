@@ -1,0 +1,2 @@
+cd $HOME/.wine/drive_c/Program\ Files/Punch\!\ Home\ Design\ -\ AS4000/
+wine PunchHomeAS4000.exe 

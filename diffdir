@@ -1,0 +1,10 @@
+for i in $(ls)
+do
+  if [ -f scripts/$i ]
+  then
+    if [ $(diff -q $i scripts/$i) ]
+    then
+      echo $i
+    fi
+  fi
+done

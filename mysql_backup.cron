@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# dump databases Sunday
+0 0 * * 0 root /root/bin/mysql_dump_all.sh
+# flush logs Monday-Saturday
+0 0 * * 1-6 root /root/bin/mysql_flush_logs.sh

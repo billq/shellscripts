@@ -1,0 +1,74 @@
+#!/bin/ksh
+ME=`hostname`
+TOOLS=/usr/add-on/exptools
+PATH=/bin:/usr/ucb:/usr/etc:/usr/lbin:/usr/add-on/local/bin:$TOOLS/bin
+LOGDIR=`logdir troot`/log/downtime
+DOWNLOG=$LOGDIR/summary
+SERVERS="ih4ehw ih4ehz ih4ehwa ih4sh ih4epd ih4elab"
+if [ ! -d "$LOGDIR" ]
+then
+	mkdir $LOGDIR
+fi
+if [ "`rsh $ME 'sun;echo \$?' 2> /dev/null`" != "0" ]
+then
+	echo "Please enable `hostname` to rsh to itself (via .rhosts on `hostname`)" > /tmp/msg
+	Mail -s "Problem with downtime" root < /tmp/msg
+	rm /tmp/msg
+	exit 1
+fi
+while true
+do
+  DATE="`date +%D`"
+  DAY="`date +%w`"
+  YEAR="`date +%y`"
+  MONTH="`date +%m`"
+  if [ $DAY -eq 1 -a -s $DOWNLOG -a ! -f ${LOGDIR}/marker ]
+  then
+    if [ ! -d ${LOGDIR}/${YEAR} ]
+    then
+      mkdir ${LOGDIR}/${YEAR}
+    fi
+    Mail -s "Downtime summary for week ending $DATE" root < $DOWNLOG
+    cat $DOWNLOG >> ${LOGDIR}/${YEAR}/summary.${MONTH}
+    rm $DOWNLOG
+    > ${LOGDIR}/marker
+  elif [ -f ${LOGDIR}/marker -a $DAY -ne 1 ]
+  then
+    rm ${LOGDIR}/marker
+  fi
+  typeset -i COUNTER
+  for SERVER in $SERVERS
+  do
+    TIME="`date +%T`"
+    if [ -f "${LOGDIR}/${SERVER}" ]
+    then
+      if [ "`rsh $SERVER 'sun;echo \$?' 2> /dev/null`" = "0" ]
+      then
+        echo "$SERVER back up at $TIME on $DATE" >> $DOWNLOG
+	rsh $SERVER "/usr/etc/dmesg"|cgrep +2 -20 'SunOS' >> ${LOGDIR}/${SERVER}
+        echo "$SERVER was back up at $TIME on $DATE" >> ${LOGDIR}/${SERVER}
+        echo "$SERVER was down $COUNTER minutes on $DATE" >> ${LOGDIR}/${SERVER}
+	if [ $DISPLAY ] || [ $WINDOW_ME ]
+	then
+	  textedit ${LOGDIR}/${SERVER}
+	else
+	  Mail -s "Downtime reason needed for $SERVER" root < ${LOGDIR}/${SERVER}
+	fi
+	rm ${LOGDIR}/${SERVER}
+      else
+	COUNTER="COUNTER + 1"
+	if [ $COUNTER -eq 90 ]
+	then
+		pageme -h $SERVER -r down
+	fi
+        SERVER=$ME
+      fi
+    fi
+    if [ "`rsh $SERVER 'sun;echo $?' 2> /dev/null`" != "0" ]
+    then
+      echo "$SERVER went down at $TIME on $DATE" >> $DOWNLOG
+      echo "$SERVER went down at $TIME on $DATE" > ${LOGDIR}/${SERVER}
+    fi
+  done
+sleep 60
+done &

@@ -1,0 +1,38 @@
+#!/bin/ksh
+rm -f /tmp/multilist /tmp/multilist2 /tmp/phonebook
+for i in `cat phone-book.parse|sed 's/ /_/g'`
+do
+	USER=`echo $i|awk -F, '{printf ("%0.8s",$1)}'|tr A-Z a-z`
+	echo "working with $USER from $i"
+	/bin/echo -n "$i" >> /tmp/phonebook
+	ypmatch $USER aliases>/dev/null 2>&1
+	if [ $? = 0 ]
+	then
+		ypmatch $USER aliases|grep -s user_gone
+		if [ $? = 0 ]
+		then
+			echo "No longer employed by Rockwell">>/tmp/phonebook
+		else
+			ypmatch $USER aliases >> /tmp/phonebook
+		fi
+	else
+		ypcat aliases|grep $USER >> /tmp/multilist
+		cat /tmp/multilist|sort -u >> /tmp/multilist2
+		typeset -i num
+		num=`cat /tmp/multilist2|wc -l`
+		if [ $num -gt 0 ]
+		then
+			echo "$USER has $num possible listings"
+			cat /tmp/multilist2
+			/bin/echo -n "
+			type one in: "
+			read alias
+			echo $alias >> /tmp/phonebook
+			rm /tmp/multilist /tmp/multilist2
+		else
+			echo "$USER has an unknown alias."
+			echo unknown >> /tmp/phonebook
+			rm /tmp/multilist /tmp/multilist2
+		fi
+	fi
+done

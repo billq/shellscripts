@@ -1,0 +1,11 @@
+for i in $(seq --format=%003.f 1 150)
+do
+  echo Prepare page $i and press Enter
+  read
+  scanimage --device 'epkowa:interpreter:001:002' --format=pnm --mode 'Gray' >scan-$i.pnm
+  echo preparing page $i
+  unpaper scan-$i.pnm unpapered-$i.pnm && rm scan-$i.pnm
+  convert unpapered-$i.pnm prepared-$i.tif && rm unpapered-$i.pnm
+  echo doing OCR on page $i
+  tesseract prepared-$i.tif tesseract-$i -l eng && rm prepared-$i.tif
+done

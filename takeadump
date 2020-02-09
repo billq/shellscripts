@@ -1,0 +1,45 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1999 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#
+# Get the dump level, 0 if not specified.
+#
+LEVEL=${1:-0}
+#
+# Find a tape.
+#
+for i in 0 1 2 3
+do
+	mt -f /dev/rmt/${i}hn stat
+	[[ $? -eq 0 ]] && break
+done
+
+	mt -f /dev/rmt/${i}hn eom
+for FS in `cat /etc/vfstab | grep rdsk|awk '{print $2}'`
+do
+	ufsdump ${LEVEL}ubf 126 /dev/rmt/${i}hn $FS
+done
+mt -f /dev/rmt/${i}hn rewoffl

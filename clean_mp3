@@ -1,0 +1,18 @@
+for i in `find . -type f`
+do
+	LINE=`echo $i|sed 's/^\.\///'`
+	DIR=`echo $LINE|cut -f1 -d/`
+	SDIR=`echo $LINE|cut -f2 -d/`
+	FILE=`echo $LINE|cut -f3 -d/`
+	if [ "`echo $FILE|grep $DIR`" != "" ]
+	then
+		NFILE=`echo $FILE|sed 's/'$DIR'//'`
+		echo $FILE
+		echo $NFILE
+	elif [ "`echo $FILE|grep $SDIR`" != "" ]
+	then
+		NFILE=`echo $FILE|sed 's/'$FILE'//'`
+		echo $FILE
+		echo $NFILE
+	fi
+done

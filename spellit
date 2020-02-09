@@ -1,0 +1,10 @@
+#!/bin/ksh
+if [ $# -ne 1 ]
+then
+	/bin/echo "Best guess at word -> \c"
+	read guess
+else
+	guess=$1
+fi
+fgrep $guess /usr/dict/words
+

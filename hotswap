@@ -1,0 +1,139 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+echo "FIX THE REST OF THIS.  YOU'rE ToO tiREd to FunCTIOn."
+exit
+cd /export/dos
+for i in adm doc lib opt share
+do
+	tar -cf - $i|(cd /export/old_dos;tar -xf -)
+done
+umount /export/dos
+newfs /dev/md/rdsk/d16
+mount /export/dos
+cd /export/old_dos
+tar -cvf - *|(cd /export/dos;tar -xf -)
+cd /opt/SUNWefps/nw/sys
+tar -cvf - *|(cd /export/dos;tar -xf -)
+echo "Now run doit.bat on sybil to transfer the files from Novell, when done
+hit return -> \c"
+read go
+cd /export/dos
+for i in `ls`
+do
+	GROUP=`grep -i "^$i" /home/admin/adm/lib/nov.grps|awk '{print $2}'`
+	case $i in
+	lotus)
+		cd lotus
+		for i in `ls`
+		do
+echo "FIX THE REST OF THIS.  YOU'rE ToO tiREd to FunCTIOn."
+			case $i in
+			123r4w
+	;;
+	wp51)
+	;;
+	msapps)
+	;;
+	lotshare)
+	;;
+	home)
+		cd home
+		for i in `ls`
+		do
+			DEST=`ypmatch $i passwd|cut -f 6 -d :`
+			BASE_DEST=`basename $DEST`
+			tar -cvf - $i|(cd $BASE_DEST;tar -xf -)
+			if [ $? -eq 0 ]
+			then
+				rm -fr $i
+				ln -s $DEST $i
+				find $DEST -exec chown $i {} \;
+			else
+				echo "YIKES"
+				exit 1
+			fi
+		done
+	;;
+	esac
+done
+doslotus
+winlotus
+access
+access20
+automate
+budgets
+calend5
+ccplus
+cash
+ceyes
+danet
+easyflow
+everyone
+fcti
+fexpress
+fexpdata
+galtech
+gate1
+harvard
+hg3
+im
+jventry
+lotus
+ccmail
+mis
+mktshare
+mozart
+mozwin
+mproj40
+mproject
+msoffice
+norton
+oi
+organize
+pdc
+pfs
+prodmgmt
+publix
+qe
+realia
+registar
+oasyslib
+release
+revusers
+sales
+service
+specdb
+spectech
+subscrip
+symphony
+tdo
+timeline
+win3270
+wp51
+xtree
+
+

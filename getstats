@@ -1,0 +1,154 @@
+#!/bin/ksh
+#
+# Audit the system.  Code is delightfully uncommented, though extremely
+# straightforward.
+#
+
+ME=`hostname`
+DATE=`date +%m%d%y`
+LOGDIR=/tmp
+export LOG=${LOGDIR}/${ME}.${DATE}
+BREAK="\n------------------------------------------------------------------------------\n"
+NOTICE="\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+
+_COMMENT_ () {
+ARG=$*
+/bin/echo "#\n#-->${ARG}\n#" | tee -a ${LOG}
+}
+
+_VXSTATS_ () {
+if [ -x /usr/sbin/vxstat ]
+then
+	/bin/echo "${BREAK}Veritas Information${BREAK}" |tee -a ${LOG}
+	for i in `df -k|grep vx|awk '{print $1}'|awk -F"/" '{print $NF}'`
+	do
+		for j in v p s d
+		do
+			_COMMENT_ vxstat -${j} ${i}
+			/usr/sbin/vxstat -${j} ${i} |tee -a ${LOG}
+		done
+	done
+	for i in `df|grep vx|awk '{print $1}'`
+	do
+		_COMMENT_ vxtunefs ${i}
+		/usr/sbin/vxtunefs ${i} |tee -a ${LOG}
+	done
+fi
+}
+
+_FIRSTWATCH_ () {
+if [ -d "/opt/VRTSfw/bin/startup.d" ]
+then
+	/bin/echo "${BREAK}Veritas FirstWatch Information${BREAK}" |tee -a ${LOG}
+	_COMMENT_ hamon -rev
+	/opt/VRTSfw/bin/hamon -rev |tee -a ${LOG}
+
+	_COMMENT_ ls -l /opt/VRTSfw/bin/startup.d
+	ls -l /opt/VRTSfw/bin/startup.d |tee -a ${LOG}
+
+	########################################################################
+	#
+	#for file in `ls /opt/VRTSfw/bin/startup.d`
+	#do
+	#	_COMMENT_ cat /opt/VRTSfw/bin/startup.d/${file}
+	#	cat /opt/VRTSfw/bin/startup.d/${file} |tee -a ${LOG}
+	#done
+	#
+	########################################################################
+fi
+}
+
+#
+# main
+#
+/bin/echo "${BREAK}CHICAGO MERCANTILE EXCHANGE\nSystems Audit${BREAK}" |tee ${LOG}
+
+/usr/bin/uname -a |tee -a $LOG
+/usr/bin/uptime |tee -a $LOG
+
+if [ -x "/usr/local/bin/sysinfo" ]
+then
+	/bin/echo "${BREAK}System Overview${BREAK}" |tee -a ${LOG}
+	_COMMENT_ /usr/local/bin/sysinfo
+	/usr/local/bin/sysinfo |tee -a ${LOG}
+else
+	/bin/echo "${NOTICE}sysinfo is missing!${NOTICE}" |tee -a ${LOG}
+fi
+
+/bin/echo "${BREAK}System Configuration${BREAK}" |tee -a ${LOG}
+_COMMENT_ prtdiag -v
+/usr/platform/sun4u/sbin/prtdiag -v |tee -a ${LOG} 
+
+_COMMENT_ prtconf
+/usr/sbin/prtconf |grep -v "not attached" |tee -a ${LOG}
+
+/bin/echo "${BREAK}Operating System Patches${BREAK}" |tee -a ${LOG}
+/usr/bin/showrev -p |awk '{print $2}'|tee -a ${LOGDIR}/patchlog.${ME}.${DATE} ${LOG}
+
+_VXSTATS_
+
+_FIRSTWATCH_
+
+/bin/echo "${BREAK}Disk Usage${BREAK}" |tee -a ${LOG}
+/usr/bin/df -k |tee -a ${LOG}
+
+/bin/echo "${BREAK}Network Interface Configuration${BREAK}" |tee -a ${LOG}
+/usr/sbin/ifconfig -a |tee -a ${LOG}
+
+/bin/echo "${BREAK}Network Interface Statistics${BREAK}" |tee -a ${LOG}
+/usr/bin/netstat -i |tee -a ${LOG}
+
+/bin/echo "${BREAK}Network Interface Detailed Statistics${BREAK}" |tee -a ${LOG}
+/usr/bin/netstat -s |tee -a ${LOG}
+
+/bin/echo "${BREAK}Network Tuning Parameters${BREAK}" |tee -a ${LOG}
+for p in tcp_close_wait_interval tcp_conn_req_max_q tcp_conn_req_max_q0 tcp_conn_grace_period tcp_cwnd_max tcp_debug tcp_smallest_nonpriv_port tcp_ip_abort_cinterval tcp_ip_abort_linterval tcp_ip_abort_interval tcp_ip_notify_cinterval tcp_ip_notify_interval tcp_ip_ttl tcp_keepalive_interval tcp_maxpsz_multiplier tcp_mss_def tcp_mss_max tcp_mss_min tcp_naglim_def tcp_old_urp_interpretation tcp_rexmit_interval_initial tcp_rexmit_interval_max tcp_rexmit_interval_min tcp_wroff_xtra tcp_deferred_ack_interval tcp_snd_lowat_fraction tcp_sth_rcv_hiwat tcp_sth_rcv_lowat tcp_dupack_fast_retransmit tcp_ignore_path_mtu tcp_rwin_credit_pct tcp_rcv_push_wait tcp_smallest_anon_port tcp_largest_anon_port tcp_xmit_hiwat tcp_xmit_lowat tcp_recv_hiwat tcp_recv_hiwat_minmss tcp_fin_wait_2_flush_interval tcp_co_min tcp_max_buf tcp_zero_win_probesize tcp_strong_iss tcp_rtt_updates
+do
+	/bin/echo "$p \c" |tee -a ${LOG}
+	/usr/sbin/ndd /dev/tcp $p |tee -a ${LOG}
+done
+
+/bin/echo "${BREAK}System Startup Scripts${BREAK}" |tee -a ${LOG}
+ls -l /etc/rc*.d |tee -a ${LOG}
+ls -l /etc/init.d |tee -a ${LOG}
+
+/bin/echo "${BREAK}Kernel Tuning${BREAK}" |tee -a ${LOG}
+cat /etc/system |tee -a ${LOG}
+
+#########################################################################
+#
+#for file in `ls /etc/init.d`
+#do
+#	_COMMENT_ cat /etc/init.d/${file}
+#	cat /etc/init.d/${file} |tee -a ${LOG}
+#done
+#
+#########################################################################
+
+/bin/echo "${BREAK}Cron Scripts${BREAK}" |tee -a ${LOG}
+ls -l /var/spool/cron/crontabs |tee -a ${LOG}
+
+for file in `ls /var/spool/cron/crontabs`
+do
+	_COMMENT_ cat /var/spool/cron/crontabs/${file}
+	cat /var/spool/cron/crontabs/${file} |tee -a ${LOG}
+done
+
+/bin/echo "${BREAK}Configuration Files${BREAK}" |tee -a ${LOG}
+for file in resolv.conf nsswitch.conf ha.conf nscd.conf ntp.conf inetd.conf printers.conf rpld.conf syslog.conf vold.conf rmmount.conf
+do
+	if [ -f "/etc/${file}" ]
+	then
+		_COMMENT_ cat /etc/${file}
+		cat /etc/${file} |tee -a ${LOG} 
+	else
+		/bin/echo "\n $file is missing!" |tee -a ${LOG}
+	fi
+done
+
+/bin/echo "${BREAK}System Performance Sample\n(60 samples at 5 second intervals, beginning `date`)${BREAK}" |tee -a ${LOG}
+/usr/bin/vmstat 5 60 |tee -a ${LOG}
+
+cd ${LOGDIR}
+tar -cvf ${ME}.stats.${DATE} patchlog.${ME}.${DATE} ${ME}.${DATE}
+mailx -s "stats from ${ME}" bquayle@cme.com < ${ME}.${DATE}

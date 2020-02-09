@@ -1,0 +1,61 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1999 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#UDP:from:ih4ehzt:3626:to:ih4epd:1035::48:bytes
+#08:00:20:0a:1a:7d:08:00:20:0b:60:6c
+
+cat /var/mail/$i | awk '
+	$1 == "From "	{today = $3,$4,$5; next}
+	today == ""	{next}
+			{
+			addr = $7 $8 $9 $10 $11 $12;
+			print mach " " addr;
+			mach = ""
+			next;
+			}
+' | sort -u
+
+
+STATE MACHINE:
+
+USED=`cat $LOG|awk '
+	$4 == MPNM      {STATE = 1;next}
+	STATE == "1"    {
+		while (STATE != "EOS")    {
+			if ($2 == "estimated") {
+				size = $5;
+				print size;
+				STATE = EOS;
+				next;
+				}
+			else    {
+				STATE = 1;
+				next;
+					}
+				}
+			}
+		STATE == "EOS"  {next}
+	' MPNM="($MPNM)"`

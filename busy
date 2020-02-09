@@ -1,0 +1,14 @@
+while true
+do
+ cd /usr
+ find .
+ sleep 10
+ cd /home/billq
+ ls -latr
+ sleep 10
+ du -sk *|sort -n
+ sleep 10
+ cd /etc
+ find .
+ sleep 10
+done

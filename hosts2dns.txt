@@ -1,0 +1,95 @@
+Quayle, Bill
+From:	Markos Tony [markos@EC.Rockwell.COM]
+Sent:	Tuesday, March 23, 1999 9:57 AM
+To:	billq@technologist.com
+#
+# dodns is the function responsible for updating the DNS
+#
+dodns ()
+	{
+if [ "$DO_DNS" = "0" ]
+then
+  /bin/echo -n "Rebuild the DNS maps? [Y/n] "
+  read MAKEDNS
+  case $MAKEDNS in
+  Y*|y*|"")
+    echo "Generating new DNS files...stand by"
+    if [ -z "$LIBDIR" ]
+    then
+      echo "Sorry, your environment is not set properly"
+      exit 1
+    fi
+    if [ ! -d "${LIBDIR}/dns" ]
+    then
+      echo "Sorry, ${LIBDIR}/dns seems to be missing, bummer."
+      exit 1
+    fi
+    typeset -i NEXT
+    #
+    # get the next serial number
+    # (sure wish sysV date +%Y worked...)
+    #
+    DATE="19`date +%y%m%d`"
+    TODAY=`cat ${LIBDIR}/dns/today`
+    if [ "$DATE" != "$TODAY" ]
+    then
+	TODAY=$DATE
+	echo $TODAY > ${LIBDIR}/dns/today
+    	NEXT=1
+    else
+    	NEXT=`cat ${LIBDIR}/dns/next_serial`
+    fi
+    if [ $NEXT -le 9 ]
+    then
+        INC="0${NEXT}"
+    else
+        INC="${NEXT}"
+    fi
+    #
+    # now gen the full number
+    #
+    SERIAL="${TODAY}${INC}"
+    #
+    # now fix up SERIAL_NUMBER for next time
+    #
+    NEXT="NEXT + 1"
+    echo $NEXT > ${LIBDIR}/dns/next_serial
+    #
+    #
+    # clear out the tmp.txt file
+    #
+    >${LIBDIR}/dns/tmp.txt
+    ####################################################################
+    # now, for each subnet...
+    #
+    ####################################################################
+    for SUBNET in 116 118 119 124 190 191 192 
+    do
+      /usr/5bin/echo "Subnet 131.198.$SUBNET     \r\c"
+      #
+      # get the lines out of the hosts file
+      #
+      ypcat hosts|grep "131\.198\.$SUBNET\." > ${LIBDIR}/dns/hosts.131.198.$SUBNET
+      #
+      # make the header for the rev file
+      #
+      cat ${LIBDIR}/dns/top.rev| sed s/SUBNET/$SUBNET/ | sed s/SERIAL_NUMBER/$SERIAL/ > ${LIBDIR}/dns/db.131.198.$SUBNET
+      #
+      # then tack the hosts onto it
+      #
+      cat ${LIBDIR}/dns/hosts.131.198.$SUBNET|sed 's/\./ /g'|awk '{printf "%s\tIN\tPTR\t%s.switch.rockwell.com.\n", $4,$5}'|sort -n >> /${LIBDIR}/dns/db.131.198.$SUBNET
+      #
+      # install the new .rev file in $NAMED_DIR
+      #
+      cp ${LIBDIR}/dns/db.131.198.$SUBNET ${NAMED_DIR}/primary
+      #
+      # pop the proper portion into a holding area for the .txt file
+      #
+      cat ${LIBDIR}/dns/hosts.131.198.$SUBNET|awk '{printf "%s\t\tIN\tA\t%s\n", $2,$1}'|sort >> /${LIBDIR}/dns/tmp.txt
+      #
+      # now get rid of what we don't need
+      #
+      rm ${LIBDIR}/dns/db.131.198.$SUBNET ${LIBDIR}/dns/hosts.131.198.$SUBNET
+    done
+
+

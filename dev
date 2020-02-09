@@ -1,0 +1,4 @@
+/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n apdv1 -e rlogin apdv1 -l root &
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n dbdv1 -e rlogin dbdv1 -l root &
+/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1dev -e rlogin db1dev -l root &
+/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n puma -e rlogin puma -l root &

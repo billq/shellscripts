@@ -1,0 +1,52 @@
+#!/bin/ksh
+#
+# vmlog logs vmstat 5 to $VMLOG.  a timestamp is done once every 5 minutes.
+#
+# WRQ - 12/14/98
+#
+#set -x
+
+typeset -i remaining
+
+#
+# Make the log dir if it's not there.
+# If you can't make the dir, exit with code 1.
+#
+if [ "$HOME" = "/" ]
+then
+	LOGDIR=${LOGDIR:-/home/adm/log/`hostname`}
+	if [ ! -d $LOGDIR/vm ] 
+	then
+		mkdir $LOGDIR/vm
+		[ $? -ne 0 ] && exit 1
+	fi
+	VMLOGDIR=/home/adm/log/`hostname`/vm
+else
+	LOGDIR=${LOGDIR:-$HOME/log/`hostname`}
+	if [ ! -d $LOGDIR/vm ] 
+	then
+		mkdir -p $LOGDIR/vm
+		[ $? -ne 0 ] && exit 1
+	fi
+	VMLOGDIR=$HOME/log/`hostname`/vm
+fi
+
+echo "vmstat log being written to $VMLOGDIR/vmlog.`date +%w`"
+rm -f $VMLOGDIR/vmlog.`date +%w`
+touch $VMLOGDIR/vmlog.`date +%w`
+[ $? -ne 0 ] && exit 3
+
+while true
+do
+	#
+	# Exit with code 2 if $VMLOGDIR fills up.
+	#
+	remaining=`df -k $VMLOGDIR|awk '{print $4}'|grep -v avail`
+	[ $remaining -le 10000 ] && exit 2
+	#
+	# Setting the log file name within the loop keeps the days separate
+	#
+	VMLOG=$VMLOGDIR/vmlog.`date +%w`
+	date >> $VMLOG
+	vmstat 5 60 >> $VMLOG
+done

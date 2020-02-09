@@ -1,0 +1,14 @@
+#!/bin/ksh
+typeset -i SEED MAX
+SEED=`date +%S`
+MAX=`cat ~/.rasterlist | wc -l`
+while [ SEED -ge MAX ]
+do
+	SEED=SEED/2
+done
+ed ~/.rasterlist >/dev/null 2>&1 << EOF
+${SEED}w .currentraster
+q
+EOF
+cat .currentraster|sed 's/^/\/usr\/add-on\/rtools\/images\/rfiles\//'
+rm .currentraster

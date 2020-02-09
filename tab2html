@@ -1,0 +1,40 @@
+#!/bin/ksh -x
+while getopts i:o: i 2>/dev/null
+do
+  case $i in
+  i)	INFILE="$OPTARG"	;;
+  o)	OUTFILE="$OPTARG"		;;
+  *)	echo "USAGE: $0 [-i input_file] [-o output_file]"
+	exit 1			;;
+  esac
+done
+shift `expr $OPTIND - 1`
+if [ -z $INFILE ]
+then
+  # stdin version
+  INFILE="-"
+fi
+if [ -z $OUTFILE ]
+then
+  echo "<table border=\"0\">"
+  while read LINE
+  do
+    echo $LINE|sed '
+     s/^/<tr><td>/
+     s/^I/<\/td><td>/g
+     s/$/<\/td><\/tr>/'
+    echo "</table>"
+  done < "$INFILE"
+else
+  echo "<table border=\"0\">" > $OUTFILE
+  [[ $? -ne 0 ]] && {echo "Can't creat $OUTFILE, bailing out";exit 1}
+  while read LINE
+  do
+    echo $LINE|sed '
+      s/^/<tr><td>/
+      s/^I/<\/td><td>/g
+      s/$/<\/td><\/tr>/' >> $OUTFILE
+    echo "</table>" >> $OUTFILE
+  done < "$INFILE"
+fi
+

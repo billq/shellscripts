@@ -1,0 +1,21 @@
+#!/bin/ksh
+/bin/echo -n "
+
+Media report for SSD Epoch Backup System on "> /tmp/media.rept
+date >> /tmp/media.rept
+
+
+echo "
+List of active media.  These tapes should be present in the stackers at this time.
+" >> /tmp/media.rept
+
+ebreport media -active|grep 8mm|grep -v Primary|awk '{print $7}'|sort|/usr/5bin/pr -a -3 -l10 -t >>/tmp/media.rept
+echo "
+
+This is a list of those tapes that can be put offsite:
+">> /tmp/media.rept
+ebreport media|grep 8mm|grep -v "\*"|grep -v Primary|awk '{print $7}'|sort|/usr/5bin/pr -a -3 -l20 -t>>/tmp/media.rept
+echo "
+
+ All other tapes can be recycled">>/tmp/media.rept
+textedit /tmp/media.rept

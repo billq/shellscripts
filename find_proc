@@ -1,0 +1,55 @@
+#!/bin/ksh
+#
+# finds $1 running on any/all suns
+#
+proc=$1
+if [ -z "$1" ]
+then
+	echo "USAGE:`basename $0` process"
+	exit 1
+fi
+if [ -n "$2" ]
+then
+	KILL_LEVEL=$2
+	echo "Confirm kill level $KILL_LEVEL on $1"
+fi
+for i in `suns`
+do
+echo "doing $i"
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			STRINGA=`rsh $i -l root "ps -ef|grep $proc"|grep -v grep`
+			if [ "$STRINGA" = "permission denied" ]
+			then
+				echo "$i has a bad .rhosts"
+			elif [ "$STRINGA" != "" ]
+			then
+				echo "on ${i}:"
+				echo "$STRINGA"
+				PROC=`echo $STRINGA|awk '{print $2}'`
+				if [ -n "$KILL_LEVEL" ]
+				then
+					echo "Kill $KILL_LEVEL $PROC on ${i}? \c"
+					read KILLIT
+					case $KILLIT in
+					Y*|y*)	
+					rsh $i -l root kill -${KILL_LEVEL} ${PROC}
+					;;
+					*)
+					echo "skipping kill"
+					;;
+					esac
+				fi
+
+			fi
+		else
+			echo "$i not pingable"
+		fi
+	else
+		echo "$i not in hosts"
+	fi
+done

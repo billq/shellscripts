@@ -1,0 +1,11 @@
+#!/bin/ksh
+for i in raven zod phantom zeus voodoo
+do
+	rcp /etc/security/hosts $i:/etc/hosts
+	rsh $i "cd /var/yp;make"
+done
+rcp /etc/security/hosts blkbird:/etc/security/hosts
+rsh blkbird "cd /var/yp;make"
+
+
+

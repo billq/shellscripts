@@ -1,0 +1,18 @@
+#!/bin/ksh
+echo "I DON'T THINK THIS SCRIPT IS CURRENT ,  commented out with #??# TONY."
+# This one-liner generates the /export/root/Xkernel.*/etc/xterm_subnet_map
+# file.  Run manually, out of cron, or when netedit hosts is done.
+# wrq
+#??#ypcat hosts|grep xhost|sed 's/  /./'|sed 's/ /./'|awk -F. '{printf ("%s\t%s\n",$3,$5)}'|sort -n>/tmp/xtsm
+#??#ypcat hosts|grep xterm|sed 's/  /./'|sed 's/ /./'|awk -F. '{printf ("Lemont\t%s\n",$5)}'|sort -n>>/tmp/xtsm
+#??#for i in zombie bones hornet
+#??#do
+#??#	cat /tmp/xtsm|grep -v $i > /tmp/nxtsm
+#??#	echo "Special	$i">>/tmp/nxtsm
+#??#	mv /tmp/nxtsm /tmp/xtsm
+#??#done
+#??#for i in sun3 sun3x
+#??#do
+#??#	cp /tmp/xtsm /export/root/Xkernel.${i}/etc/xterm_subnet_map
+#??#done
+#??#rdist -f /home/admin/adm/lib/distfiles/distfile.xhosts

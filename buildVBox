@@ -1,0 +1,7 @@
+VBoxManage createvm -name "Windows XP" -register
+VBoxManage modifyvm "Windows XP" -memory "256MB" -acpi on -boot1 dvd -nic1 nat
+VBoxManage createvdi -filename "CherWinXP.vdi" -size 10000 -register
+VBoxManage modifyvm "Windows XP" -hda "CherWinXP.vdi"
+VBoxManage registerimage dvd /src/ISO/Windows/WindowsXP-SP2.iso
+VBoxManage modifyvm "WinXP" -vrdpmulticon on
+VBoxHeadless -startvm "WinXP"

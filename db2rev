@@ -1,0 +1,20 @@
+#!/bin/ksh
+#
+# this takes the DB_MASTER file and churns out the rev files.  Assumes you run
+# it in the right place.
+#
+DB_MASTER=$1
+if [ ! -f "$DB_MASTER" ]
+then
+	echo "Don't run this if you don't know what you're doing
+
+
+
+
+	(Don't you just hate shitty error messages that don't give you a clue?)"
+	exit 1
+fi
+for i in `grep "	A	" $DB_MASTER|grep -v "^;"|awk '{printf ("%s\n",$4)}'|cut -f1,2,3 -d"."|sort -u`
+do
+	grep "	$i" db.chicago|grep -v "^;"|awk '{printf ("%s\tIN\tPTR\t%s.chicago.cme.com.\n",$4,$1)}'|sed "s/$i.//">> /tmp/db.$i
+done

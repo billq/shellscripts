@@ -1,0 +1,55 @@
+#!/bin/bash
+SDIR=$1
+SUMSFILE=/tmp/_sums$$
+DUPS=/tmp/dup_sums$$
+
+if [[ $# != 1 ]]
+then
+  echo "USAGE: cleanup dirname"
+  exit 1
+fi
+if [ -d $SDIR ]
+then
+  cd $SDIR
+  echo "Calculating checksums for $SDIR/*, this will take some time."
+  find . -type f -exec md5sum {} \; > /tmp/_sums$$
+  echo "Done."
+fi
+
+cat $SUMSFILE|awk '{print $1}'|sort|uniq -d >$DUPS
+
+NDUPS=`wc -l $DUPS`
+echo "Found $NDUPS repeated checksums under $SDIR"
+
+for sum in `cat $DUPS`
+do
+  NUMHITS=`grep $sum $SUMSFILE |wc -l`
+  KILLERS=$((NUMHITS - 1))
+  echo "---------------------------------------------------------------------------
+  Found $NUMHITS matches for $sum ,the following dups:
+"
+  grep $sum $SUMSFILE |sed 's/'$sum' //'
+  echo "---------------------------------------------------------------------------"
+  for FILE in `grep $sum $SUMSFILE |sed 's/'$sum' //'`
+  do
+    while [[ $KILLERS > 0 ]]
+    do
+      if [ -f $FILE ]
+      then
+        rm -v $FILE
+        if [[ $? = 0 ]]
+        then
+          KILLERS=$((KILLERS - 1))
+        else
+          echo "Removal of $FILE failed, bailing out..."
+          exit 1
+        fi
+      else
+        echo "$FILE is already gone!"
+        KILLERS=0
+      fi
+    done
+  done
+done
+rm $SUMSFILE $DUPS
+

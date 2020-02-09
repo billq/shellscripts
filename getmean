@@ -1,0 +1,6 @@
+awk -F, '
+  $4 ~ /[0-9]/ {
+    sum += $4
+    nlines++
+  }
+  END {printf("The mean is %s\n", sum/nlines)}' $1

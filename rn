@@ -1,0 +1,13 @@
+ls
+echo -n "old? "
+read old
+echo -n "new? "
+read new
+for i in `ls`
+do
+  NN=`echo $i|sed 's/'$old'/'$new'/i'`
+  if [ "$NN" != "$i" ]
+  then
+    mv $i $NN
+  fi
+done

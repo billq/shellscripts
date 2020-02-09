@@ -1,0 +1,19 @@
+#!/bin/ksh
+#
+# This finds an ip address on your subnet.
+#
+i=1
+typeset i
+nets=`ifconfig -a|grep inet|grep -v 127.0.0|awk '{print $2}'|cut -f1,2,3 -d.`
+for net in ${nets}
+do
+  while [ ${i} -lt 255 ]
+  do
+    ping ${net}.${i} 2 > /dev/null 2>&1
+    if [ $? = 1 ]
+    then
+      echo Use ${net}.${i}
+    fi
+    i=$(($i+1))
+  done
+done

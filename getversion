@@ -1,0 +1,17 @@
+#!/bin/ksh
+#
+# getversion
+#
+>/tmp/getversion.out
+for i in $SUNS
+do
+  ping $i 2 >> /tmp/getversion.out 2>&1
+  if [ $? = 0 ]
+  then
+    OUT="`rsh $i 'sparc;echo $?'`"
+    if [ $OUT -eq 0 ]
+    then
+      rsh $i "strings /vmunix|grep SunOS" >> /tmp/getversion.out 2>&1
+    fi
+  fi
+done

@@ -1,0 +1,7 @@
+#!/bin/ksh
+cd /mnt
+for lib in `ls`
+do
+	cp $lib /usr/lib/$lib
+	ranlib /usr/lib/$lib
+done

@@ -1,0 +1,388 @@
+#!/bin/ksh
+#		
+REPLY="Y"
+ACCTDIR=$HOME/lib/info/sun
+TMPDIR=/tmp
+SUN=$1
+PATH=/usr/5bin:$PATH
+
+CONTINUE ()
+{
+echo "\nHit c/r to continue, r to reset
+
+		 -> \c"
+read DUMMY
+if [ "$DUMMY" = "r" ]
+then 
+	REPLY=""
+	BAILOUT="y"
+	break 3
+fi
+
+}
+
+SPEW1ABBR ()
+{
+set $GREPPER
+
+echo "
+	NAME:				$1
+	LOCATION:			$6
+	MODEL:				$7
+	MISC:				$8"
+CONTINUE
+}
+
+SPEW1ADM ()
+{
+set $GREPPER
+echo "
+	NAME:				$1
+	INTERNET ADDR:			$2
+	ETHERNET ADDR:			$3
+	S/N:				$4
+	BOOT SERVER (DISK SIZE):	$5
+	LOCATION:			$6
+	MODEL:				$7
+	MISC:				$8"
+CONTINUE
+}
+
+ADMTABLE ()
+{
+	echo "Sun Computing Environment">>$TMPDIR/$FILENAME
+	cat $ACCTDIR/info>>$TMPDIR/$FILENAME
+}
+
+ABBRTABLE ()
+{
+	echo "Sun Computing Environment">>$TMPDIR/$FILENAME
+	cat $ACCTDIR/info|cut -f8,6,7,1 -d"	">>$TMPDIR/$FILENAME
+}
+
+GETINFO ()
+{
+BAILOUT="n"
+case $PARAM in
+	1) echo "\nWhich sun? (\"all\" for the whole list) \c"
+	   read SUN
+	case $SUN in
+	"all")	echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
+| Using the "all" option requires we either produce a table,  |
+| suitible for printing or viewing, or view all the Suns in   |
+| alphabetical order.                                         |
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
+
+	Do you want to produce the file?
+
+		 [Y|n] ->\c"
+		read FILE
+		case $FILE in
+			""|Y*|y*)
+				echo "\nWhat shall we name the file?
+	
+		 ->\c"
+				read FILENAME
+				echo "\nGenerating a table off all suns in 
+
+		$TMPDIR/$FILENAME\n"
+				case $INFO in
+					ADMIN)
+							ADMTABLE
+					;;
+					ABBR)	
+							ABBRTABLE
+					;;
+				esac
+				echo "\nDone."
+				echo "\nPrint the file?
+
+		[Y|n] ->\c"
+				read PRINT
+				case $PRINT in
+					""|y*|Y*)
+						echo "Which printer?
+
+		[1|2|3] ->\c"
+						read PRINTER
+						prtext -d$PRINTER $TMPDIR/$FILENAME
+						rm $TMPDIR/$FILENAME
+					;;
+					*)	echo "\nFile not printed, but preserved in $TMPDIR/$FILENAME."
+					;;
+				esac
+				
+			;;
+			*)	
+				FILENAME=suninfo.$$
+				case $INFO in
+					ADMIN)
+							ADMTABLE
+							more $TMPDIR/$FILENAME
+					;;
+					ABBR)	
+							ABBRTABLE
+							more $TMPDIR/$FILENAME
+					;;
+				esac
+				rm $TMPDIR/$FILENAME
+			;;
+			esac
+		;;
+	*)	while [ "$BAILOUT" != "y" ]
+		do
+			if [ "$SUN" = "" ]
+			then
+				echo "\nGive me a machine to grep for in the database.
+
+		->\c"
+				read SUN
+			fi
+			if [ -z "`cat $ACCTDIR/info |grep ^$SUN`" ]
+			then
+				
+				echo "\nNo such sun, $SUN, in database\n"
+				SUN=""
+			else
+				GREPPER="`cat $ACCTDIR/info | grep ^$SUN`"
+				case $INFO in
+					ADMIN)	
+							SPEW1ADM $GREPPER
+					;;
+					ABBR)	
+							SPEW1ABBR $GREPPER
+					;;
+				esac
+			fi
+			SUN=""
+		done
+	;;
+	esac
+	SUN=""
+	;;
+	2) 
+		echo "\nGive me a location to grep for in the database.
+
+		->\c"
+				read LOCATION
+			if [ -z "`cat $ACCTDIR/info |grep $LOCATION`" ]
+			then
+				
+				echo "\nNo such location, $LOCATION, in database\n"
+				LOCATION=""
+			else
+				GREPPER="`cat $ACCTDIR/info | grep $LOCATION`"
+				case $INFO in
+					ADMIN)	SPEW1ADM $GREPPER
+					;;
+					ABBR)	SPEW1ABBR $GREPPER
+					;;
+				esac
+				LOCATION=""
+			fi
+	;;
+	3) /bin/echo -n "Enter the machine type you wish to search for:
+
+	[1] IPC                  [5] 4/110
+	[2] SLC                  [6] 4/60
+	[3] SPARKSTATION I       [7] 4/280
+	[4] SPARKSTATION II      [8] 4/470
+	            [9] OTHER
+
+		->"
+		read TYPE
+		case $TYPE in
+				1) TYPE="IPC"
+				;;
+				2) TYPE="SLC"
+				;;
+				3) TYPE="SPARKSTATION_I"
+				;;
+				4) TYPE="SPARKSTATION_II"
+				;;
+				5) TYPE="4/110"
+				;;
+				6) TYPE="4/60"
+				;;
+				7) TYPE="4/280"
+				;;
+				8) TYPE="4/470"
+				;;
+				9) /bin/echo -n "enter type ->"
+				   read TYPE
+		esac
+			case $INFO in
+				ADMIN)	
+					cat $ACCTDIR/info|grep $TYPE|awk '{printf("%s,%s,%s,%s,%s,%s,%s,%s\n", $1,$2,$3,$4,$5,$6,$7,$8) }'|sed 's/,/ /g'>/tmp/info.$$
+					echo "thisistheend">>/tmp/info.$$
+					FLAG=`cat /tmp/info.$$|sed '1p'`
+					while [ "$FLAG" != "thisistheend" ]
+					do
+						GREPPER=`cat /tmp/info.$$|sed '1p'`
+						SPEW1ADM $GREPPER
+						cat /tmp/info.$$|sed '1d'>/tmp/ninfo.$$
+						mv /tmp/ninfo.$$ /tmp/info.$$
+						FLAG=`cat /tmp/info.$$`
+					done
+				;;
+				ABBR)	
+					cat $ACCTDIR/info|grep $TYPE|awk '{printf("%s,%s,%s,%s\n", $1,$6,$7,$8) }'|sed 's/,/ /g'>/tmp/info.$$
+					echo "thisistheend">>/tmp/info.$$
+					while [ "$FLAG" != "thisistheend" ]
+					do
+						GREPPER=`cat /tmp/info.$$|sed '1p'`
+						SPEW1ABBR $GREPPER
+						cat /tmp/info.$$|sed '1d'>/tmp/ninfo.$$
+						mv /tmp/ninfo.$$ /tmp/info.$$
+						FLAG=`cat /tmp/info.$$`
+					done
+				;;
+			esac
+	;;
+	4) 
+		YUP="n"
+		while [ "$YUP" = "n" ]
+		do
+ 		/bin/echo -n "Enter the person you wish to search for ->"
+		read KILROY
+		NKILROY=`grep -i $KILROY $ACCTDIR/people`
+		if [ "$NKILROY" = "" ]
+		then
+			NKILROY=$KILROY
+			/bin/echo -n "No match for $KILROY in the list of known names, use it anyway? [Y] "
+			read YUP
+		else
+			/bin/echo -n "O.K. to replace $KILROY with $NKILROY? [Y]"
+			read YUP
+		fi
+		case $YUP in
+			""|Y*|y*)	KILROY=$NKILROY
+					YUP="y"
+			;;
+			*)      echo "O.K., we'll restart ..."
+			;;
+		esac
+		done
+			case $INFO in
+				ADMIN)	
+				GREPPER="`grep $KILROY $ACCTDIR/info 2>/dev/null`"
+GREPPER="`echo $GREPPER|sed 's/^.*\/info://'`"
+				SPEW1ADM $GREPPER
+				;;
+				ABBR)
+				GREPPER="`grep $KILROY $ACCTDIR/info 2>/dev/null`"
+GREPPER="`echo $GREPPER|sed 's/^.*\/info://'`"
+				SPEW1ABBR $GREPPER
+				;;
+			esac
+	;;
+	5)
+		/bin/echo -n "Enter the boot machine ->"
+		read "BOOTER"
+ 		LINES=`grep "	$BOOTER" $ACCTDIR/info`
+		if [ "$LINES" = "" ]
+		then
+			echo "No match found for $BOOTER "
+		else
+			GREPPER=" $BOOTER"		
+			case $INFO in
+				ADMIN)	SPEW1ADM $GREPPER
+				;;
+				ABBR)	SPEW1ABBR $GREPPER
+				;;
+			esac
+		fi
+	;;
+	6) 
+		/bin/echo -n "Enter the internet address for the machine ->"
+		read "ADDRESS"
+ 		LINES=`grep "	$ADDRESS" $ACCTDIR/info`
+		if [ "$LINES" = "" ]
+		then
+			echo "No match found for $ADDRESS "
+		else
+			GREPPER=" $ADDRESS"		
+			case $INFO in
+				ADMIN)	SPEW1ADM $GREPPER
+				;;
+				ABBR)	SPEW1ABBR $GREPPER
+				;;
+			esac
+		fi
+	;;
+esac
+	}
+while
+	case "$REPLY" in
+		""|Y|y)
+			REPLY=""
+			LIST=""
+			;;
+		n | N)	exit 0
+			;;
+		*)	echo "error, illegal reply $REPLY."
+			echo "Please re-enter ->\c"
+			read REPLY
+			;;
+	esac
+test "$REPLY" = ""
+do
+	
+	while [ "$LIST" = "" ] 
+	do
+		echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
+|			SUNINFO				|
+|=======================================================|
+|  Suninfo works with either an administrative list,    |
+|  containing information such as serial numbers and    |
+|  ethernet addresses; or an abbreviated list, which    |
+|  contains only the name, location, model, and owner   |
+|  of the system.                                       |
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
+
+	Which list do you want to work with?
+
+		[1] ADMINISTRATIVE
+		[2] ABBREVIATED
+		[3] QUIT
+
+		   ->\c"
+	read LIST
+		case $LIST in 
+			1)	INFO=ADMIN
+				echo "\nYou may now specify one of the following
+parameters to clasify your search:
+
+	[1] Sun machine name	[4] Workstation \"owner\"
+	[2] Location		[5] Boot server
+	[3] Sun model number	[6] Internet address
+
+	           ->\c"
+				read PARAM
+				GETINFO
+			;;
+			2)	INFO=ABBR
+				echo "\nYou may now specify one of the following
+parameters to clasify your search:
+
+	[1] Sun machine name	[3] Sun model number
+	[2] Location		[4] Workstation \"owner\"
+
+	           ->\c"
+				read PARAM
+				GETINFO
+			;;
+			3)	exit	;;
+			*)	
+				echo "\n
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!Invalid response, enter either 1, 2, or 3!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+\n"
+				LIST=""	
+			;;
+		esac
+	done
+done

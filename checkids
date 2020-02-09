@@ -1,0 +1,27 @@
+#!/sbin/ksh
+if [ -d /usr/5bin ]
+then
+	ECHO () {
+	  $HOME/bin.SunOS/echo -n
+	  }
+	LS () {
+	  /usr/5bin/ls
+	  }
+elif [ -d /usr/bsd ]
+then
+	ECHO () {
+	  $HOME/bin.IRIX/echo -n
+	  }
+	LS () {
+	  ls
+	  }
+fi
+$ECHO "Which filesystem to check? (full path) -> "
+read FS
+for i in `$LS ${FS}|sed 's/\/${FS}//'|sed 's/los.*//'|sed 's/quotas//'|sed '/^$/d'`
+do
+	$ECHO "Checking $i">>/tmp/checkids.out
+	logdir $i>>/tmp/checkids.out
+	$LS -ld ${FS}/$i>>/tmp/checkids.out
+done
+more /tmp/checkids.out

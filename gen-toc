@@ -1,0 +1,18 @@
+#!/bin/ksh
+for i in `cat /tmp/SUNWCall|sed 's/SUNW_CSRMEMBER=//'`
+do
+  egrep -s "^PKG=$i" .packagetoc
+  if [ $? -eq 0 ]
+  then
+    cgrep +2 "^PKG=$i" .packagetoc 2>/dev/null >> /tmp/SUNWCall-toc
+  else
+    egrep -s "^CLUSTER=$i" .clustertoc
+    if [ $? -eq 0 ]
+    then
+      cgrep +w "^END" "^CLUSTER=$i" .clustertoc | /usr/bin/sed '/^VE/d
+/^END/d' >> /tmp/SUNWCall-toc
+    else
+      echo "===============================================\n $i description not found! \n ===============================================" >> /tmp/SUNWCall-toc
+    fi
+   fi
+done

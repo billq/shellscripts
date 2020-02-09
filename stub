@@ -1,0 +1,60 @@
+#!/bin/ksh
+while getopts :vh:c:C: flags
+do
+  case $flags in
+    v)
+          DEBUG=1
+        ;;
+    h)
+          HOST=$OPTARG
+        ;;
+    c)
+	  SUCCESS="$OPTARG"
+	;;
+    C)
+	  FAILURE="$OPTARG"
+	;;
+    ?)
+        echo "USAGE: $0 [-v] [-c command|-C command] -h remote_host
+   -v -> verbose mode
+   -c command -> executes command if remote_host is accessible
+   -C command -> executes command if remote_host is inaccessible"
+        exit 1
+        ;;
+  esac
+done
+ 
+shift $(($OPTIND - 1 ))
+
+db ()
+{
+	if [ "$DEBUG" = "1" ]
+	then
+		echo $1
+	fi
+}
+
+db "pinging $HOST"
+STATUS=`ping $HOST 2 >/dev/null 2>&1;echo $?`
+if [ $STATUS -eq 0 ]
+then
+	db "doing rpcinfo $HOST"
+	STATUS=`rpcinfo -T tcp $HOST >/dev/null 2>&1;echo $?`
+	if [ $STATUS -eq 0 ]
+	then
+		db "rshing $HOST"
+		STATUS=`rsh $HOST /bin/sun >/dev/null 2>&1;echo $?`
+		if [ $STATUS -eq 0 ]
+		then
+			db "$HOST is a sun and is accessible"
+			[ ! -z "$SUCCESS" ] && $SUCCESS
+		else
+			db "$HOST is a sun but isn't accessible"
+			[ ! -z "$FAILURE" ] && $FAILURE
+		fi
+	else
+		db "$HOST isn't a Sun"
+	fi
+else
+	db "$HOST is dead"
+fi

@@ -1,0 +1,50 @@
+#!/bin/ksh
+#
+# dir compare and sync
+#
+USAGE="dirsync -s source_dir -t target_dir"
+
+while getopts s:t: i 2>/dev/null
+do
+	case $i in
+	s)	SOURCE=$OPTARG	;;
+	t)	TARGET=$OPTARG	;;
+	\?)	echo "$USAGE"
+		exit 2	;;
+	esac
+done
+shift `expr $OPTIND - 1`
+
+if [ ! -d "$SOURCE" -o ! -d "$TARGET" ]
+then
+	echo "
+
+Maybe you're just not clear on this....
+
+*BOTH*
+$SOURCE
+*and*
+$TARGET
+have to be there.
+
+			...later."
+	exit 2
+fi
+
+for i in `ls $SOURCE`
+do
+	if [ -f "${TARGET}/$i" ]
+	then
+		diff ${SOURCE}/$i ${TARGET}/$i|more
+		echo "Move it? \c"
+		read yup
+		case $yup in
+		"") mv ${SOURCE}/$i ${TARGET}/$i
+		;;
+		*) echo "'k"
+		;;
+		esac
+	else
+		mv ${SOURCE}/$i ${TARGET}/$i
+	fi
+done

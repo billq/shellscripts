@@ -1,0 +1,9 @@
+#!/bin/ksh
+. /etc/profile >/dev/null 2>&1
+. $HOME/.profile >/dev/null 2>&1
+if [[ -f /opt/SUNWns6/netscape ]] 
+then 
+ /opt/SUNWns6/netscape
+else
+ netscape
+fi

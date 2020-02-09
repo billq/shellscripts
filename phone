@@ -1,0 +1,17 @@
+#!/bin/ksh
+PHONE_FILE=/usr/local/lib/phone-book.parse
+if [ ! -f $PHONE_FILE ]
+then
+	echo "ERROR: phone listing is missing!"
+	exit 1
+fi
+case $# in
+1)	grep -i $1 $PHONE_FILE|awk -F: '
+	{ printf ("Name:\t%24s\nDept:\t%24s\nPhone:\t%24s\nVoice Mail:\t%24s\n\n", $1,$3,$2,$4) }'
+	;;
+*)	/bin/echo -n "String to search for: "
+	read NAME
+	grep -i $NAME $PHONE_FILE|awk -F: '
+	{ printf ("Name:\t%24s\nDept:\t%24s\nPhone:\t%24s\nVoiceMail:\t%24s\n\n", $1,$3,$2,$4) }'
+	;;
+esac

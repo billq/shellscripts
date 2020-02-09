@@ -1,0 +1,49 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+/usr/add-on/adm/bin/amirootonserver
+if [ "$?" = "1" ]
+then
+	exit 1
+fi
+for i in $CLIENTS
+do
+if [ "`rsh $i users`" != "" ]
+then 
+echo "user is logged in to $i."
+fi
+/bin/echo -n "REBOOT $i?
+	[default YES|q to quit|anything else NO]	-> "
+read ans
+	case $ans in 
+	""|Y|y)	rsh $i /etc/shutdown -r now 1>/dev/null&
+		;;
+	q)	exit 1
+		;;
+	*)	echo "no reboot for $i"
+		;;
+	esac
+done

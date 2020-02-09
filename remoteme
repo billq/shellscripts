@@ -1,0 +1,35 @@
+#!/bin/ksh
+if [ ! -n "$MACH_ID" ]
+then
+	if [ -f /usr/local/etc/profile ]
+	then
+		. /usr/local/etc/profile
+	else
+		echo "Can't run sunpc in this environment"
+		exit 1
+	fi
+fi
+if [ $# -ne 1 ]
+then
+	/bin/echo -n "
+Usage: remoteme program_name "
+	exit 1
+else
+	PROGRAM="`echo $1|sed 's/\//%/g'`"
+fi
+
+if [ "$DISPLAY" != "" ]
+then
+	#echo "
+#Spawning a session on server..."
+	#xhost +yooper >/dev/null 2>&1
+	#rsh yooper /usr/openwin/bin/xview/xterm -bg blue -fg white -bd red +cu +ls -ms white -iconic -disp ${MACH_ID}:0 -e $1
+	#xhost -yooper >/dev/null 2>&1
+#else
+	xhost +yooper
+	OLDTERM=${TERM}
+	TERM=${TERM}:$PROGRAM
+	rlogin yooper -l adm -e!
+	TERM=$OLDTERM
+	xhost -yooper
+fi

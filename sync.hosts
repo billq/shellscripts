@@ -1,0 +1,68 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+OTHERS=`echo $SERVERS|sed 's/'$MASTER'//'`
+/bin/echo -n "This script will synchronize a non-YellowPages
+environment of machines.  The golden copy of:
+
+	passwd
+	group
+	hosts
+	networks
+
+is ASSUMED to reside on $MASTER.  If you are ABSOLUTELY sure
+that you want to OVERWRITE these files on
+
+	$OTHERS
+
+Type in yes to the prompt, anything else will exit with no change.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+NOTE:The password file will NOT be overwritten, but a new version
+with ONLY NON-SYSTEM LOGINS (i.e.- no root,bin,sys,etc...) will
+be on the remote system in /tmp/passwd.  The installation must be
+done manually.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	-> "
+read HAVEATIT
+case $HAVEATIT in
+yes)
+for i in $OTHERS
+do
+	echo "Working with $i"
+	rcp /etc/passwd $i:/tmp/passwd
+	rcp /etc/group $i:/etc/group
+	rcp /etc/hosts $i:/etc/hosts
+	rcp /etc/networks $i:/etc/networks
+	echo "Done with $i"
+done
+;;
+*) echo "No change, exiting."
+   sleep 5
+;;
+esac
+

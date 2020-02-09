@@ -1,0 +1,117 @@
+#!/bin/ksh
+#
+# If you dont't want to be informed about a large number of print jobs (10 by default),
+# involk printmon as:
+#	printmon -j1000
+#
+USAGE="printmon -j[numjobs] -s[sleeptime] -r[admin_user]"
+typeset -i CURRENT MAXJOBS
+
+set -- `getopt j:s:h:r $*`
+for i in $*
+do
+    case $i in
+        -j)	MAXJOBS="$2";		shift 2;;
+        -s)	SLEEPTIME="$2";		shift 2;;
+        -h*)	echo $USAGE >&2;	exit 1;;
+        -r)	ADMUSR="active";	shift ;;
+        --)	shift;			break;;
+    esac
+done
+PRINTERLIST=$*
+MAXJOBS=${MAXJOBS:-10}
+SLEEPTIME=${SLEEPTIME:-600}
+SOUNDIR=/adm/lib/sounds
+PATH=$PATH:/usr/local/bin
+
+FLASH () {
+if [ -c /dev/audio ]
+then
+	if [ $CURRENT -le 20 ]
+	then
+		play -v 100 ${SOUNDIR}/the.au
+		play -v 100 ${SOUNDIR}/${PRINTER}.au
+		play -v 100 ${SOUNDIR}/printer_has.au
+		play -v 100 ${SOUNDIR}/${CURRENT}.au
+		play -v 100 ${SOUNDIR}/jobs.au
+	else
+		typeset -i ANUM BNUM
+		BNUM="CURRENT"
+		ANUM="0"
+		while [ $BNUM -gt 10 ]
+		do
+			BNUM="BNUM - 10"
+			ANUM="ANUM + 10"
+		done
+		play -v 100 ${SOUNDIR}/the.au
+		play -v 100 ${SOUNDIR}/${PRINTER}.au
+		play -v 100 ${SOUNDIR}/printer_has.au
+		play -v 100 ${SOUNDIR}/${ANUM}.au
+		play -v 100 ${SOUNDIR}/${BNUM}.au
+		play -v 100 ${SOUNDIR}/jobs.au
+	fi
+else
+	echo 
+fi
+}
+
+FLASHADM () {
+if [ "$ADMUSR" != "" ]
+then
+	CONDITION=$1
+	play -v 100 ${SOUNDIR}/the.au
+	play -v 100 ${SOUNDIR}/${PRINTER}.au
+	play -v 100 ${SOUNDIR}/printer_has.au
+	play -v 100 ${SOUNDIR}/${CONDITION}.au
+fi
+}
+
+if [ "$PRINTERLIST" = "" ]
+then
+	PRINTERLIST="`cat /etc/printcap | sed '/^  */d'|sed '/^	/d'|sed '/^#/d'|cut -f1 -d'|'|cut -f1 -d:|sed 's/ /	/g'`"
+fi
+
+while true
+do
+	clear
+		echo "PRINTER		SERVER		NUMBER OF JOBS"
+		echo "------------------------------------------------"
+	for PRINTER in $PRINTERLIST
+	do
+		CURRENT="`lpq -P$PRINTER |wc -l 2>/dev/null`"
+		ERRORLINE=`lpq -P$PRINTER |grep "Error" 2>/dev/null`
+		CURRENT="CURRENT - 2"
+		if [ $CURRENT -gt $MAXJOBS ]
+		then
+			FLASH
+		fi
+		if [ "$ERRORLINE" != "" ]
+		then
+			for i in jam Warming empty
+			do
+				PROBLEM="`echo $ERRORLINE|grep $i`"
+				if [ "$PROBLEM" != "" ]
+				then
+					CONDITION=$i
+				fi
+			done
+			if [ "$CONDITION" = "" ]
+			then
+				CONDITION="error"
+			fi
+			FLASHADM $CONDITION
+		fi
+		if [ $CURRENT -lt 0 ]
+		then
+			CURRENT=0
+		fi
+		SERVER=`/usr/local/bin/cgrep "^${PRINTER}\|" /etc/printcap|grep ":rm="|sed 's/:rm=//'|sed 's/:.*//'|sed 's/	//'`
+		if [ "$SERVER" = "" ]
+		then
+			SERVER=`hostname`
+		fi
+		echo "$PRINTER		$SERVER			$CURRENT"
+		echo "------------------------------------------------"
+	done
+	sleep $SLEEPTIME
+done

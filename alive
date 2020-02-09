@@ -1,0 +1,91 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#
+# alive - check out $SUNS to see who's up, dead, or inaccessible
+#         then run $1 on the remote Sun.
+#
+################################################################################
+if [ -z "$LOGDIR" ]
+then
+	LOGDIR=$HOME/log
+fi
+if [ ! -d "$LOGDIR" ]
+then
+	mkdir $LOGDIR
+fi
+for FILE in spray.stats OS.stats noaccess.stats nospray.stats deadsun.stats
+do
+	rm -f ${LOGDIR}/${FILE}
+done
+if [ -z $SUNS ]
+then
+	/bin/echo -n "Generating host list ... "
+	for NET in 116 117 118 119 120 121 122
+	do
+		/bin/echo -n "$NET "
+		OUR_SUNS="${OUR_SUNS} `cat $HOME/lib/hosts.$NET`"
+	done
+	echo "done."
+else
+	OUR_SUNS=$SUNS
+fi
+for HOST in $OUR_SUNS
+do
+	ping $HOST 2 >/dev/null 2>&1
+	if [ $? = 0 ]
+	then
+		spray -l 1 -c 1 $HOST >>$LOGDIR/spray.stats 2>&1
+		if [ $? = 0 ]
+		then
+			STAT=`rsh $HOST 'sun;echo $?' 2>&1`
+			if [ "$STAT" = "0" ]
+			then
+				if [ "$1" != "" ]
+				then
+					echo "Running $* on $HOST"
+					rsh $HOST $*
+				else
+					echo $HOST is up and accessible
+				fi
+			else
+				echo $HOST >> $LOGDIR/noaccess.stats
+			fi
+		else
+			echo $HOST >> $LOGDIR/nospray.stats
+		fi
+	else
+		echo $HOST >> $LOGDIR/deadsun.stats
+	fi
+done
+for FILE in spray.stats OS.stats noaccess.stats nospray.stats deadsun.stats
+do
+	if [ -f ${LOGDIR}/${FILE} ]
+	then
+		echo "Contents of ${FILE}..."
+		more ${LOGDIR}/${FILE}
+	fi
+done

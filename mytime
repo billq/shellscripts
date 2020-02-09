@@ -1,0 +1,22 @@
+#!/bin/ksh
+DATE=`date +%m-%d-%y`
+MONTH=`date +%m-%y`
+WEEKFILE=week$DATE
+SUMFILE=sum$MONTH
+TIMEDIR=/home/z1/timeshee/dept651/quayle
+TEMPDIR=~qroot/time/template
+MYDIR=~qroot/time/quayle
+
+cd $MYDIR
+
+
+
+
+
+
+cat $TIMEDIR/audit $TEMPDIR/audit.add > $TEMPDIR/audit
+mv $TEMPDIR/audit $TIMEDIR/audit
+
+cat $TIMEDIR/$SUMFILE $TEMPDIR/$SUMFILE.add > $TEMPDIR/$SUMFILE
+mv $TEMPDIR/$SUMFILE $TIMEDIR/$SUMFILE
+

@@ -1,0 +1,53 @@
+#!/bin/sh
+################################################################################
+#                   @(#)Copyright (c) 1993 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             quayle@switch.rockwell.com                       #
+#                                                                              #
+################################################################################
+HOSTid=`hostid`
+case $HOSTid in
+10*)	MACHINE="Sun 1"	;;
+20*)	MACHINE="Sun 2"	;;
+11*)	MACHINE="Sun 3/75/140/150/160/180"	;;
+12*)	MACHINE="Sun 3/50"	;;
+13*)	MACHINE="Sun 3/260/280"	;;
+14*)	MACHINE="Sun 3/110"	;;
+17*)	MACHINE="Sun 3/60"	;;
+18*)	MACHINE="Sun 3E"	;;
+41*)	MACHINE="Sun 3/460/470/480"	;;
+42*)	MACHINE="Sun 3/80"	;;
+21*)	MACHINE="Sun 4/260/280"	;;
+22*)	MACHINE="Sun 4/110/150"	;;
+23*)	MACHINE="Sun 4/3xx"	;;
+24*)	MACHINE="Sun 4/470/490"	;;
+51*)	MACHINE="Sun 4/60"	;;
+52*)	MACHINE="Sun 4/40"	;;
+53*)	MACHINE="Sun 4/65"	;;
+54*)	MACHINE="Sun 4/20"	;;
+61*)	MACHINE="Sun 4E"	;;
+31*)	MACHINE="Sun 386i"	;;
+71*)	MACHINE="Sun 4m/670/690"	;;
+72*)	MACHINE="Sun 4m/SPARC 10"	;;
+*)	MACHINE="other"	;;
+esac
+echo $MACHINE

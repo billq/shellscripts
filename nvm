@@ -1,0 +1,12 @@
+#!/bin/ksh
+# catch swapping and report
+#
+vmstat -S 5 | awk '
+/r/	{ next }
+	{ 
+	  if ($5 > 100000) {next}
+	  if ($3 > 0) {printf ("blocked procs:\t%12s\n", $3) }
+	  if ($7 > 0) {printf ("swapped out:\t%12s\n", $7) }
+	  if ($9 > 0) {printf ("paged out:\t%12s\n", $9) }
+	  if ($11 > 0) {printf ("desperation swapping:\t%12s\n", $11) }
+	}'

@@ -1,0 +1,534 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+if [ "$WINDOW_ME" = "" ]
+then
+	echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+This script must be run from within sunview.  Enter \"sunview\"
+at the prompt, and follow the directions.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+"
+	exit 1
+fi
+if [ "$MASTER" != "" ]
+then
+	exit
+fi
+	echo "
+---------------------------------------------------------------------------------------
+
+	    The Administrator for Sun Distributed computing environments.
+
+---------------------------------------------------------------------------------------
+A window-based administrative system for the Sun, developed by W.R. Quayle, AT&T Bell 
+Laboratories.  All materials contained herein are copywrite of the author.  Permission
+is hereby granted to copy, distribute, modify, and hack these utilities, provided all
+applicable copywrite notices remain intact.
+---------------------------------------------------------------------------------------
+
+"
+	/bin/echo -n "
+Please type \"Y\" at the following prompt to signify acceptance of these terms,
+and to begin the configuration of The Administrator.  An \"N\" at the prompt
+will promptly exit.
+
+	-> "
+	read GOFORIT
+	case $GOFORIT in
+	Y*|y*)	continue	;;
+	*)	echo "You really don't know what you're missing!!!!"
+		sleep 5
+		exit 1		;;
+	esac
+clear
+	/bin/echo -n "
+---------------------------------------------------------------------------------------
+
+		The Administrator initialization sequence
+
+---------------------------------------------------------------------------------------
+This script does the initial setup for a master server for your
+Sun distributed computing environment.  You should only run this
+script when:
+
+	- A new server or client is added to your administrative
+          group.
+
+	- Your network configuration changes.
+
+	- Any modification is done to the master server.
+
+The standards for this administrative package are as follows:
+
+	- In all interactive administrative utilities, response
+          choices are given in square brackets \"[]\" imediately
+	  preceeding the response prompt \"->\".
+
+	- Default answers to these prompts (where appropriate) will
+	  be CAPATALIZED
+
+	- It is IMPERATIVE that this entire package reside under
+	  /usr/add-on.  The login \"troot\" should be added to the
+	  /etc/passwd file, with UID=0 and GID=1.  The login directory
+	  for troot should be \"/usr/add-on/adm\".
+
+Thanks for using \"The Administrator\"
+All comments, suggestions, and bugs should be reported to:
+
+	W.R.Quayle			(708) 979-3137
+	AT&T Bell Laboratories		attmail!billq
+	M.S. 1D-201
+	2000 N. Naperville Rd.
+	Naperville, Il. 60566
+---------------------------------------------------------------------------------------
+"
+
+/bin/echo -n "Please enter the hostname of your master server:
+
+	[`hostname`] -> "
+read MASTER
+MASTER=${MASTER:-`hostname`}
+clear
+
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+I will be setting an environmental variable called \"SUNS\" to
+be a list of all Suns in your administrative group.
+
+Please enter a space-separated list of all Suns in your administrative
+group, end with a blank line.
+---------------------------------------------------------------------------------------
+
+	-> "
+read ADDIT
+while [ "$ADDIT" != "" ]
+do
+	SUNS="$SUNS $ADDIT"
+/bin/echo -n "
+        -> "
+        read ADDIT
+done
+
+clear
+
+if [ -f /usr/games/gammontool ]
+then
+	/bin/echo  -n "
+---------------------------------------------------------------------------------------
+Stand by, determining accessibility of $SUNS
+
+A game of backgammon while I'm doing my thing?
+---------------------------------------------------------------------------------------
+
+	[Y|n] -> "
+	read GAMMON
+	case $GAMMON in
+	""|Y*|y*)	exec /usr/games/gammontool&
+	;;
+	*)		echo "O.K. then, sit back and be bored!!!"
+			sleep 5
+	;;
+	esac 
+fi
+
+clear
+
+for i in $SUNS
+do
+	if [ "$i" = "$MASTER" ]
+	then
+		continue
+	fi
+	rsh $i exit > /dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		NOACCESS="$NOACCESS $i"
+	else
+		ACCESS="$ACCESS $i"
+	fi
+
+	/etc/mount -o retry=1,soft ${i}:/usr /mnt >/tmp/STATMNT 2>&1
+	/etc/umount ${i}:/usr > /dev/null 2>&1
+
+	case "`cat /tmp/STATMNT|sed '2,$d'|awk '{print $3}'`" in
+	server)	CLIENTS="$CLIENTS `cat /tmp/STATMNT|sed '2,$d'|awk '{print $2}'|sed 's/:.*//'`"
+	;;
+	"")	SERVERS="$SERVERS $i"
+	;;
+	*)	SERVERS="$SERVERS `cat /tmp/STATMNT|sed '2,$d'|awk '{print $5}'|sed 's/:.*//'`"
+	;;
+	esac
+done
+
+echo "
+---------------------------------------------------------------------------------------
+I will be setting an environmental variable called \"CLIENTS\" to
+be a list of all CLIENTS in your administrative group.  So far I 
+have the following list:
+---------------------------------------------------------------------------------------
+"
+echo $CLIENTS
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Please enter a list of additional Sun CLIENTS in your administrative group,
+one per line, end with a blank line.
+---------------------------------------------------------------------------------------
+
+	-> "
+read ADDIT
+while [ "$ADDIT" != "" ]
+do
+	CLIENTS="$CLIENTS $ADDIT"
+	/bin/echo -n "
+        -> "
+	read ADDIT
+done
+
+clear
+
+echo "
+---------------------------------------------------------------------------------------
+I will be setting an environmental variable called \"SERVERS\" to
+be a list of all SERVERS in your administrative group.  So far I 
+have the following list:
+---------------------------------------------------------------------------------------
+"
+echo $SERVERS
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Please enter a list of additional Sun SERVERS in your administrative group,
+one per line, end with a blank line.
+---------------------------------------------------------------------------------------
+
+	-> "
+read ADDIT
+while [ "$ADDIT" != "" ]
+do
+	SERVERS="$SERVERS $ADDIT"
+	/bin/echo -n "
+        -> "
+	read ADDIT
+done
+
+clear
+
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Do you have available the following tape devices in your administrative group?
+---------------------------------------------------------------------------------------
+
+	8mm backup unit [Y|n] -> "
+read VIDEO
+case $VIDEO in
+""|Y*|y*)	TAPES="$TAPES video"	;;
+*)	continue	;;
+esac
+/bin/echo -n "
+	1/2\" mag unit [Y|n] -> "
+read HALF
+case $HALF in
+""|Y*|y*)	TAPES="$TAPES half"	;;
+*)	continue	;;
+esac
+/bin/echo -n "
+	1/4\" SCSI unit [Y|n] -> "
+read QUARTER
+case $QUARTER in
+""|Y*|y*)	TAPES="$TAPES quarter"	;;
+*)	continue	;;
+esac
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Which tape device shall we mark as the default device?
+---------------------------------------------------------------------------------------
+
+	[8mm|half|quarter] -> "
+read DEFAULT
+case $DEFAULT in
+8*)	TAPE="/dev/nrsmt0"	;;
+h*)	TAPE="/dev/nrmt8"	;;
+q*)	TAPE="/dev/nrst8"	;;
+*)	TAPE= ""
+	echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+                      No default tape
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+"	;;
+esac
+clear
+
+if [ "$ACCESS" = "" ]
+then
+	/bin/echo -n "
+---------------------------------------------------------------------------------------
+In determining the accessibility of your Suns,
+I noticed that $MASTER has no access via rsh/rlogin to any of
+$SUNS.
+
+In order for the majority of the administrative tools to function
+properly, you should install a \".rhosts\" entry for root on these
+machines.  An appropriate .rhosts file can be found in
+/usr/add-on/adm/lib/config/.rhosts.
+
+Please press \"Return\" to continue.
+---------------------------------------------------------------------------------------
+
+	-> "
+read DUMMY
+fi
+
+cp $LIBDIR/config/.profile.good $LIBDIR/config/.profile
+echo "export TAPES; TAPES=\"$TAPES\"">>$LIBDIR/config/.profile
+echo "export TAPE; TAPE=\"$TAPE\"">>$LIBDIR/config/.profile
+echo "export MASTER; MASTER=\"$MASTER\"">>$LIBDIR/config/.profile
+echo "export SUNS; SUNS=\"$SUNS\"">>$LIBDIR/config/.profile
+echo "export ACCESS; ACCESS=\"$ACCESS\"">>$LIBDIR/config/.profile
+echo "export NOACCESS; NOACCESS=\"$NOACCESS\"">>$LIBDIR/config/.profile
+echo "export CLIENTS; CLIENTS=\"$CLIENTS\"">>$LIBDIR/config/.profile
+echo "export SERVERS; SERVERS=\"$SERVERS\"">>$LIBDIR/config/.profile
+
+>$LIBDIR/config/clients
+typeset -i xwin ywin xicon
+xwin=0
+ywin=80
+xicon=0
+for CLIENT in $CLIENTS
+do
+	echo "$CLIENT	shelltool sh -c -Wl <<$CLIENT>> -Wp $xwin $ywin -Ws 650 570 -WP $xicon 860 -WL $CLIENT \"exec rlogin $CLIENT\"">>$LIBDIR/config/clients
+	xwin="xwin + 40"
+	ywin="ywin + 40"
+	xicon="xicon + 40"
+done
+
+cp $LIBDIR/config/.sunview.setup $LIBDIR/config/.sunview
+
+typeset -i Pywin Pxicon
+Pywin=80
+Pxicon=80
+xwin=0
+ywin=0
+xicon=0
+>$LIBDIR/config/servers
+for SERVER in $SERVERS
+do
+	if [ "$SERVER" != "$UNAME" ]
+	then
+	echo "perfmeter  -Wp  960  $Pywin -Ws 128  65 -WP 1024 $Pxicon -v cpu $SERVER">>$LIBDIR/config/.sunview
+	echo "$SERVER	shelltool sh -c -Wl <<$SERVER>> -Wp $xwin $ywin -Ws 650 570 -WP $xicon 820 -WL $SERVER \"exec rlogin $SERVER\"">>$LIBDIR/config/servers
+	Pywin="Pywin + 60"
+	Pxicon="Pxicon + 60"
+	xwin="xwin + 80"
+	ywin="ywin + 80"
+	xicon="xicon + 40"
+	fi
+done
+
+cp $LIBDIR/config/shells.setup $LIBDIR/config/shells
+
+clear
+
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Do you have a real user login on $MASTER? 
+---------------------------------------------------------------------------------------
+
+	[Y|n] -> "
+read REAL
+case $REAL in
+""|Y*|y*)
+	SURE=1
+	while [ $SURE -ne 0 ]
+	do
+		/bin/echo -n "
+---------------------------------------------------------------------------------------
+What is it?
+---------------------------------------------------------------------------------------
+
+	-> "
+		read REALID
+		case `domainname` in
+		"noname")
+			cat /etc/passwd|grep "^$REALID" > /dev/null 2>&1
+			SURE=$?
+			YP="noname"
+		;;
+		*)
+			ypcat passwd|grep "^$REALID" > /dev/null 2>&1
+			SURE=$?
+			YP="`domainname`"
+		;;
+		esac
+	done
+	echo "shelltool  -Wp  300 200 -Ws 650 570 -WP  895  80 -Wi sh -c -Wl <<$REALID>> -WL $REALID -WI /usr/add-on/rtools/images/icons/no.icon \"exec /bin/su - $REALID\"">>$LIBDIR/config/.sunview
+	RID=`echo $REALID|tr a-z A-Z`
+	echo "$RID	shelltool sh -c -Wl <<$RID>> -Wp 300 200 -Ws 650 570 -WP 895 80 -WL $REALID \"exec /bin/su - $REALID\"">>$LIBDIR/config/shells
+;;
+*)
+	case `domainname` in
+	"noname")
+		YP="noname"
+	;;
+	*)
+		YP="`domainname`"
+	;;
+	esac
+	continue
+;;
+esac
+
+clear
+
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Please enter a list of maxi UNIX hosts you wish to be
+able to access via rlogin from your rootmenu.
+One per line, end with a blank line.
+---------------------------------------------------------------------------------------
+
+	-> "
+read ADDIT
+while [ "$ADDIT" != "" ]
+do
+	MAXIS="$MAXIS $ADDIT"
+	/bin/echo -n "
+        -> "
+	read ADDIT
+done
+
+clear
+
+>$LIBDIR/config/maxis
+
+xwin=0
+ywin=150
+xicon=0
+for MAXI in $MAXIS
+do
+	/bin/echo -n "
+---------------------------------------------------------------------------------------
+Telnet or rlogin access to $MAXI ?
+---------------------------------------------------------------------------------------
+
+	[Telnet] -> "
+	read MODE
+	case $MODE in
+	""|T*|t*)	
+	echo "$MAXI	shelltool sh -c -Wl <<$MAXI>> -Wp $xwin $ywin -Ws 650 570 -WP $xicon 780 -WL $MAXI \"exec telnet $MAXI\"">>$LIBDIR/config/maxis
+	;;
+	*)
+	echo "$MAXI	shelltool sh -c -Wl <<$MAXI>> -Wp $xwin $ywin -Ws 650 570 -WP $xicon 780 -WL $MAXI \"exec rlogin $MAXI\"">>$LIBDIR/config/maxis
+	;;
+	esac
+	xwin="xwin + 50"
+	ywin="ywin + 100"
+	xicon="xicon + 40"
+done
+
+clear
+
+MSTR=`echo $MASTER|tr a-z A-Z`
+echo "$MSTR	shelltool sh -c -Wl <<$MSTR>> -Wp 0 0 -Ws 650 570 -WP 80 880 -WL $MASTER \"exec /bin/su -\"">$LIBDIR/config/sus
+
+/bin/echo -n "
+---------------------------------------------------------------------------------------
+Do you have a datakit connection on $MASTER? 
+---------------------------------------------------------------------------------------
+
+	[Y|n] -> "
+read DKIT
+case $DKIT in
+""|Y*|y*)
+	SURE=1
+	while [ $SURE -ne 0 ]
+	do
+		/bin/echo -n "
+---------------------------------------------------------------------------------------
+What is it named?
+---------------------------------------------------------------------------------------
+
+	[dkit] -> "
+		read DNAME
+		DNAME=${DNAME:-dkit}
+		grep "$DNAME" /etc/remote > /dev/null 2>&1
+		SURE=$?
+	done
+	echo "shelltool  -Wp  304  79 -Ws 650 570 -WP 1088 208 -Wi sh -c -Wl <<DKIT>> -WL dkit \"exec tip $DNAME\" -WI /usr/add-on/rtools/images/icons/dkit.icon">>$LIBDIR/config/.sunview
+;;
+*)
+	continue
+;;
+esac
+
+clear
+
+if [ "$YP" != "noname" ]
+then
+	YMASTER="`ypwhich`"
+	/bin/echo -n "
+---------------------------------------------------------------------------------------
+What is the name of your YellowPages master server?
+---------------------------------------------------------------------------------------
+
+	[$YMASTER] -> "
+	read YPMASTER
+	case $YPMASTER in
+	$YMASTER)	YPMASTER=$YMASTER
+	;;
+	*)		YPMASTER=$YPMASTER
+	;;
+	esac
+	echo "export YPMASTER; YPMASTER=$YPMASTER">>$LIBDIR/config/.profile
+	clear
+fi
+mv $LIBDIR/config/.rootmenu.setup /usr/add-on/adm/.rootmenu
+mv $LIBDIR/config/.sunview /usr/add-on/adm/.sunview
+mv $LIBDIR/config/shells /usr/add-on/adm/menus/shells
+mv $LIBDIR/config/clients /usr/add-on/adm/menus/clients
+mv $LIBDIR/config/servers /usr/add-on/adm/menus/servers
+mv $LIBDIR/config/maxis /usr/add-on/adm/menus/maxis
+mv $LIBDIR/config/sus /usr/add-on/adm/menus/sus
+echo "exec \$SHELL">>$LIBDIR/config/.profile
+mv $LIBDIR/config/.profile /usr/add-on/adm/.profile
+echo "
+---------------------------------------------------------------------------------------
+
+Your system is now set up to take full advantage of The Administrator package.
+
+At this time, you should exit sunview, log off the system, log back in, and type
+\"S\" to re-enter sunview.  Any menu parameters you wish to modify can be found
+in ~/menus.
+
+As a first order of business, I strongly suggest using \"newsun\" to create a
+database of your Sun environment.
+
+Thank you for using The Administrator,
+
+           W.R. Quayle 
+---------------------------------------------------------------------------------------
+"
+sleep 15
+exit 0

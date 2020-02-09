@@ -1,0 +1,21 @@
+#!/bin/ksh
+#
+# @(#) Script to remove all /tmp files associated with any user not currently logged in.
+#
+# WRQ - 4/7/95
+#
+# This sets USER to the list of users currently owning files in /tmp.
+for USER in `ls -l /tmp|awk '{print $3}'|sort -u`
+do
+	# This check to see if $USER is currently logged in.
+	who|grep -s $USER
+	if [ $? -ne 0 ]
+	then
+		# If they're not logged in, remove each file in /tmp
+		# that belongs to them.
+		for FILE in `ls -l /tmp|grep $USER|awk '{print $NF}'`
+		do
+			rm /tmp/$FILE
+		done
+	fi
+done

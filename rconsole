@@ -1,0 +1,55 @@
+#!/bin/ksh
+if [ ! -n "$MACH_ID" ]
+then
+	if [ -f /usr/local/etc/profile ]
+	then
+		. /usr/local/etc/profile
+	else
+		echo "Can't run console in this environment"
+		exit 1
+	fi
+fi
+if [ $# -ne 1 ]
+then
+	/bin/echo -n "
+Console ports are available for:
+	T)	trooper
+	J)	john
+	P)	paul
+	G)	george
+	R)	ringo
+	S)	samson
+	H)	hercules
+	X)	racerx
+	O)	order
+Please select a host, or X to exit
+
+-console-> "
+	read HOST
+	case $HOST in
+		T*|t*)	HOST=trooper	;;
+		J*|j*)	HOST=john	;;
+		P*|p*)	HOST=paul	;;
+		G*|g*)	HOST=george	;;
+		R*|r*)	HOST=ringo	;;
+		S*|s*)	HOST=samson	;;
+		H*|h*)	HOST=hercules	;;
+		X*|x*)	HOST=racerx	;;
+		O*|o*)	HOST=order	;;
+		*)	exit			;;
+	esac
+else
+	HOST=$1
+fi
+
+if [ "$DISPLAY" != "" ]
+then
+	xhost +tbsun2 >/dev/null 2>&1
+	rsh tbsun2 /usr/openwin/bin/xview/xterm -fg blue -bg white -bd red +cu +ls -ms white -iconic -n $HOST -T $HOST -disp ${MACH_ID}:0 -e tip $HOST
+	xhost -tbsun2 >/dev/null 2>&1
+else
+	OLDTERM=${TERM}
+	TERM="${TERM}:tip $HOST"
+	rlogin tbsun2 -l adm -e!
+	TERM=$OLDTERM
+fi

@@ -1,0 +1,77 @@
+#!/bin/ksh
+if [ -z "$LIBDIR" ]
+then
+	echo "Sorry, your environment is not set properly"
+	exit 1
+fi
+if [ ! -d "${LIBDIR}/dns" ]
+then
+	echo "Sorry, you have to be qroot to run this..."
+	exit 1
+fi
+typeset -i NEXT
+#
+# get the next serial number
+#
+NEXT=`cat ${LIBDIR}/dns/next_serial`
+#
+# clear out the tmp.txt file
+#
+>${LIBDIR}/dns/tmp.txt
+#
+# now, for each subnet...
+#
+for SUBNET in 116 117 118 119 120 121 122 123
+do
+	#
+	# get the lines out of the hosts file
+	#
+	ypcat hosts|grep "\.$SUBNET\." > ${LIBDIR}/dns/hosts.$SUBNET
+	#
+	# make the header for the rev file
+	#
+	cat ${LIBDIR}/dns/top.rev|sed s/SUB_NET/$SUBNET/ | sed s/SERIAL_NUMBER/$NEXT/ > ${LIBDIR}/dns/$SUBNET.rev
+	#
+	# generate the .rev file
+	#
+	cat ${LIBDIR}/dns/hosts.$SUBNET|sed 's/\./ /g'|awk '{printf "%s\t3600\tIN\tPTR\t%s.switch.rockwell.com.\n", $4,$5}'|sort -n >> /${LIBDIR}/dns/${SUBNET}.rev
+	#
+	# install the new .rev file in /etc
+	#
+	cp ${LIBDIR}/dns/${SUBNET}.rev /etc
+	#
+	# pop the proper portion into a holding area for the .txt file
+	#
+	cat ${LIBDIR}/dns/hosts.$SUBNET|awk '{printf "%s\t3600\tIN\tA\t%s\n", $2,$1}'|sort >> /${LIBDIR}/dns/tmp.txt
+	#
+	# now get rid of what we don't need
+	#
+	rm ${LIBDIR}/dns/${SUBNET}.rev ${LIBDIR}/dns/hosts.$SUBNET
+done
+#
+# make the header for the txt file
+#
+cat ${LIBDIR}/dns/named.txt.top|sed s/SERIAL_NUMBER/$NEXT/ > ${LIBDIR}/dns/named.txt
+#
+# now make the sorted .txt file
+#
+cat ${LIBDIR}/dns/tmp.txt | sort >> ${LIBDIR}/dns/named.txt
+#
+# and install it
+#
+cp ${LIBDIR}/dns/named.txt /etc/named.txt
+#
+# now get rid of what we don't need
+#
+rm ${LIBDIR}/dns/named.txt ${LIBDIR}/dns/tmp.txt
+#
+# restart in.named
+#
+NPID=`ps -aux|grep in.named|sed '/grep/d'|awk '{print $2}`
+kill -1 $NPID
+#
+# fix up SERIAL_NUMBER for next time
+#
+NEXT="NEXT + 1"
+echo $NEXT > ${LIBDIR}/dns/next_serial
+exit 0

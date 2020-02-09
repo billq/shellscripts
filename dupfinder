@@ -1,0 +1,4 @@
+for i in $(md5sum * 2>/dev/null|sort|awk '{print $1}'|uniq -d)
+do
+  md5sum * 2>/dev/null|grep $i
+done

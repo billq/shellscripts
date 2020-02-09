@@ -1,0 +1,25 @@
+#!/bin/bash
+rm -f files.sums n.sums rm.list
+echo "Getting md5sums for files under $(pwd)"
+find . -type f -exec md5sum {} \; |sort |tee -a files.sums |awk '{print $1}' |uniq -c -d > n.sums
+echo "Done with sums, now identifying dups."
+cat n.sums|while read num cksum
+do
+  #echo "num is $num"
+  #echo "cksum is $cksum"
+  files=$(grep $cksum files.sums|awk '{print $2}')
+  echo "dups are $files"
+  for file in $(echo $files|awk '{$1=""}1')
+  do
+    if [ -f $file ]
+    then
+      echo "rm $file" |tee -a rm.list
+    else
+      echo "$file is MIA!!!"
+      exit
+    fi
+  done
+done
+more rm.list
+chmod 755 rm.list
+echo "run ./rm.list to elminate dups"

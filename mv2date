@@ -1,0 +1,20 @@
+for i in `ls`
+do
+  j=`ls -l $i|awk '{print $6,$7}'|sed 's/ /_/'`
+  if [ -f "$j" ]
+  then
+    k=0
+    while [ -f "${j}.${k}" ]
+    do
+      k=$((k + 1))
+    done
+    if [ -f "${j}.${k}" ]
+    then
+      echo "ERG. Script broken."
+      exit
+    fi
+    mv $i ${j}.${k}
+  else
+    mv $i $j
+  fi
+done 

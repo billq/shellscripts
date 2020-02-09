@@ -1,0 +1,16 @@
+#!/bin/ksh
+#
+# a sample of reading a line of data from a file
+#
+FILE=$1
+[[ ! -f $FILE ]] && (
+  echo "$FILE not found"
+  exit 1
+)
+j=1
+while read i
+do
+	junk[$j]=`echo $i|awk '{print $1}'`
+	echo "${junk[$j]} is the $j element"
+	(( j += 1 ))
+done < $FILE

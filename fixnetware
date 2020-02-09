@@ -1,0 +1,6 @@
+#!/bin/ksh
+if [ "${MACH_ID}" = "solaris2" ]
+then
+	cd /export/netware/netware/sys/tmp
+	chmod o+rw */*
+fi

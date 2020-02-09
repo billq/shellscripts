@@ -1,0 +1,254 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+PATH=/usr/5bin:$PATH
+ME=`whoami`
+HOME=`logdir $ME`
+WELCOME ()
+{
+echo "
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++			squeeze                         +
+---------------------------------------------------------
++                                                       +
++ Squeeze can be used interactively, or with command-   +
++ line options.  Interactively, you will be prompted    +
++ for a source and a target.  The source can be a file  +
++ or a directory. The target can be any legal UNIX      +
++ filename.  The target name you type in will be        +
++ suffixed with a \".Z\".                                 +
++                                                       +
++ To use squeeze with command line options, type in:    +
++                                                       +
++    squeeze -ssource -ttarget                          +
++                                                       +
++ where source and target are as explained above.       +
++							+
++    squueze -ssource -ttarget -q			+
++							+
++ will execute squeeze in a quiet mode.			+
++                                                       +
++ A \"QUIT\" at any prompt will exit                      +
++                                                       +
++ Questions or comments on squeeze should be forwarded  +
++ to:							+
++		W. R. Quayle				+
++		ihlpm!billq				+
++                                                       +
++    Happy squeezing                                    +
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+/bin/echo -n "
+Hit RETURN ->"
+read GO
+if [ "$GO" != "" ]
+then
+	exit
+fi
+}
+
+GETNAMES ()
+{
+ls -asFC|more
+source=""
+echo "What is the name of the source to squeeze? \c"
+read source
+
+if [ "$source" = "QUIT" ]
+then
+	exit 1
+fi
+
+FILESTOSQUEEZE=`basename $source`
+PATHTOFILES=`dirname $source`
+
+if [ `echo $PATHTOFILES|sed 's/\/.*//'` = '$HOME' ] 2>/dev/null
+then
+	NPATH=`echo $PATHTOFILES|sed 's/$HOME//'`
+	PATHTOFILES=$HOME$NPATH
+fi
+
+if [ "$PATHTOFILES" ! = "." ] 2>/dev/null
+then
+	cd "$PATHTOFILES"
+fi
+
+source=$FILESTOSQUEEZE
+
+while [ ! -r "$source" ] 2>/dev/null
+do
+	echo "The source name you have chosen either does not exist or is unreadable!"
+	echo "What is the new name of the source to squeeze? \c"
+	read source
+
+	if [ "$source" = "QUIT" ]
+	then
+		exit 1
+	fi
+
+	FILESTOSQUEEZE=`basename $source`
+	PATHTOFILES=`dirname $source`
+
+	if [ `echo $PATHTOFILES|sed 's/\/.*//'` = '$HOME' ] 2>/dev/null
+	then
+		NPATH=`echo $PATHTOFILES|sed 's/$HOME//'`
+		PATHTOFILES=$HOME$NPATH
+	fi
+
+	if [ "$PATHTOFILES" ! = "." ] 2>/dev/null
+	then
+		cd "$PATHTOFILES"
+	fi
+
+	source=$FILESTOSQUEEZE
+done
+
+echo "What is the name of the target file? \c"
+read target
+
+if [ "$target" = "QUIT" ]
+then
+	exit 1
+fi
+
+while [ -s "${target}.Z" ] 2>/dev/null
+do
+	echo "Sorry, ${target}.Z already exists!"
+	echo "What is the name of the new target file? \c"
+	read target
+done
+
+TARGETFILE=`basename $target`
+PATHTOTARGET=`dirname $target`
+
+if [ `echo $PATHTOTARGET|sed 's/\/.*//'` = '$HOME' ] 2>/dev/null
+then
+	NPATH=`echo $PATHTOTARGET|sed 's/$HOME//'`
+	PATHTOTARGET=$HOME$NPATH
+fi
+
+while [ ! -w "$PATHTOTARGET" ] 2>/dev/null
+do
+	echo "Sorry, $PATHTOTARGET either does not exist, or is not writtable!"
+	echo "What is the name of the new target file? \c"
+	read target
+	if [ "$target" = "QUIT" ]
+	then
+		exit 1
+	fi
+	TARGETFILE=`basename $target`
+	PATHTOTARGET=`dirname $target`
+	if [ `echo $PATHTOTARGET|sed 's/\/.*//'` = '$HOME' ] 2>/dev/null
+	then
+		NPATH=`echo $PATHTOTARGET|sed 's/$HOME//'`
+		PATHTOTARGET=$HOME$NPATH
+	fi
+done
+
+if [ "$PATHTOTARGET" = "." ] 2>/dev/null
+then
+	echo "Your target filename is $TARGETFILE.Z in `pwd`"
+else
+	echo "Your target filename is $TARGETFILE.Z and will be stored in
+the directory $PATHTOTARGET."
+fi
+
+target=$PATHTOTARGET/$TARGETFILE
+echo "Hit return to continue, any other key to exit: \c"
+read GOFORIT
+
+case $GOFORIT in
+	"") continue ;;
+	*) exit 1 ;;
+esac
+}
+
+RERUN=1
+if [ $# = 0 ] 2>/dev/null
+then
+	WELCOME
+	GETNAMES
+else
+	set -- `getopt s:t:q $*`
+	if [ $? != 0 ] 2>/dev/null
+	then
+		WELCOME
+		GETNAMES
+	fi
+	for i in $*
+	do
+		case $i in 
+		-s)	source=$2; shift; shift;
+			;;
+		-t)	target=$2; shift; shift;
+			;;
+		-q)	quiet=1; shift
+			;;
+		--)	shift; break
+			;;
+		esac
+	done
+fi
+
+if [ "$quiet" = "1" ]
+then
+	tar -cf - $source | compress > $target
+else
+
+	while [ "$RERUN" != "0" ] 2>/dev/null
+	do
+		echo "Working ..."
+		DUORIG=`du -s $source|cut -f1 -d"	"`
+		tar -cvf - $source | compress > ${target}.Z
+		echo "Done.
+
+I'll do du's now, to see what space you've saved."
+		DUFINAL=`du -s $target.Z|cut -f1 -d"	"`
+		echo "\nOriginally $source took up $DUORIG blocks,\nnow it takes $DUFINAL blocks.\n\nDo you want to remove $source? [y/n] \c"
+		read AXE
+		case $AXE in
+		Y*|y*)	if [ `dirname $source` = $PWD ]
+			then
+				echo "Moving $target.Z to /tmp/`basename $target`.Z first!"
+				mv `basename $target`.Z /tmp
+			fi
+			rm -fr $source
+		;;
+		*)	echo "o.k., no files removed"
+		;;
+		esac
+		RERUN=1
+		echo "Shall we squeeze some more? [y/n] \c"
+		read RERUN
+		case $RERUN in
+		y*|Y*)	clear
+			RERUN=1
+			GETNAMES
+		;;
+		*)	RERUN=0
+		;;
+		esac
+	done
+fi

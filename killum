@@ -1,0 +1,5 @@
+for line in `w|grep days|grep -v grep|grep -v users|awk '{print $2}'|sed 's/tty//'`
+do
+echo "killing " `ps -aux|grep $line|grep "sh "|grep -v grep`
+kill `ps -aux|grep $line|grep "sh "|grep -v grep|awk '{print $2}'`
+done

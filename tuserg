@@ -1,0 +1,5 @@
+#!/bin/ksh
+cd /var/spool/mqueue
+MYQF=`grep -l $1 qf*`
+SENDER=`cat $MYQF|grep -v "Subject"|grep "^S"|sed 's/^S//'`
+echo "$SENDER is SENDER"

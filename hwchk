@@ -1,0 +1,772 @@
+#!/bin/bash
+#
+# This is the parser component of the hardware check tool.
+# 
+# USAGE: hwchk hostname
+#
+# Search for ##MAIN for script start
+#
+# BQ 04/02/12
+
+runHWChk-cl () {
+  #clHWChkRev=$(ssh -q $host "[ -f \"${HWChk}/hwchk-cl\" ] && ${HWChk}/hwchk-cl -v")
+  #if [ "$HWChkRev" != "$clHWChkRev" ]
+  #then
+    echo -n "#####Installing hwchk on $host...." > /tmp/hwchk.$$
+    scp -q $HWChk/hwchk-cl ${host}:/tmp/hwchk-cl || exit 1
+    echo ".......................[done]" >> /tmp/hwchk.$$
+    echo -n "#####Running hwchk on $host......." >> /tmp/hwchk.$$
+    ssh -q ${host} "/tmp/hwchk-cl"
+    echo ".......................[done]" >> /tmp/hwchk.$$
+  #else
+  #  echo -n "#####Running hwchk on $host......." >> /tmp/hwchk.$$
+  #  ssh -q ${host} "${HWChk}/hwchk-cl"
+  #  echo ".......................[done]" >> /tmp/hwchk.$$
+  #fi
+  echo -n "#####Fetching hwchk log for $host." >> /tmp/hwchk.$$
+  scp -q ${host}:$HWChkCl $myHWChkCache 
+  echo ".......................[done]" >> /tmp/hwchk.$$
+}
+
+hpcheck () {
+#
+# DIMM
+#
+  echo -n "######DIMM status"
+  cgrep +I2 +w "</Memory>" -D "<Memory>" $myHWChkCache| sed 1d|awk '
+  BEGIN {
+    FS=":"
+    EC=0
+    ndimm=0
+  }
+  {
+    if ($1 ~ /Module/) {module[ndimm]=$2}
+    if ($1 ~ /Present/) {present[ndimm]=$2}
+    if ($1 ~ /Form Factor/) {ff[ndimm]=$2}
+    if ($1 ~ /Memory/) {type[ndimm]=$2}
+    if ($1 ~ /Size/) {size[ndimm]=$2}
+    if ($1 ~ /Speed/) {speed[ndimm]=$2}
+    if ($1 ~ /Status/) {status[ndimm]=$2
+      if (status[ndimm] !~ /Ok/)  {
+        EC=1
+      }
+    ndimm++
+    }
+  }
+  END { 
+  if (EC != "0") { 
+    print "...............................................[FAIL]"
+    for (i=0; i < ndimm; i++) {
+      if (status[i] !~ /Ok/) {
+       printf("DETAILS:\n\tModule:  %s\n\tPresent:%s\n\tForm Factor:%s\n\tMemory Type:%s\n\tSize:%s\n\tSpeed:%s\n",module[i],present[i],ff[i],type[i],size[i],speed[i])
+        }
+      }
+    } else { 
+      print "...............................................[OK]"
+    }
+  } '
+
+#
+# Power Supplies
+#
+  echo -n "######Power supply status"
+  cgrep -D +I2 +w '</Power Supplies>' "<Power Supplies>" $myHWChkCache| sed 1d|awk '
+  BEGIN {
+    FS=":"
+    EC=0
+    nps=1
+  }
+  {
+    if ($1 ~ /Present/) {present[nps]=$2}
+    if ($1 ~ /Redundant/) {redundant[nps]=$2}
+    if ($1 ~ /Condition/) {
+      condition[nps]=$2
+      if (condition[nps] !~ /Ok/)  {
+        EC=1
+      }
+    }
+    if ($1 ~ /Hotplug/) {
+      hotplug[nps]=$2
+      nps++
+    }
+  }
+  END { 
+    if (EC != "0") { 
+      print ".......................................[FAIL]"
+      for (i=1; i < nps; i++) {
+        if (condition[i] !~ /Ok/) {
+         printf("DETAILS:\n\tPower supply #:  %s\n\tPresent:%s\n\tRedundant:%s\n\tHotplug:%s\n\tCondition:%s\n",i,present[i],redundant[i],hotplug[i],condition[i])
+        }
+      }
+    } else { 
+      print ".......................................[OK]"
+    }
+  } '
+
+#
+# CPUs
+#
+  echo -n "######CPU status"
+  cgrep -D +I2 +w '</Chassis>' '<Chassis>' $myHWChkCache| sed 1d|awk '
+  BEGIN {
+    FS=":"
+    EC=0
+    ncpu=1
+  }
+  {
+    if ($1 ~ /Processor/) {processor[ncpu]=$2}
+    if ($1 ~ /Name/) {name[ncpu]=$2}
+    if ($1 ~ /Stepping/) {stepping[ncpu]=$2}
+    if ($1 ~ /Speed/) {speed[ncpu]=$2}
+    if ($1 ~ /Bus/) {bus[ncpu]=$2}
+    if ($1 ~ /Core/) {core[ncpu]=$2}
+    if ($1 ~ /Thread/) {thread[ncpu]=$2}
+    if ($1 ~ /Socket/) {socket[ncpu]=$2}
+    if ($1 ~ /Level2 Cache/) {l2cache[ncpu]=$2}
+    if ($1 ~ /Status/) {status[ncpu]=$2
+      if (status[ncpu] !~ /Ok/)  {
+        EC=1
+      }
+      ncpu++
+    }
+  }
+  END {
+    if (EC != "0") {
+      print "................................................[FAIL]"
+      for (i=1; i < ncpu; i++) {
+        if (status[i] !~ /Ok/) {
+         printf("DETAILS:\n\tProcessor #:%s\n\tName:%s\n\tStepping:%s\n\tSpeed:%s\n\tBus:%s\n\tCore:%s\n\tThread:%s\n\tSocket:%s\n\tLevel2 Cache:%s\n\tStatus:%s\n",processor[i],name[i],stepping[i],speed[i],bus[i],core[i],thread[i],socket[i],l2cache[i],status[i])
+        }
+      }
+    } else {
+        print "................................................[OK]"
+    }
+  } '
+
+#
+# Fans
+#
+  echo -n "######FANS status"
+  cgrep -D +I2 +w '</Fans>' '<Fans>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    EC=0
+    fan=1
+  }
+  {
+    present[fan]=$3
+    location[fan]=$2
+    speed[fan]=$4
+
+    if (present[fan] ~ /Yes/ && speed[fan] !~ /NORMAL/)  {
+      EC=1
+    }
+    fan++
+  }
+  END { 
+  if (EC != "0") { 
+    print "...............................................[FAIL]"
+    for (i=1; i < fan; i++) {
+      if (speed[i] !~ /NORMAL/) {
+       printf("DETAILS:\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n","Location",location[i],"Present",present[i],"Speed",speed[i])
+        }
+      }
+    } else { 
+      print "...............................................[OK]"
+    }
+  } '
+
+
+#
+# Disks
+#
+  echo -n "######Drive status"
+  cgrep -D +I2 +w '</Physical Disk>' '<Physical Disk>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    EC=0
+    pd=1
+    i=1
+  }
+  { 
+    if ($1 ~ /array/) {
+      da=$2
+    } else {
+      if ($7 ~ /SAS/) {
+        drive[pd]=substr($2,1,2)
+        port[pd]=substr($2,4,1)
+        slot[pd]=substr($2,6,1)
+        size[pd]=$8
+        status[pd]=$10
+        if (status[pd] !~ /OK/)  {
+          EC=1
+        }
+      }
+      if ($8 ~ /SCSI/) {
+        drive[pd]=$2
+        port[pd]=substr($4,1,1)
+        slot[pd]=$5
+        size[pd]=$9
+        status[pd]=$11
+        if (status[pd] !~ /OK/)  {
+          EC=1
+        }
+        pd++
+      }
+    }
+  }
+  END { 
+  if (EC != "0") { 
+    print "..............................................[FAIL]"
+    for (i=1; i < pd; i++) {
+      if (status[i] !~ /OK/) {
+       printf("DETAILS:\n%10s:\t%s\n%10s:\tphysicaldrive %s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n","Array",da,"Drive",drive[i],"Port",port[i],"Slot",slot[i],"Size",size[i],"Status",status[i])
+        }
+      }
+    } else { 
+      print "..............................................[OK]"
+    }
+  } '
+
+#
+# Arrays
+#
+  echo -n "######Array status"
+  cgrep -D +I2 +w '</Logical Disk>' '<Logical Disk>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    EC=0
+    pd=1
+    i=1
+  }
+  { 
+    if ($1 ~ /array/) {
+      da=$2
+    } else {
+      if ($1 ~ /logicaldrive/) {
+        drive[pd]=$2
+        size[pd]=substr($3,2)
+        raid[pd]=$6
+        status[pd]=$NF
+        if (status[pd] !~ /OK/)  {
+          EC=1
+        }
+        pd++
+      }
+    }
+  }
+  END { 
+  if (EC != "0") { 
+    print "..............................................[FAIL]"
+    for (i=1; i < pd; i++) {
+      if (status[i] !~ /OK/) {
+       printf("DETAILS:\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n","Array",da,"Drive",drive[i],"Size",size[i],"RAID",raid[i],"Status",status[i])
+        }
+      }
+    } else { 
+      print "..............................................[OK]"
+    }
+  } '
+} >> /tmp/hwchk.$$
+
+dellcheck () {
+#
+# Overall chassis check 
+#
+  cgrep -D +I2 +w '</Chassis>' '<Chassis>' $myHWChkCache|sed '1,2d'| awk '
+  BEGIN {
+    FS=";"
+    EC=0
+  }
+  {
+    printf("######%16s:\t[%s]\n",$2,$1)
+  } '
+#
+# DIMM check
+#
+  cgrep -D +I2 +w '</Memory>' '<Memory>' $myHWChkCache|sed 1d| awk -v myCache="$myHWChkCache" '
+  BEGIN {
+    FS=";"
+    EC=0
+    ndimm=1
+  }
+  {
+    if ($1 ~ /Health/) {
+      status=$2
+      if (status !~ /Ok/) {
+        EC=1
+      }
+    }
+    if ($3 ~ /DIMM/ && $4 !~ /Not Occupied/) {
+      dex[ndimm]=$1
+      cstatus[ndimm]=$2
+      name[ndimm]=$3
+      type[ndimm]=$4
+      size[ndimm]=$5
+      if (cstatus[ndimm] !~ /Ok/) {
+        EC=1
+      }
+      ndimm++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######DIMM status.............................................[FAIL]"
+      for (i=1;i < ndimm;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%18s:\t%s\n%18s:\t%s\n%18s:\t%s\n%18s:\t%s\n%18s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Connector name",name[i],"Type",type[i],"Size",size[i])
+          printf("%s",name[i]) > myCache".FRU"
+        }
+      }
+    }
+  } '
+  if [ -f "${myHWChkCache}.FRU" ]
+  then
+    FRU=$(cat ${myHWChkCache}.FRU|sed 's/  *//g')
+    echo "Details for failed DIMM $FRU:"
+    cgrep -D +I2 +w '</FRU>' '<FRU>' $myHWChkCache|sed 1d|awk -v fru="$FRU" '
+      BEGIN {
+        FS=";"
+      }
+      {
+        if ($1 ~ fru) printf("%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n","Device",$1,"Serial No.",$2,"Part No.",$3,"Revision",$4,"Manufacturer",$5,"Manufacture Date",$6)
+      }'
+    rm ${myHWChkCache}.FRU
+  fi
+#
+# Power Supplies
+#
+  cgrep -D +I2 +w '</Power Supplies>' '<Power Supplies>' $myHWChkCache|sed 1d| awk -v myCache="$myHWChkCache" '
+  BEGIN {
+    FS=";"
+    EC=0
+    nps=1
+  }
+  {
+    if ($1 ~ /Redundancy/) {
+      status=$2
+      if (status !~ /Full/) {
+        EC=1
+      }
+    }
+    if ($7 ~ /Presence Detected/) {
+      dex[nps]=$1
+      cstatus[nps]=$2
+      name[nps]=$3
+      type[nps]=$4
+      sizei[nps]=$5
+      sizeo[nps]=$6
+      online[nps]=$7
+      pm[nps]=$8
+      if (cstatus[nps] !~ /Ok/) {
+        EC=1
+      }
+      nps++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Power Supply status.....................................[FAIL]"
+      for (i=1;i < nps;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Location",substr(name[i],1,4),"Type",type[i],"Input Wattage",sizei[i],"Output Wattage",sizeo[i],"Online Status",online[i],"Monitoring Capability",pm[i])
+          printf("%s",substr(name[i],1,4)) > myCache".FRU"
+        }
+      }
+    }
+  } '
+  if [ -f "${myHWChkCache}.FRU" ]
+  then
+    FRU=$(cat ${myHWChkCache}.FRU)
+    echo "Details for failed Power Supply $FRU:"
+    cgrep -D +I2 +w '</FRU>' '<FRU>' $myHWChkCache|sed 1d|awk -v fru="$FRU" '
+      BEGIN {
+        FS=";"
+      }
+      { 
+        if ($1 ~ fru) printf("%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n%18s\t%s\n","Device",$1,"Serial No.",$2,"Part No.",$3,"Revision",$4,"Manufacturer",$5,"Manufacture Date",$6)
+      }'
+    rm ${myHWChkCache}.FRU
+  fi
+#
+# Voltages
+#
+  cgrep -D +I2 +w '</Volts>' '<Volts>' $myHWChkCache|sed 1d| awk -v myCache="$myHWChkCache" '
+  BEGIN {
+    FS=";"
+    EC=0
+    nvolts=1
+  }
+  {
+    if ($1 !~ /Index/) {
+      dex[nvolts]=$1
+      cstatus[nvolts]=$2
+      name[nvolts]=$3
+      value[nvolts]=$4
+      warnmin[nvolts]=$5
+      warnmax[nvolts]=$6
+      failmin[nvolts]=$7
+      failmax[nvolts]=$8
+      if (cstatus[nvolts] !~ /Ok/) {
+        EC=1
+      }
+      nvolts++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Voltage status..........................................[FAIL]"
+      for (i=1;i < nvolts;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Location",name[i],"Value",value[i],"Min Warning Threshold",warnmin[i],"Max Warning Threshold",warnmax[i],"Min Failure Threshold",failmin[i],"Max Failure Threshold",failmax[i])
+        }
+      }
+    }
+  } '
+#
+# CPU
+#
+  cgrep -D +I2 +w '</CPU>' '<CPU>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    FS=";"
+    EC=0
+    ncpu=1
+  }
+  {
+    if ($1 ~ /Health/) {
+      status=$2
+      if (status !~ /Ok/) {
+        EC=1
+      }
+      next
+    }
+    if ($1 ~ /Index/) {next}
+    if ($7 ~ /Present/) {
+      dex[ncpu]=$1
+      cstatus[ncpu]=$2
+      name[ncpu]=$3
+      brand[ncpu]=$4
+      version[ncpu]=$5
+      speed[ncpu]=$6
+      state[ncpu]=$7
+      core[ncpu]=$8
+      ncpu++
+    }
+    if ($4 ~ /[Not Occupied]/) {next}
+  }
+  END { 
+    if (EC != "0") {
+      print "######CPU status..............................................[FAIL]"
+      for (i=1;i < ncpu;i++) {
+        if (cstatus[i] !~ /Ok/) {
+        printf("Details:\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Name",name[i],"Brand",brand[i],"Version",version[i],"Speed",speed[i],"State",state[i],"Core(s)",core[i])
+        }
+      }
+    }
+  } '
+
+#
+# Fans
+#
+  cgrep -D +I2 +w '</Fans>' '<Fans>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    FS=";"
+    EC=0
+    nfans=1
+  }
+  {
+    if ($1 ~ /Redundancy/) {
+      status=$2
+      if (status !~ /Full/) {
+        EC=1
+      }
+    }
+    if ($1 ~ /Index/) {next}
+    if ($3 ~ /FAN/) {
+      dex[nfans]=$1
+      cstatus[nfans]=$2
+      name[nfans]=$3
+      speed[nfans]=$4
+      state[nfans]=$7
+      if (cstatus[nfans] !~ /Ok/) {
+        EC=1
+      }
+      nfans++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Fans status.............................................[FAIL]"
+      for (i=1;i < nfans;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n%10s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Probe name",name[i],"RPM",speed[i],"Threshold",state[i])
+        }
+      }
+    }
+  } '
+#
+# Temps
+#
+  cgrep -D +I2 +w '</Temps>' '<Temps>' $myHWChkCache|sed 1d| awk -v myCache="$myHWChkCache" '
+  BEGIN {
+    FS=";"
+    EC=0
+    ntemps=1
+  }
+  {
+    if ($1 !~ /Index/) {
+      dex[ntemps]=$1
+      cstatus[ntemps]=$2
+      name[ntemps]=$3
+      value[ntemps]=$4
+      warnmin[ntemps]=$5
+      warnmax[ntemps]=$6
+      failmin[ntemps]=$7
+      failmax[ntemps]=$8
+      if (cstatus[ntemps] !~ /Ok/) {
+        EC=1
+      }
+      ntemps++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Temperature status......................................[FAIL]"
+      for (i=1;i < ntemps;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n%22s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Location",name[i],"Value",value[i],"Min Warning Threshold",warnmin[i],"Max Warning Threshold",warnmax[i],"Min Failure Threshold",failmin[i],"Max Failure Threshold",failmax[i])
+        }
+      }
+    }
+  } '
+#
+# Drives
+#
+  cgrep -D +I2 +w '</Physical Disk>' '<Physical Disk>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    FS=";"
+    EC=0
+    npd=1
+  }
+  {
+    if ($1 !~ /ID/) {
+      dex[npd]=$1
+      cstatus[npd]=$2
+      name[npd]=$3
+      state[npd]=$4
+      pfailure[npd]=$5
+      progress[npd]=$6
+      bus[npd]=$7
+      media[npd]=$8
+      capacity[npd]=$9
+      raidu[npd]=$10
+      raida[npd]=$11
+      hotspare[npd]=$12
+      vendor[npd]=$13
+      product[npd]=$14
+      rev[npd]=$15
+      serial[npd]=$16
+      speedn[npd]=$17
+      speedc[npd]=$18
+      manud[npd]=$19
+      manuw[npd]=$20
+      manuy[npd]=$21
+      sasaddr[npd]=$22
+      if (cstatus[npd] !~ /Ok/ || pfailure[npd] !~ /No/) {
+        EC=1
+      }
+      npd++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Physical Drive status...................................[FAIL]"
+      for (i=1;i < npd;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Name",name[i],"State",state[i],"Failure Predicted",pfailure[i],"Progress",progress[i],"Bus Protocol",bus[i],"Media",media[i],"Capacity",capacity[i],"Used RAID Disk Space",raidu[i],"Available RAID Disk Space",raida[i],"Hot Spare",hotspare[i],"Vendor ID",vendor[i],"Product ID",product[i],"Revision",rev[i],"Serial No.",serial[i],"Negotiated Speed",speedn[i],"Capable Speed",speedc[i],"Manufacture Day",manud[i],"Manufacture Week",manuw[i],"Manufacture Year",manuy[i],"SAS Address",sasaddr[i])
+        }
+      }
+    }
+  } '
+#
+# Arrays
+#
+  cgrep -D +I2 +w '</Logical Disk>' '<Logical Disk>' $myHWChkCache|sed 1d| awk '
+  BEGIN {
+    FS=";"
+    EC=0
+    nld=1
+  }
+  {
+    if ($1 !~ /ID/) {
+      dex[nld]=$1
+      cstatus[nld]=$2
+      name[nld]=$3
+      state[nld]=$4
+      hotsparev[nld]=$5
+      progress[nld]=$6
+      layout[nld]=$7
+      size[nld]=$8
+      devname[nld]=$9
+      bus[nld]=$10
+      media[nld]=$11
+      policyr[nld]=$12
+      policyw[nld]=$13
+      policyc[nld]=$14
+      ssize[nld]=$15
+      policydc[nld]=$16
+      if (cstatus[nld] !~ /Ok/ || state[nld] !~ /Ready/) {
+        EC=1
+      }
+      nld++
+    }
+  }
+  END { 
+    if (EC != "0") {
+      print "######Logical Drive status....................................[FAIL]"
+      for (i=1;i < nld;i++) {
+        if (cstatus[i] !~ /Ok/) {
+          printf("Details:\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n%26s:\t%s\n","Index",dex[i],"Status",cstatus[i],"Name",name[i],"State",state[i],"HotSpare Policy violated",hotsparev[i],"Progress",progress[i],"Layout",layout[i],"Size",size[i],"Device Name",devname[i],"Bus Protocol",bus[i],"Media",media[i],"Read Policy",policyr[i],"Write Policy",policyw[i],"Cache Policy",policyc[i],"Stripe Element Size",ssize[i],"Disk Cache Policy",policydc[i])
+        }
+      }
+    }
+  } '
+} >> /tmp/hwchk.$$
+
+#######
+###MAIN
+#######
+
+HWChk=/home/osg/hwchk
+HWChkCl=/tmp/hwchk/output
+HWChkCache=/home/osg/hwchk/hwchk-cache
+HWChkRev="0.3"
+force="0"
+
+#
+# Sanity tests
+#
+if [ $(whoami) != "root" ]
+then
+  echo "You need to be root."
+  exit 1
+fi
+
+if (( $# == 0 ))
+then
+  echo "USAGE: $(basename $0) -h hostname [-f]"
+  exit 1
+else
+ while getopts mfh: i 2>/dev/null
+  do
+    case $i in
+    m)     mail="1"         ;;
+    h)     host="${OPTARG}"         ;;
+    f)     force="1"        ;;
+    \?)    echo "USAGE: $(basename $0) -h hostname [-f]"
+      exit 2          ;;
+    esac
+  done
+  shift `expr $OPTIND - 1`
+  myHWChkCache=${HWChkCache}/${host%%-*}
+fi
+
+if ( ! which cgrep >/dev/null 2>&1 )
+then
+  echo "AT&T Exptools \"cgrep\" is required for execution of this script, but not found."
+  echo "Please fetch and build it from:"
+  echo "http://www.bell-labs.com/project/wwexptools/cgrep/"
+  exit 1
+fi
+
+#
+# short-circuit sun hardware tests (for now)
+#
+if ( box -c ${host%%-*}|awk '{print $3}'|grep -iq Sun )
+then
+  echo "No hardware tests for Solaris (yet)"
+  exit 1
+fi
+
+#
+# short-circuit hardware tests for non-existant box
+#
+if ( ! box ${host%%-*} >/dev/null 2>&1 )
+then
+  echo "No box found! ($host)"
+  exit 1
+fi
+
+#
+# short-circuit hardware tests for non-pingable box
+#
+if ( ! nc -vz -w1 $host 22 >/dev/null 2>&1 )
+then
+  echo "Can't ping $host!"
+  exit 1
+fi
+
+#
+# Test to see if we're checking a prod box and in RTH
+#
+benv=$(box -t ${host%%-*}|awk -F, '{print $5}')
+case $benv in
+cert|cert-beta|dr|prod)
+  dow=$(date +%u)
+  hod=$(date +%k)
+  if (($dow < 6)) && (($hod < 17)) && [ "$force" != "1" ]
+  then
+    echo "This script can only be run outside of RTH on prod-class servers"
+    exit 1
+  fi
+  ;;
+"")
+  echo "No box found! ($host)"
+  exit 1
+  ;;
+*)
+  true
+  ;;
+esac
+
+#
+# Look for an existing cache file that is fairly new*
+# 
+# * "fairly new" == less than $numSecs seconds old.
+#   (1 hour (3600 secs) by default)
+#
+#numSecs=3600 
+numSecs=60 
+
+#if [ -f $myHWChkCache ] 
+#then
+  ##
+  ## This checks to see if the cache file is > $numSecs old
+  ##
+  #oldFile=$(ls -l --time-style +%s $myHWChkCache|awk -v numSecs=$numSecs '{if ((systime() - $6) > numSecs) {printf"%s\n",(systime() - $6)}}')
+  #if [ "$oldFile" != "" ]
+  #then
+    #runHWChk-cl
+  #fi
+#else
+  runHWChk-cl
+#fi
+
+
+echo "######## Begin Hardware Report - $host ########" >> /tmp/hwchk.$$
+
+if ( box ${host%%-*}|awk '{print $6}'|grep -q HP )
+then
+  hpcheck
+elif ( box ${host%%-*}|awk '{print $6}'|grep -q Dell )
+then
+  dellcheck
+else
+  echo "$host isn't an HP or Dell server."
+  exit 1
+fi
+echo "######## End Hardware Report - $host ########" >> /tmp/hwchk.$$
+
+if (( "$mail" ))
+then
+  cat /tmp/hwchk.$$|mail -s "hwchk output for $host" server_requests@cmegroup.com
+fi
+cat /tmp/hwchk.$$
+rm -f /tmp/hwchk.$$

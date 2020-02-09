@@ -1,0 +1,6 @@
+for i in `ls *.jpg`
+do
+  NUM=`echo $i|sed 's/mvc-//'|sed 's/x.jpg//'|sed 's/00//'|sed 's/^0//'`
+  T=$((NUM + 16))
+  mv $i $HOME/public_html/Photo_Album/house/naperville/construction/siding/whoops_0${T}.jpg
+done

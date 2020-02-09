@@ -1,0 +1,82 @@
+#!/bin/ksh
+if [ $# -ne 3 ]
+then
+	echo "USAGE:$0 -f first_dir -s second_dir -o dup_out"
+	echo
+	echo "This will diff all files found in both directories,"
+	echo "write the results to a file in the dup_out directory,"
+	echo "give you the chance to examine the diff file, then"
+	echo "ask you if you want the file in first_dir removed."
+	echo
+	echo "NOTICE: you should make a wise choice for first_dir!"
+	echo
+	/bin/echo -n "First dir -> "
+	read FIRST
+	/bin/echo -n "Second dir -> "
+	read SECOND
+	/bin/echo -n "Dup out dir -> "
+	read OUT
+else
+	set -- `getopt f:s:o: $*`
+	if [ $? != 0 ]
+	then
+		echo "USAGE:$0 -f first_dir -s second_dir -o dup_out"
+		echo
+		echo "This will diff all files found in both directories"
+		echo "and write the results to a file in the dup_out directory"
+		echo
+        	exit 2
+	fi
+
+	for i in $*
+	do
+		case $i in
+		-f)	FIRST="$2"; shift 2;;
+		-s)	SECOND="$2";shift 2;;
+		-o)	OUT="$2"; shift 2;;
+		esac
+	done
+fi
+if [ -d $OUT ]
+then
+	touch $OUT/fubar >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		echo "ERROR:$0:Can't write to ${OUT}"
+		exit 1
+	else
+		rm $OUT/fubar
+	fi
+else
+	mkdir $OUT >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		echo "ERROR:$0:can't mkdir $OUT"
+		exit 1
+	fi
+fi
+for i in `find $FIRST -type f -print`
+do
+	FILE=`basename $i`
+	if [ -f $SECOND/$FILE ]
+	then
+		echo "diffing $FILE"
+		echo "$i $SECOND/$FILE">>$OUT/${FILE}.diff
+		diff $i $SECOND/$FILE>>$OUT/${FILE}.diff
+		more $OUT/${FILE}.diff
+		/bin/echo -n "Get rid of ${FIRST}/${FILE} -> [Y|n] "
+		read BLASTIT
+		case $BLASTIT in
+		""|Y*|y*)	rm ${FIRST}/${FILE} > /dev/null 2>&1
+				if [ $? -ne 0 ]
+				then
+					echo "ERROR:$0:Can't remove ${FILE} from ${FIRST}"
+					exit 1
+				fi
+				;;
+		*)		echo "no removal done"
+				;;
+		esac
+
+	fi
+done

@@ -1,0 +1,224 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 0 0 \
+	-Ws 150 150 \
+	-WP 0 0 \
+	-m 2 zeus 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 175 0 \
+	-Ws 150 150 \
+	-WP 175 0 \
+	-m 2 thor 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 350 0 \
+	-Ws 150 150 \
+	-WP 350 0 \
+	-m 2 orion 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 525 0 \
+	-Ws 150 150 \
+	-WP 525 0 \
+	-m 2 camelot 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 700 0 \
+	-Ws 150 150 \
+	-WP 700 0 \
+	-m 2 tbsun 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 0 175 \
+	-Ws 150 150 \
+	-WP 0 175 \
+	-m 2 hercules 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 175 175 \
+	-Ws 150 150 \
+	-WP 175 175 \
+	-m 2 raven 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 350 175 \
+	-Ws 150 150 \
+	-WP 350 175 \
+	-m 2 yooper 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 525 175 \
+	-Ws 150 150 \
+	-WP 525 175 \
+	-m 2 trooper 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 700 175 \
+	-Ws 150 150 \
+	-WP 700 175 \
+	-m 2 chaos 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 875 175 \
+	-Ws 150 150 \
+	-WP 875 175 \
+	-m 2 tbsun2 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 0 350 \
+	-Ws 150 150 \
+	-WP 0 350 \
+	-m 2 bootes 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 175 350 \
+	-Ws 150 150 \
+	-WP 175 350 \
+	-m 2 cetus 
+toolwait perfmeter \
+	+Wi \
+	-t cpu \
+	-M cpu 100 100 100 \
+	-g \
+	-L \
+	-V \
+	-Wn \
+	-s 2 \
+	-h 20 \
+	-Wp 350 350 \
+	-Ws 150 150 \
+	-WP 350 350 \
+	-m 2 zod 
+toolwait xterm -geometry 48X35+525+340 -e printmon -r
+toolwait xterm -geometry 48X35+583+340 -e cpupegmon

@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# This little thing takes the magic out of updating the ypservers map...
+#
+if [ "$MACH_ID" != "yooper" ]
+then
+	echo "This has to be run on yooper"
+	exit 1
+fi
+cd /var/yp/`domainname`
+/usr/etc/yp/makedbm -u ypservers > /etc/security/ypservers
+vi /etc/security/ypservers
+/bin/echo -n "Make the ypservers map? [Y|n]
+"
+read DOIT
+case $DOIT in
+""|y*|Y*)
+		cd /var/yp
+		/usr/etc/yp/makedbm /etc/security/ypservers ypservers
+;;
+*)
+		echo "No make done, exiting with no change."
+		exit 0
+;;
+esac
+exit 0

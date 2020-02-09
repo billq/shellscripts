@@ -1,0 +1,99 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+JUST_DO_IT () {
+for MEMBER in `ls`
+do
+  if [ -d $MEMBER ]
+  then
+    LS="ls -ld"
+  else
+    LS="ls -l"
+  fi
+  $LS $MEMBER
+  /bin/echo -n "Change permisions, delete, or no action? [p|d|n] "
+  read CHANGE
+  case $CHANGE in
+  P|p)
+    /bin/echo -n "
+    New permissions -> "
+    read PERMS
+    chmod $PERMS $MEMBER
+    if [ -d $MEMBER ]
+    then
+      NEW_SUBDIRS="$MEMBER $NEW_SUBDIRS"
+    fi
+  ;;
+  D|d)
+    rm -ir $MEMBER
+  ;;
+  *)
+    echo "Nothing done to $MEMBER"
+    if [ -d $MEMBER ]
+    then
+      NEW_SUBDIRS="$MEMBER $NEW_SUBDIRS"
+    fi
+  ;;
+  esac
+done
+}
+/bin/echo -n "
+$0 is a utility to aid in the maintenance of your filesystem.
+Usage is interactive.  You will traverse down your filesystem
+heirarchy, being prompted for each directory or file if you
+want to change permissions (p), delete (d) or take no action (n).
+If you elect to change permissions, you will be prompted for
+the new permissions of the file.  If you choose to delete, you
+will be prompted for confirmation.
+
+Hit return to continue, or interrupt to quit.  You may also
+interrupt at any time in the process.
+
+	-> "
+read GO
+SUBDIRS="."
+while [ "$SUBDIRS" != "none" ]
+do
+  for DIR in $SUBDIRS
+  do
+    OPWD=$PWD
+    cd $DIR
+    clear
+    echo "Now working in $PWD"
+    ls -FC
+    JUST_DO_IT
+    case $NEW_SUBDIRS in
+    "")
+      SUBDIRS="none"
+      cd $OPWD
+      break
+    ;;
+    *)
+      SUBDIRS=$NEW_SUBDIRS
+    ;;
+    esac
+  done
+done

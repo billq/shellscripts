@@ -1,0 +1,19 @@
+#!/bin/ksh
+NOTICE=/usr/add-on/adm/lib/unread.mail
+HOSTNAME=`/bin/hostname`
+if [ $# -lt 1 ]
+then
+	echo "USAGE:mailchk date
+	where date is the target date for unread mail"
+	exit 1
+fi
+cd /var/spool/mail
+for i in `ls -l |grep $1|awk '{print $8}'`
+do
+	post -w `grep $i /etc/passwd | cut -f5 -d: | sed 's/5....-//'|sed 's/(.*//'|sed 's/\.[A-Z]\.$/\./'|awk -F, '{print $2 $1}'`|grep 55|grep "ih "|grep "55[4,8]"|sed 's/  */ /g'|awk '{print $8,$9}'|sed 's/[0-9][0-9]* //'>/tmp/USER.mailchk
+	USER=`cat /tmp/USER.mailchk`
+	echo "$USER is being notified of unread mail"
+	cat $NOTICE|sed 's/LOGIN/'$i'/'>/tmp/NOTICE.mailchk
+	Mail -s "Unread mail on $HOSTNAME" $USER < /tmp/NOTICE.mailchk
+done
+rm /tmp/USER.mailchk /tmp/NOTICE.mailchk

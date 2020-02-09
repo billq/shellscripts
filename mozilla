@@ -1,0 +1,10 @@
+#!/bin/ksh
+. /etc/profile >/dev/null 2>&1
+. $HOME/.profile >/dev/null 2>&1
+if [[ -f /opt/csw/mozilla/mozilla ]] 
+then 
+ cd /opt/csw/mozilla
+ ./mozilla
+else
+ netscape
+fi

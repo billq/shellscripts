@@ -1,0 +1,577 @@
+#!/home/osg/bin/ksh
+# @(#)rosetta         2.1 (CME) 05/16/03
+################################################################################
+#                   @(#)Copyright (c) 2002 CME                                 #
+#                        All Rights Reserved                                   #
+################################################################################
+#
+#
+# Figure out why we are - based on hostname. This is the CME UNIX Server Rosetta
+# Stone in three case statements.
+#
+################################################################################
+#   Date   # Who # What
+################################################################################
+# 05/16/03 # WRQ # Updated with new server types and primary/secondary
+#          #     # (where possible)  
+#----------#-----#--------------------------------------------------------------
+# 06/06/03 # WRQ # Updated with new server types (again). Improved logic to 
+#          #     # find conforming name first.
+#----------#-----#--------------------------------------------------------------
+# 09/02/03 # WRQ # Still more new server types. Also added more comments so
+#          #     # I can follow my logic:-) Also added logic to compare
+#          #     # supplied RFB with result and exit with appropriate return
+#          #     # code.
+#----------#-----#--------------------------------------------------------------
+# 11/06/03 # WRQ # Added more server types. Again.
+#----------#-----#--------------------------------------------------------------
+# # #
+################################################################################
+################################################################################
+#
+#                       CME UNIX server naming rules:
+#
+################################################################################
+################################################################################
+#
+#  1) The strings "pr" "qa" "ce" "ad" and "dv" are reserved as USAGE strings.
+#  2) The USAGE string must be the third and fourth, fourth and fifth, or the
+#     first two characters in the hostname.
+#  3) If the USAGE is NOT the first two characters in the hostname, this will be
+#     either a two or three character PRODUCT.
+#  4) Immediately following the USAGE is a two or three character PURPOSE
+#     string.
+#  5) Immediately following the PURPOSE string is a one or two numeric INSTANCE
+#     number.
+#  6) All NON-Wacker servers have a two digit INSTANCE followed by a single
+#     character LOCATION IDENTIFIER.
+#
+#
+#  If you are naming a new server, run it through this script.  If the script
+#  returns the wrong description, you are not naming the server correctly. If
+#  the script returns no description for the PURPOSE or PRODUCT, you should
+#  send the maintainer of the script the information so that it may be updated.
+#
+#
+################################################################################
+################################################################################
+
+if [ $# -lt 1 ]
+then
+  echo "USAGE: rosetta 'servername' ['RFB guess']"
+  echo "rosetta decodes the servername into what the server does"
+elif [ $# -eq 1 ]
+then
+  ME=$1
+else
+  ME=$1
+  shift
+  MY_RFB=$*
+fi
+#
+# First take any -suffix, lop off the dash and save the rest.  It should
+# be either "old" or "new".  We'll attach this at the end as a modifier.
+#
+echo $ME|egrep -s '-'
+if [ $? -eq 0 ]
+then
+  PREFIX=${ME#*-}
+  ME=${ME%-*}
+fi
+#
+# ------USAGE determination-----
+#
+# First, figure out if we're admin, dev, qa, cert, or production. This can be
+# the first two characters, the third and fourth, or the fourth and fifth.
+#
+# It's most commonly the third and fourth:
+#
+case ${ME:2:2} in
+pr)
+  USE="Prod"
+  PURPOSE=${ME#*pr}
+  PRODUCT=${ME%pr*}
+  PRODUCT=${PRODUCT%pr*}
+;;
+ce)
+  USE="Cert"
+  PURPOSE=${ME#*ce}
+  PRODUCT=${ME%ce*}
+  PRODUCT=${PRODUCT%ce*}
+;;
+qa)
+  USE="QA"
+  PURPOSE=${ME#*qa}
+  PRODUCT=${ME%qa*}
+  PRODUCT=${PRODUCT%qa*}
+;;
+dv)
+  USE="Dev"
+  PURPOSE=${ME#*dv}
+  PRODUCT=${ME%dv*}
+  PRODUCT=${PRODUCT%dv*}
+;;
+ad)
+  USE="Admin"
+  PURPOSE=${ME#*adm}
+  PRODUCT=${ME%adm*}
+  PRODUCT=${PRODUCT%adm*}
+;;
+*)
+  #
+  # O.K. It wasn't the third and fourth.  Check the fourth and fifth...
+  #
+  case ${ME:3:2} in
+  pr)
+    USE="Prod"
+    PURPOSE=${ME#*pr}
+    PRODUCT=${ME%pr*}
+    PRODUCT=${PRODUCT%pr*}
+  ;;
+  ce)
+    USE="Cert"
+    PURPOSE=${ME#*ce}
+    PRODUCT=${ME%ce*}
+    PRODUCT=${PRODUCT%ce*}
+  ;;
+  qa)
+    USE="QA"
+    PURPOSE=${ME#*qa}
+    PRODUCT=${ME%qa*}
+    PRODUCT=${PRODUCT%qa*}
+  ;;
+  qp)
+    USE="QA"
+    PURPOSE=${ME#*qp}
+    PRODUCT=${ME%qp*}
+    PRODUCT=${PRODUCT%qp*}
+  ;;
+  dv)
+    USE="Dev"
+    PURPOSE=${ME#*dv}
+    PRODUCT=${ME%dv*}
+    PRODUCT=${PRODUCT%dv*}
+  ;;
+  ad)
+    USE="Admin"
+    PURPOSE=${ME#*adm}
+    PRODUCT=${ME%adm*}
+    PRODUCT=${PRODUCT%adm*}
+  ;;
+  np|nb|sp|sb)
+    USE="Old"
+    PURPOSE=${ME#*${ME:3:2}}
+    PRODUCT=${ME%${ME:3:2}*}
+    PRODUCT=${PRODUCT%*${ME:3:2}*}
+  ;;
+  *)
+    #
+    # O.K. It wasn't the fouth and fifth, either.
+    # Maybe it's the first two?
+    #
+    case ${ME:0:2} in
+    pr)
+      USE="Prod"
+      PURPOSE=${ME#*pr}
+      PRODUCT=${ME%pr*}
+      PRODUCT=${PRODUCT%pr*}
+    ;;
+    ce)
+      USE="Cert"
+      PURPOSE=${ME#*ce}
+      PRODUCT=${ME%ce*}
+      PRODUCT=${PRODUCT%ce*}
+    ;;
+    qa)
+      USE="QA"
+      PURPOSE=${ME#*qa}
+      PRODUCT=${ME%qa*}
+      PRODUCT=${PRODUCT%qa*}
+    ;;
+    dv)
+      USE="Dev"
+      PURPOSE=${ME#*dv}
+      PRODUCT=${ME%dv*}
+      PRODUCT=${PRODUCT%dv*}
+    ;;
+    ad)
+      USE="Admin"
+      PURPOSE=${ME#*adm}
+      PRODUCT=${ME%adm*}
+      PRODUCT=${PRODUCT%adm*}
+    ;;
+    esac
+  ;;
+  esac
+  #
+  # These oddballs don't conform.  Why can't we all just get along?
+  #
+  case ${ME:0:3} in
+  ccv)
+        USE="Clearcase"
+	PURPOSE=${ME#cc}
+  ;;
+  boa)
+        USE="Admin server"
+	PURPOSE=""
+  ;;
+  cme)
+        USE="CME Operations"
+	PURPOSE="ws"
+  ;;
+  isg)
+        USE="Internet Solutions Group"
+	PURPOSE="ws"
+  ;;
+  lab)
+        USE="DC Lab"
+	PURPOSE="lab"
+  ;;
+  tng|uni)
+        PRODUCT="tng"
+	USE="Prod"
+        PURPOSE=${ME#*pr}
+  ;;
+  esac
+;;
+esac
+#
+# This is my first cut at figuring out lane and primary/secondary
+#
+INSTANCE=`echo $PURPOSE|sed 's/[a-z][a-z]*//g'`
+#
+# All we're left with is a number
+#
+LANE=${INSTANCE%[0-9]}
+#
+# This is the first digit of the number. For I-Link, it's the lane.
+#
+PS=${INSTANCE#[0-9]}
+#
+# This is the last digit of the number.  It MAY (should) indicate
+# primary/secondary.
+case $PS in
+0|2|4|6|8) PS=Secondary	;;
+1|3|5|7|9) PS=Primary	;;
+esac
+#
+# Now figure out which project we're related to.
+PURPOSE=`echo $PURPOSE|sed 's/[0-9][0-9].*//'`
+PURPOSE=`echo $PURPOSE|sed 's/[0-9][0-9]*//'`
+case $PRODUCT in
+ap|apf|ape|fap|eap)	PRODUCT="Application"	;;
+bb)	PRODUCT="Big Brother"	;;
+bt)	PRODUCT="Broker Trading"	;;
+bts)	PRODUCT="Broker Trading"	;;
+c2)	PRODUCT="Cubs 2"	;;
+cb)	PRODUCT="CBOT"	;;
+cf)	PRODUCT="Cold Fusion"	;;
+cl)	PRODUCT="Clearing"	;;
+cp|clp)	PRODUCT="Clearing Performance"	;;
+ci|cli)	PRODUCT="Clearing Integration"	;;
+db)	PRODUCT="Generic Database"	;;
+ds)	PRODUCT="Display System"	;;
+ec)	PRODUCT="E-Commerce"	;;
+eq)	PRODUCT="E-Quotes"	;;
+ets)	PRODUCT="Electronic Trading Systems"	;;
+ex)	PRODUCT="Fixexpress"	;;
+fc)	PRODUCT="Front-end Clearing"	;;
+fs)	PRODUCT="Firmsoft"	;;
+fx)	PRODUCT="Fix 2.3"	;;
+gb)	PRODUCT="Globex"	;;
+gi)	PRODUCT="Globex Interface"	
+        STATUS="Deprecated"	;;
+gx)	PRODUCT="Galax-c"	;;
+hh)	PRODUCT="Handheld"
+        STATUS="Deprecated"		;;
+hp)	PRODUCT="Hip Hop"	;;
+il)	if [ -z "$LANE" ]
+        then
+          PRODUCT="I-Link"
+        else
+          PRODUCT="I-Link Lane $LANE"
+        fi	;;
+it)	PRODUCT="ITOPS"	;;
+ma)	PRODUCT="Management"	;;
+mc)	PRODUCT="Mercator"	;;
+md)	PRODUCT="Market Data"	;;
+mr)	PRODUCT="Raptor"	;;
+mo)	PRODUCT="Monarch"	;;
+nb|nbs|nbm)	PRODUCT="Netbackup"	;;
+nfs)	PRODUCT="NFS"	;;
+ng)	PRODUCT="NetGenesis"	;;
+nm)	PRODUCT="Net Management"	;;
+ns)	PRODUCT="Naming Services"
+	PURPOSE=""	;;
+ops)	PRODUCT="Operations"	;;
+or|ora)	case $USE in
+	Prod)	PRODUCT="Orapi"	;;
+	Admin)	PRODUCT="Oracle"	;;
+	esac
+	;;
+pa)	PRODUCT="ETPA"	;;
+pw)	PRODUCT="Public Web"	;;
+qt)	PRODUCT="Quotes"	;;
+rc)	PRODUCT="Regulatory Clearing"	;;
+rg)	PRODUCT="Regulatory"	;;
+rw)	PRODUCT="Report Warehouse"	;;
+sa)	PRODUCT="Swift Alliance"	;;
+san)	PRODUCT="SAN" ;;
+sc)	PRODUCT="SCORE" ;;
+sle)	PRODUCT=""
+	PURPOSE="SLE"	;;
+slc)	PRODUCT=""
+	PURPOSE="SLC"	;;
+spi)	PRODUCT=""
+	PURPOSE="SPI"	;;
+ssf)	PRODUCT="Single Stock Futures"	;;
+te)	PRODUCT="True Exchange" ;;
+tng)	PRODUCT="CA TNG"	;;
+tv)	PRODUCT="cctv"	;;
+wb)	PRODUCT="Wallboard"	;;
+wq)	PRODUCT="Web Quotes" ;;
+xdf)	PRODUCT=""
+	PURPOSE="XDF"	;;
+*)	PRODUCT=""	;;
+esac
+#
+# Third and final component of a name is what function we provide.
+#
+#echo "PRODUCT=$PRODUCT"
+#echo "PURPOSE=$PURPOSE"
+#echo "INSTANCE=$INSTANCE"
+#echo "LANE=$LANE"
+#echo "PS=$PS"
+case $PURPOSE in
+ap|apf|ape|fap|eap)	case $PRODUCT in
+        "Hip Hop")
+            PRODUCT=""
+            case $INSTANCE in
+            0[1-8]) PURPOSE="HIP TMPC server" ;;
+            09|1*) PURPOSE="HOP TMPC server" ;;
+            *) PURPOSE="HIP HOP Application server" ;;
+            esac
+            ;;
+	"I-Link") PURPOSE="OES/OMA Server"	;;
+        *) PURPOSE="Application server" ;;
+        esac
+	HASTIB="1"	;;
+bts)	PURPOSE="Broker Trading System"
+	HASTIB="0"	;;
+bl)	PURPOSE="BladeLogic"
+	HASTIB="0"	;;
+cm)	case $PRODUCT in
+        "Market Data") PURPOSE="Comms server"	;;
+        *) PURPOSE="Comms server"	;;
+	esac
+	HASTIB="1"	;;
+cs)	PURPOSE="Core Switch"
+	HASTIB="0"	;;
+ct)	PURPOSE="Controller"
+	HASTIB="1"	;;
+db)	PURPOSE="Generic Database"
+	HASTIB="0"	;;
+efs)	PURPOSE="Exchange Fee System"
+	HASTIB="0"	;;
+etrs)	PURPOSE="Electronic Tradeposter Reference Server"
+	HASTIB="0"	;;
+es)	PURPOSE="Edge Switch"
+	HASTIB="0"	;;
+fh)	PURPOSE="Feed Handler"
+	HASTIB="1"	;;
+fg)	PURPOSE="FIX Gateway (COOL P2)"
+	HASTIB="1"	;;
+ftp)	PURPOSE="FTP"
+	HASTIB="0"	;;
+fs)	PURPOSE="File Server"
+	HASTIB="0"	;;
+gw)	PURPOSE="Gateway Server"
+	HASTIB="1"	;;
+hc)	PURPOSE="Hosted Comm Server $PS"
+	HASTIB="0"	;;
+hd)	PURPOSE="History Database $PS"
+	HASTIB="0"	;;
+hp)	PURPOSE="Hop Gateway"
+	HASTIB="0"	;;
+ig)	PURPOSE="Gateway $PS"
+	HASTIB="0"	;;
+iv)	PURPOSE="IT Verify"
+	HASTIB="0"	;;
+ko)	PURPOSE="Kill Order server"
+	HASTIB="1"	;;
+hr)	PURPOSE="Reject Server $PS"
+	HASTIB="0"	;;
+lab)	PURPOSE="server"
+	HASTIB="0"	;;
+ldap)	PURPOSE="LDAP server"
+	HASTIB="0"	;;
+log)	PURPOSE="LOG server $PS"
+	HASTIB="0"	;;
+ls)	PURPOSE="Login Server $PS"
+	HASTIB="0"	;;
+ma)	PURPOSE="MindAlign Server"
+	HASTIB="0"	;;
+md)	PURPOSE="Media Server"
+	HASTIB="0"	;;
+mon)	PURPOSE="Monitoring Server"
+	HASTIB="0"	;;
+mg)	PURPOSE="MDAPI Gateway $PS"
+	HASTIB="1"	;;
+mpss)	PURPOSE="Message Persistance Store Server"
+	HASTIB="0"	;;
+ms)	PURPOSE="Master Server"
+	HASTIB="0"	;;
+nfs)	PURPOSE="NFS Server $PS"
+        HASTIB="0"	;;
+nt|st)	PURPOSE="tower server"
+        HASTIB="0"	;;
+oe|oes)	PURPOSE="Order Entry server $PS"
+	HASTIB="1"	;;
+om)	PURPOSE="Order Manager database $PS"
+	HASTIB="0"	;;
+oma)	PURPOSE="Order Manager Adapter"
+	HASTIB="0"	;;
+osa)	PURPOSE="Order Store Adapter"
+	HASTIB="0"	;;
+os)	PURPOSE="Order Store"
+	HASTIB="0"	;;
+prs)	PURPOSE="Price Reporting Server $PS"
+	HASTIB="1"	;;
+rd)	PURPOSE="Receive & Disseminate"
+	HASTIB="0"	;;
+rs)	PURPOSE="Reference Server"
+	HASTIB="0"	;;
+rtr)	PURPOSE="Router $PS"
+	HASTIB="1"	;;
+sd)	PURPOSE="Streaming Data"
+	HASTIB="0"	;;
+ss)	PURPOSE="Store Server $PS"
+	HASTIB="1"	;;
+sv)	PURPOSE="Serve Server $PS"
+	HASTIB="1"	;;
+su|sue)	PURPOSE="Single User Entitlement server $PS"
+	HASTIB="0"	;;
+tand)	PURPOSE="Tandem server"
+        HASTIB="0"	;;
+tf)	PURPOSE="Trading Floor server"
+        HASTIB="0"	;;
+tifh)	PURPOSE="TIPS Feed Handler"
+	HASTIB="0"	;;
+tips)	PURPOSE="TIPS server"
+	HASTIB="0"	;;
+tmpc)	PURPOSE="TMPC server"
+	HASTIB="1"	;;
+tp)	PURPOSE="Trade Poster"
+	HASTIB="0"	;;
+view)	PURPOSE="View server"
+	HASTIB="0"	;;
+vob)	PURPOSE="VOB server"
+	HASTIB="0"	;;
+web)	PURPOSE="WEB server $PS"
+	HASTIB="0"	;;
+ws)	PURPOSE="workstation"
+	HASTIB="0"	;;
+SLE)	PURPOSE="Globex SLE"
+	HASTIB="1"	;;
+SLC)	PURPOSE="Globex SLC"
+	HASTIB="0"	;;
+SPI)	PURPOSE="Globex SPI"
+	HASTIB="0"	;;
+XDF|xdf)	PURPOSE="Globex XDF $PS"
+	HASTIB="0"	;;
+xa)	PURPOSE="XDF Adapter $PS"
+	HASTIB="1"	;;
+*)	PURPOSE=""
+	HASTIB="0"	;;
+esac
+
+RFB="$PRODUCT $USE $PURPOSE"
+
+#
+# This is the ugly catch-all non-conforming section.
+#
+# Add additional sections as needed.
+#
+if [ "$RFB" = "  " ]
+then
+
+#
+# Jumpstart server.
+#
+  echo $ME|egrep -s "(jump|js|mobile|dolly|prometea)"
+  if [ $? -eq 0 ]
+  then
+    RFB="Jumpstart server"
+  fi
+
+#
+# ORAPI server.
+#
+  echo $ME|egrep -s "(moby|orca)"
+  if [ $? -eq 0 ]
+  then
+    RFB="ORAPI server"
+  fi
+
+#
+# Old servers.
+#
+  echo $ME|egrep -s "(cobra|python|whale)"
+  if [ $? -eq 0 ]
+  then
+    RFB="Old and moldy server"
+  fi
+
+#
+# Web server.
+#
+  echo $ME|egrep -s "dcweb"
+  if [ $? -eq 0 ]
+  then
+    RFB="DC Web server"
+  fi
+
+#
+# End of ugly catch-all section.
+#
+
+fi
+
+#
+# Still unknown
+#
+if [ "$RFB" = "  " ]
+then
+    RFB="workstation (?)"
+fi
+
+#
+# Now we tack on any prefix or suffix identified above.
+#
+if [ -n "$PREFIX" ]
+then
+  RFB="$PREFIX $RFB"
+elif [ -n "$STATUS" ]
+then
+  RFB="$RFB ($STATUS)"
+fi
+
+
+#
+# If we supplied a guess at what the server is supposed to be, we test and
+# exit quietly.
+# 
+if [ -n "$MY_RFB" ]
+then
+  echo "$RFB"|egrep -s -i "$MY_RFB"
+  if [ $? -eq 0 ]
+  then
+    exit 0
+  else
+    exit 1
+  fi
+else
+  echo $RFB
+fi
+
+# RIP

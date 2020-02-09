@@ -1,0 +1,4 @@
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1prod -e rlogin db1prod -l root &
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2qa -e rlogin db2qa -l root &
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2prod -e rlogin db2prod -l root &
+/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1qa -e rlogin db1qa -l root &

@@ -1,0 +1,300 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 2000 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#               
+# addlogin - adds a login to the UNIX system
+#               
+################################################################################
+[[ -f "/home/osg/cfg/osg_env" ]] && {
+. /home/osg/cfg/osg_env
+} || {
+echo "We need the osg_env file to run this script!"
+exit 1
+}
+
+MASTER="python"
+HOME_SERVERS="apdv1"
+TEMPLATES="/var/adm/lib/samples"
+EXPORT_HOME="/export/home"
+PASSWD_FILE="/var/yp/src/passwd"
+SHADOW_FILE="/var/yp/src/shadow"
+GROUP_FILE="/var/yp/src/group"
+AUTO_HOME="/var/yp/src/auto_home"
+ERR="ERROR:$0:"
+EDITOR=${EDITOR:-vi}
+UNAME=`/bin/hostname`
+OPER=`/usr/ucb/whoami`
+###########
+## Make sure root is running this on the master
+###########
+if [ "$UNAME" != "$MASTER" ] || [ "$OPER" != "root" ]
+then
+	echo $ERR"Not logged in as root to $MASTER"
+	exit 1
+fi
+###########
+## Start here
+###########
+ANOTHER="yes"
+while [ "$ANOTHER" = "yes" ]; do
+	echo
+############
+## The following lines may be uncommented when more than one HOME server is in use
+############
+#	echo "
+#
+#Enter the home machine for the user:
+#($HOME_SERVERS) :\c"
+#	read MACHNAME
+#	if [ "`echo $HOME_SERVERS|grep $MACHNAME`" = "" ]
+#	then
+#		echo "
+#
+#Bad machine name, $MACHNAME, please restart."
+#		sleep 2
+#		clear
+#		ANOTHER=yes
+#		continue
+#	fi
+#	echo
+############
+## Comment out the following line if uncommenting above
+############
+MACHNAME=$HOME_SERVERS
+###########
+## Pick a user login
+###########
+	echo "
+Enter the user name: (EX: foo) :\c"
+	read USER_NAME
+	if [ "`ypcat passwd|cut -f1 -d:|fgrep -x $USER_NAME`" != "" ]
+	then 
+		echo "
+
+User name, $USER_NAME, already in use.  Please restart."
+		sleep 2
+		clear
+		ANOTHER=yes
+		continue
+	fi
+###########
+## Setup the GECOS field
+###########
+	for STRING in "Real Name" "Phone Number" #"Manager Name" "Dept" "Office Location"
+	do
+		echo "
+Enter the users $STRING: \c"
+		read "PARAM"
+		GECOS="${PARAM},${GECOS}"
+	done
+###########
+## Get a UID/GID
+###########
+typeset -i UID NEXT_UID
+UID=`ypcat passwd|cut -f3 -d: | sed 's/65534//'|sed 's/^/ /'|sort -n | tail -1`
+	echo "
+The following is the next available uid in this environment:
+"
+NEXT_UID="UID + 1"
+echo $NEXT_UID
+	echo "
+Please chose a uid for $USER_NAME."
+	echo "
+	(Default $NEXT_UID) : \c"
+	read BOGUS
+	case $BOGUS in
+	"")	UID=$NEXT_UID
+		;;
+	*)	UID=$BOGUS
+		;;
+	esac
+
+###########
+## Get a HOME directory
+###########
+############
+## The following lines may be uncommented when more complicated HOME filesystem(s) are in use
+############
+#	echo "
+#Enter the HOME DIRECTORY path for the user: (EX: /home/admin/foo) :\c"
+#	read DIRNAME
+#	echo
+############
+## Comment out the following line if uncommenting above
+############
+DIRNAME=/home/${USER_NAME}
+############
+## Test to make sure that we can create $DIRNAME
+############
+FULLPATH=/export${DIRNAME}
+PARENT=`dirname $FULLPATH`
+if [ "$MASTER" != "$MACHNAME" ]
+then
+	REMOTE="rsh $MACHNAME "
+else
+	REMOTE=""
+fi
+$REMOTE touch ${PARENT}/NULL.$$ 2>/dev/null
+if [ $? -ne 0 ]
+then
+	echo "
+
+Can't create home directories via:
+$REMOTE touch ${PARENT}/NULL.$$
+"
+		sleep 2
+		clear
+		ANOTHER=yes
+		continue
+else
+	$REMOTE rm ${PARENT}/NULL.$$
+fi
+###########
+## Done with information gathering, now do the work
+###########
+	echo "
+O.K., we're ready to do the real work.  Do you want to add:
+
+${USER_NAME}? -> [Y|n] \c"
+	read GOFORIT
+	case $GOFORIT in
+	""|Y*|y*)
+###########
+## Create entries in passwd, group, and auto_home files
+###########
+	for FILE in $PASSWD_FILE $GROUP_FILE $AUTO_HOME
+	do
+		while [ -f $FILE.lck ]
+		do
+			echo "$FILE is in use, sleeping..."
+			sleep 30
+		done
+		touch $FILE.lck
+		echo "root is doing addlogin on `date`" > ${FILE}.user
+	done
+###########
+## Files are locked out
+###########
+			echo "${USER_NAME}::${UID}:${UID}:${GECOS}:${DIRNAME}:/bin/ksh">>$PASSWD_FILE
+			echo "${USER_NAME}::9986::::::">>$SHADOW_FILE
+			echo "${USER_NAME}::${UID}:${USER_NAME}">>$GROUP_FILE
+			echo "${USER_NAME} ${MACHNAME}:${FULLPATH}">>$AUTO_HOME
+	for FILE in $PASSWD_FILE $GROUP_FILE $AUTO_HOME
+	do
+		rm $FILE.lck
+		rm $FILE.user
+	done
+###########
+## Files are unlocked
+###########
+			echo "
+Check the entry in the passwd, group, and auto_home files. Make sure to do the NIS make!"
+			echo "
+Hit RETURN >\c"
+			read DUMMY
+			netedit passwd group auto_home
+			;;
+	*)		echo "Exiting with status 1, no user added."
+			exit 1		;;
+	esac
+###########
+## Create a HOME directory
+###########
+if [ "$MASTER" != "$MACHNAME" ]
+then
+	REMOTE="rsh $MACHNAME "
+	if [ ! -d ${FULLPATH} ]
+	then
+		echo " mkdir ${FULLPATH}"
+		mkdir ${FULLPATH}
+		echo " chown $USER_NAME ${FULLPATH}"
+		chown $USER_NAME ${FULLPATH}
+		echo " chgrp $USER_NAME ${FULLPATH}"
+		chgrp $USER_NAME ${FULLPATH}
+		echo " chmod 755 ${FULLPATH}"
+		chmod 755 ${FULLPATH}
+	else
+		echo "$FULLPATH already exists!"
+	fi
+else
+	REMOTE=""
+fi
+###########
+## Give the user a .profile and .kshrc
+###########
+	echo ls -ld ${FULLPATH}
+	ls -ld ${FULLPATH}
+	for FILE in profile kshrc
+	do
+		if [ ! -f ${FULLPATH}/.$FILE ]
+		then
+			echo " cp ${TEMPLATES}/sample.$FILE $FULLPATH/.$FILE"
+			cp ${TEMPLATES}/sample.$FILE $FULLPATH/.$FILE
+			echo " chown $USER_NAME $FULLPATH/.$FILE"
+			chown $USER_NAME $FULLPATH/.$FILE
+			echo " chgrp $USER_NAME $FULLPATH/.$FILE"
+			chgrp $USER_NAME $FULLPATH/.$FILE
+			echo " chmod 640 $FULLPATH/.$FILE"
+			chmod 640 $FULLPATH/.$FILE
+		else
+			echo "$FULLPATH/.$FILE exists!"
+		fi
+	done
+###########
+## Give the user a passwd
+###########
+	echo "
+We will now give the new user a password.
+
+The new password should be their first initial, last initial, and phone number 
+(4-digit extension only).  (i.e. wq8623) This password will be automatically expired,
+so that the user will be prompted to change it immediately upon first login.
+
+	Hit return to proceed, or type \"no\" to skip this
+	step: \c"
+	read ASSIGN
+	case $ASSIGN in
+	""|Y*|y*)	passwd $USER_NAME
+			cd /var/yp
+			make
+			;;
+	*)		echo "No password assigned."
+			;;
+	esac
+###########
+## Again?
+###########
+	echo "Add another user? [y|N]: \c"
+	read ANOTHER
+	case $ANOTHER in
+		n*|N*|"") ANOTHER="no"	;;
+		y*|Y*) ANOTHER="yes"	;;
+		*) echo "$ERR expecting y or n.  Exiting."
+		sleep 2
+		   exit 1               ;;
+	esac
+done
+exit 0

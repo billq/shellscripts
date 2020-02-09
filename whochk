@@ -1,0 +1,5 @@
+ps -aux|grep rwho|grep -v grep
+if [ $? -ne 0 ]
+then
+	/usr/etc/in.rwhod
+fi

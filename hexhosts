@@ -1,0 +1,29 @@
+#!/bin/ksh
+echo "Generating hexhost file"
+ypcat hosts|sort -n|nawk '{print $2,$1}'|sed 's/\.[0-9]$/\.0&/'|sed 's/\.0\./\.0/' > /tmp/thosts
+cat /tmp/thosts|sed 's/\./ /g'|nawk '{printf "%x%x%x%x\t%s\n",$2,$3,$4,$5,$1}' >/tmp/hexhosts
+exec 3< /tmp/hexhosts
+rm -f /tftpboot/hexhosts
+/bin/echo -n "Beginning data conversion..."
+while read -u3 line
+do
+	set ${line}
+	tmpdata1=$1
+	tmpdata2=$2
+	data1=`echo ${tmpdata2} | tr '[A-Z]' '[a-z]'`
+	data2=`echo ${tmpdata1} | tr '[a-z]' '[A-Z]'`
+	if ((${#data2} < 8))
+	then
+		echo "${data2}\t\t${data1}" >> /tftpboot/hexhosts
+	else
+		echo "${data2}\t${data1}" >> /tftpboot/hexhosts
+	fi
+done
+echo "done."
+cd /tftpboot
+echo "Generating TOC"
+for i in `ls 8*`
+do
+	grep $i hexhosts >> /tmp/toc
+done
+sort -u /tmp/toc > toc

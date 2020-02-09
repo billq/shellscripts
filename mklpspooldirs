@@ -1,0 +1,10 @@
+/usr/5bin/echo "making...\c"
+for i in `cat /etc/printcap|grep -v "^#"|grep ":sd="|sed 's/.*:sd=//'|sed 's/:.*//'`
+do
+	if [ ! -d "${i}" ]
+	then
+		/usr/5bin/echo "`basename $i`, \c"
+		mkdir $i
+	fi
+done
+echo "done."

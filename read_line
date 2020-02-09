@@ -1,0 +1,8 @@
+#!/bin/ksh
+#
+# a sample of reading a line of data from a file
+#
+while read i
+do
+	echo $i is one line
+done < /home/admin/adm/lib/xterm_links

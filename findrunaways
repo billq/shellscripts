@@ -1,0 +1,69 @@
+#!/bin/ksh
+
+# This shell polls the list of $SUNS and checks for runaway user processes.
+# The criteria for a runaway is one process that has accumulated more that
+# MAXTIME cpu minutes.  No kills are done.  A message is mailed to root
+# and an announcement is made to MASTER machine via /dev/audio if it exists.
+# This script is dependant on proper audio files installed in ~troot/lib/sounds.
+# This script should be run once per day.  Something like:
+# 0 9 * * * /usr/add-on/adm/bin/findrunaways >/dev/null 2>&1
+
+PATH=/bin:/usr/lbin:/usr/add-on/local/bin:/usr/add-on/rtools/bin:/usr/etc:$PATH
+DATE=`date +%D`
+LOG=`logdir troot`/log/runaways
+RECORD=${LOG}/runawaylog
+HEADER=${LOG}/header
+SOUNDIR=`logdir troot`/lib/sounds
+HZ="`ypmatch hz_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+HW="`ypmatch hw_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+PD="`ypmatch epd_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+SH="`ypmatch sh_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+ELAB="`ypmatch elab_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+SUNS="$HZ $HW $PD $SH $ELAB"
+
+if [ ! -d $LOG ]
+then
+  mkdir $LOG
+  if [ $? -ne 0 ]
+  then
+    Mail -s "Can't creat log for $0" root < /dev/null
+    exit 1
+  fi
+fi
+>$RECORD
+echo "
+                   RUNAWAY PROCESS SUMMARY
+                             for
+                           $DATE
+
+HOSTNAME	TIME	COMMAND" >$HEADER
+for i in $SUNS
+do
+  ping $i 2
+  if [ $? = 0 ]
+  then # My god, is this ugly....how's that for uncommented source?
+    rsh -n $i "ps -wauxg"\
+    |sed '/root/d'\
+    |sed '/xnews/d'\
+    |sed '/maker/d'\
+    |sed '/USER/d'\
+    |sed 's/^.................................................//'\
+    |sed 's/:/./'\
+    |awk '
+      $1 > 99 {
+	 printf "%s\t\t%s\t%s\n", HOST,$1,$2
+         next
+	 }
+         ' HOST=$i >> ${RECORD}
+  fi
+done
+if [ -s ${RECORD} ]
+then
+  if [ -c /dev/audio ]
+  then
+    cat ${SOUNDIR}/runaway.au > /dev/audio
+  fi
+  cat $HEADER $RECORD > /tmp/mail.runaways
+  Mail -s "Runaways found on $DATE" root < /tmp/mail.runaways
+  rm $RECORD /tmp/mail.runaways
+fi

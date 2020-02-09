@@ -1,0 +1,11 @@
+echo "Starting backup on"
+date >>/var/log/backup.log 2>&1
+if [ -d /backup ] && ! $(df -k /backup|grep -q sda)
+then
+	rsync -HAXa --progress /home/* /backup >>/var/log/backup.log 2>&1
+	rsync -HAXa --progress /srv/* /backup >>/var/log/backup.log 2>&1
+else
+	echo "/backup not a FS" >>/var/log/backup.log 2>&1
+fi
+echo "Finished backup on"
+date >>/var/log/backup.log 2>&1

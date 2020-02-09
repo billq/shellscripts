@@ -1,0 +1,30 @@
+#!/bin/ksh
+PATH=/usr/kvm:$PATH
+SUNS="`ypcat hosts|awk '{print $2}'`"
+LOG=$HOME/log
+if [ ! -d $LOG ]
+then
+	mkdir $LOG
+fi
+
+for i in $SUNS
+do
+	echo "Checking $i"
+	ping $i 2 > /dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		STAT=`rsh $i 'sun;echo $?'`
+		case $STAT in
+		0)
+			# $i is a Sun, and is accessible
+			rsh $i sysinfo >> $LOG/suninfo
+		;;
+		1)
+			# $i is accessible, but is not a Sun
+			echo "$i is not a Sun" >> $LOG/nonsuninfo
+		;;
+		esac
+	else
+		echo "$i is dead" >> $LOG/deadmachines
+	fi
+done

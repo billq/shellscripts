@@ -1,0 +1,422 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1994 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#                                                                              #
+#                                  HCINDEX                                     #
+#                                                                              #
+################################################################################
+# hcindex - interactive Hard Copy Index tool.  For keeping track of hardcopy   #
+# documents and files.  Run it.
+################################################################################
+
+TFILE=/tmp/thclabel.$$
+TPFILE=/tmp/tpclabel.$$
+
+newuser ()
+	{
+SUCCESS=1
+while [ $SUCCESS -ne 0 ]
+do
+echo "Please enter a path to your index file relative to $HOME
+
+	e.g. docs/txt/hcindex
+
+	hcindex will create this text file as a database of your files.
+-> \c"
+	read MYINDEX
+	BASE_DIR=`dirname ${HOME}/${MYINDEX}`
+	mkdir -p ${BASE_DIR}
+	touch ${HOME}/${MYINDEX} >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		echo "ERROR: you don't have write permission to
+${HOME}/${MYINDEX}"
+		SUCCESS=1
+	else
+		SUCCESS=0
+	fi
+done
+echo ${HOME}/${MYINDEX} >${HOME}/.wrqlabel
+echo "                          Welcome to hcindex.
+
+hcindex is written to help you find and organize your hard-copy documentation.
+hcindex will query your database to match headings on keywords you enter.
+hcindex will let you add or delete headings to your database.
+hcindex will print tab labels for your files.
+
+The suggested method of organizing your files is as follows:
+1) Assign alphabet letters to major catagories.
+2) Under each major catagory, subdivide into subcatagories with numbers.
+3) This process can continue indefinetly, i.e.:
+	A: - Personal Files
+	A:1 - Merit Review
+	A:2 - Benefits
+	A:2.1 - Savings Plan
+	A:2.2 - Medical
+	A:2.2.1 - Vision
+	A:2.2.2 - Major Medical
+	A:2.3 - Life
+	B: - Expense Reports
+	B:1 - Travel
+	B:2 - Local
+4) When affixing tabs to the folders, start at one side with the major
+   catagories, go to the next position for subcatagories, etc... i.e.:
+         -------------------   -------------------   --------------------  
+         |A:-Personal Files|   |A:2-Benefits     |   |A:2.1-Savings Plan| ...
+         -------------------   -------------------   --------------------  
+   by putting the tabs on this way, no reshuffling of tabs has to be done
+   when new catagories are added later.
+
+I hope you enjoy and use hcindex.  It works for me!
+
+-Bill Quayle
+
+Hit return to start hcindex ->\c"
+read GOFORIT
+	}
+
+
+dellabel ()
+	{
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	echo "Please enter the title of the file section to delete.
+-> \c"
+	read OFILE
+	if [ "Z$OFILE" == "Z" ]
+	then
+		echo "Null query."
+		ANOTHER=N
+		break
+	fi
+	typeset -i COUNT
+	COUNT="`grep -ic $OFILE $MYINDEX`"
+	fgrep -si $OFILE $MYINDEX
+	if [ $? -ne 0 ]
+	then
+		echo "Pattern match failed."
+		ANOTHER=Y
+	else
+		if [ $COUNT -gt 1 ]
+		then
+			echo "
+
+ATTENTION: Your query on $OFILE against $MYINDEX
+returned $COUNT matches.  I would suggest you select the
+query option from the main menu, and make sure that
+you want to remove all $COUNT matches before proceeding.
+
+Are you sure you want to delete $COUNT entries from your
+database? 
+
+	[y|N] -> \c"
+			read KILLUM
+			case $KILLUM in
+			Y*|y*)
+				cat $MYINDEX|grep -iv $OFILE >$TFILE
+				mv $TFILE $MYINDEX
+			;;
+			*)
+				echo "No deletion done."
+			;;
+			esac
+		else
+			cat $MYINDEX|grep -iv $OFILE >$TFILE
+			mv $TFILE $MYINDEX
+		fi
+		echo "Do another deletion? [Y|n] \c"
+		read ANOTHER
+		case $ANOTHER in
+		""|Y*|y*)	ANOTHER=Y	;;
+		*)		ANOTHER=N	;;
+		esac
+	fi
+done
+	}
+
+addlabel ()
+	{
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	echo "Please enter the title of your new file section.
+-> \c"
+	read NFILE
+	echo "Please select a major heading from one of the following,
+or enter an unused letter.
+------------------------------------------------------------------------------"
+	cat $MYINDEX|grep "^[A-Z]: "
+	echo "
+------------------------------------------------------------------------------
+-> \c"
+	read HEADING
+	HEADING=`echo ${HEADING}|sed 's/://g'|sed 's/$/:/'|tr [a-z] [A-Z]`
+#echo "1 HEADING is now $HEADING"
+	FAULT=`echo ${HEADING}|grep "[A-Z]:"`
+	if [ $? -ne 0 ]
+	then
+		ANOTHER="Y"
+		echo "Please use the format [A-Z]: for the top level heading."
+		sleep 5
+		break
+	fi
+	cat $MYINDEX|fgrep -s "${HEADING}"
+	if [ $? -eq 0 ]
+	then
+		PHEADING=$HEADING
+		echo "Please select a second level heading from one of the following,
+or enter one that is currently unused.
+------------------------------------------------------------------------------"
+		cat $MYINDEX|grep "^${HEADING}[0-9]* "
+		echo "
+------------------------------------------------------------------------------
+-> \c"
+		read HEADING
+		HEADING=`echo ${HEADING}|tr [a-z] [A-Z]|sed 's/^[A-Z]://'`
+#echo "2 HEADING is now $HEADING"
+		HEADING=`echo ${PHEADING}${HEADING}`
+#echo "3 HEADING is now $HEADING"
+		FAULT=`echo ${HEADING}|grep "[A-Z]:[0-9]"`
+		if [ $? -ne 0 ]
+		then
+			ANOTHER="Y"
+			echo "Please use the format [A-Z]:[0-9] for the second level heading."
+			sleep 5
+			break
+		fi
+		cat $MYINDEX|fgrep -s "${HEADING}"
+		if [ $? -eq 0 ]
+		then
+			PHEADING=$HEADING
+			echo "Please select a third level heading from one of the following,
+or enter one that is unused.
+------------------------------------------------------------------------------"
+			cat $MYINDEX|grep "^${HEADING}.[0-9] "
+			echo "
+------------------------------------------------------------------------------
+-> \c"
+			read HEADING
+			HEADING=`echo $HEADING|tr [a-z] [A-Z]|sed 's/^[A-Z]:[0-9]//'`
+#echo "4 HEADING is now $HEADING"
+			HEADING=`echo ${PHEADING}${HEADING}`
+#echo "5 HEADING is now $HEADING"
+			FAULT=`echo ${HEADING}|grep "[A-Z]:[0-9].[0-9]"`
+			if [ $? -ne 0 ]
+			then
+				ANOTHER="Y"
+				echo "Please use the format [A-Z]:[0-9].[0-9] for the third level heading."
+				sleep 5
+				break
+			fi
+			cat $MYINDEX|fgrep -s "${HEADING}"
+			if [ $? -eq 0 ]
+			then
+				PHEADING=$HEADING
+				echo "Please select an unused fourth level heading.
+------------------------------------------------------------------------------"
+				cat $MYINDEX|grep "^${HEADING}.[0-9] "
+				echo "
+------------------------------------------------------------------------------
+-> \c"
+				read HEADING
+				HEADING=`echo $HEADING|tr [a-z] [A-Z]|sed 's/^[A-Z]:[0-9].[0-9]//'`
+#echo "6 HEADING is now $HEADING"
+				HEADING=`echo ${PHEADING}${HEADING}`
+#echo "7 HEADING is now $HEADING"
+				cat $MYINDEX|fgrep -s "$HEADING "
+				if [ $? -ne 0 ]
+				then
+					echo "File section duplication! Call the shell script police!"
+					exit 1
+				else
+					NFILE="$HEADING - $NFILE"
+				fi
+			else
+				NFILE="$HEADING - $NFILE"
+			fi
+		else
+			NFILE="$HEADING - $NFILE"
+		fi
+	else
+		NFILE="$HEADING - $NFILE"
+		
+	fi
+	echo $NFILE >> $MYINDEX
+	echo "Add another new section? [Y/n] \c"
+	read ANOTHER
+	case $ANOTHER in
+	""|Y*|y*)	ANOTHER=Y	;;
+	*)		ANOTHER=N	;;
+	esac
+done
+cat $MYINDEX|sort>$TFILE
+mv $TFILE $MYINDEX
+	}
+
+printlabel ()
+	{
+>$TFILE
+>$TPFILE
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	if [ $# -lt 1 ]
+	then
+		echo "Print
+
+	1) A full set
+                        or
+	2) Specific group?
+
+			[1] -> \c"
+		read SET
+		case $SET in
+		""|1)	FILES='[a-z]'	;;
+		*)
+		echo "File to generate tab label for? \c"
+		read FILES
+					;;
+		esac
+	else
+		FILES=$*
+	fi
+	for FILE in $FILES
+	do
+		echo "O.K. to generate labels for:"
+		egrep -i $FILE $MYINDEX
+		echo "
+			[Y|n] -> \c"
+		read GONOGO
+		case $GONOGO in
+		""|Y*|y*)
+			egrep -i $FILE $MYINDEX >>$TFILE
+			while read -r LINE
+			do
+				# Put a test here, and awk script to make LINE
+				# only 25 chars wide.
+				echo "
+
+$LINE	
+">>$TPFILE
+			done < $TFILE
+		;;
+		*)
+			echo "This one not in the print queue"
+		;;
+		esac
+	done
+	echo "Print another label? [Y/n] \c"
+	read ANOTHER
+	case $ANOTHER in
+	""|Y*|y*)	ANOTHER=Y	;;
+	*)		ANOTHER=N	;;
+	esac
+done
+if [ -f $TPFILE ]
+then
+	more $TPFILE
+	enscript -1 -B -q -fHelvetica-Bold10 -J"${USER}'s index tabs" $TPFILE
+	echo "Your new label(s) are printed."
+	rm -f $TFILE $TPFILE
+else
+	echo "Nothing done."
+fi
+	}
+queryindex ()
+	{
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	if [ $# -lt 1 ]
+	then
+		echo "File to search for? \c"
+		read FILES
+	else
+		FILES=$*
+	fi
+	for FILE in $FILES
+	do
+		egrep -i $FILE $MYINDEX
+	done
+	echo "Query for another file? [Y/n] \c"
+	read ANOTHER
+	case $ANOTHER in
+	""|Y*|y*)	ANOTHER=Y	;;
+	*)		ANOTHER=N	;;
+	esac
+done
+	}
+#
+# Start of main program
+#
+clear
+if [ ! -f "$HOME/.wrqlabel" ]
+then
+	newuser
+fi
+MYINDEX="`cat $HOME/.wrqlabel`"
+echo "
+Welcome to the premier text file catalog system
+(well, it works, anyway)...
+
+When prompted for information, you may enter a number
+or the first letter of the option.
+
+Default answers will be in upper case.
+
+When searching for a document, matches are any substring
+of what you are looking for, case independant.
+"
+while true
+do
+	echo "
+
+	Please select one of the following functions:
+
+
+	1) Query the database
+	2) Print tab labels
+	3) Add new catagory
+	4) Delete a catagory
+	5) View database (using view)
+	6) Edit database (using $EDITOR)
+	7) Exit the program
+
+			[1] -> \c"
+	read FUNC
+	case $FUNC in
+	""|1|Q*|q*)	queryindex $*	;;
+	2|G*|g*)	printlabel $*	;;
+	3|A*|a*)	addlabel $*	;;
+	4|D*|d*)	dellabel $*	;;
+	5|V*|v*)	view $MYINDEX	;;
+	6|E*|e*)	${EDITOR:-vi} $MYINDEX	;;
+	*)		echo "Bye!";exit	;;
+	esac
+sleep 1
+clear
+done

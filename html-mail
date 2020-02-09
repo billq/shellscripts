@@ -1,0 +1,81 @@
+#!/bin/bash
+Header=/tmp/html-mail-header.$$
+Usage="USAGE: $(basename $0) -t To,To,... [-f from] [-c CC,CC,...] [-b BCC,BCC,.
+..] [-s \"Subject line\"] [HTML/file/to/email]"
+
+case $(uname) in
+SunOS)
+  Mail="/usr/lib/sendmail"
+;;
+Linux)
+  Mail="/usr/sbin/sendmail -t"
+;;
+*)
+  echo "ERROR: $(uname) not supported by this script."
+  exit 1
+;;
+esac
+
+while getopts "s:c:b:t:f:" i
+do
+  case $i in
+    s)  Subject="Subject: $OPTARG"
+    ;;
+    c)  CC="CC: $OPTARG"
+    ;;
+    b)  BCC="BCC: $OPTARG"
+    ;;
+    t)  To="TO: $OPTARG"
+    ;;
+    f)  From="From: $OPTARG"
+    ;;
+    *) echo $Usage
+        exit 1
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
+case $# in
+0)
+  Message="pipe"
+;;
+1)
+  Message=$1
+;;
+*)
+  echo $Usage
+  exit 1
+;;
+esac
+
+if [ "$To" = "" ]
+then
+  echo $Usage
+  exit 1
+fi
+
+echo "$To
+$CC
+$BCC
+$Subject
+$From
+
+Content-Type:Text/html; charset=\"US-ASCII\"
+
+" |sed '/^$/d' > $Header
+
+echo "" >> $Header
+
+case $Message in
+pipe)
+  cat $Header - | $Mail
+  if [ $? -ne 0 ] ;then echo "ERROR: $(basename $0): sendmail failure" ;fi
+;;
+*)
+  cat $Header $Message | $Mail
+  if [ $? -ne 0 ] ;then echo "ERROR: $(basename $0): sendmail failure" ;fi
+;;
+esac
+
+rm $Header
+

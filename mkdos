@@ -1,0 +1,21 @@
+#!/bin/ksh
+if [ "$1" = "" ]
+then
+	echo "USAGE: mkdos target_name"
+	echo "target_name is a full path or ."
+	exit 1
+fi
+TARGET=$1
+if [ "$TARGET" = "." ]
+then
+	TARGET=`pwd`
+fi
+touch $TARGET/tfile.$$
+if [ $? -ne 0 ]
+then
+	echo "ERROR: $TARGET does not exist, or is not writable"
+	exit 1
+fi
+rm $TARGET/tfile.$$
+cd /apps/dos
+tar -cvf - cqms* share lib opt doc adm/quintus adm/antivi.rus adm/src |(cd $TARGET;tar -xf -)

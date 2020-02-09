@@ -1,0 +1,18 @@
+cd ~
+[ ! -e bin ] && ln -s /srv/home/billq/bin bin
+[ ! -e src ] && ln -s /srv/home/billq/src src
+[ ! -e tmp ] && ln -s /srv/home/billq/tmp tmp
+[ ! -e public_html ] && ln -s /srv/home/billq/public_html public_html
+[ ! -e www ] && ln -s /srv/home/billq/www www
+[ ! -e Vagrant ] && ln -s /srv/home/billq/Vagrant Vagrant
+[ ! -e Documents ] && ln -s /srv/home/billq/Documents Documents
+[ ! -e Templates ] && ln -s /srv/home/billq/Documents/templates/ Templates
+[ ! -e My\ Documents ] && ln -s /srv/home/billq/Documents My\ Documents
+[ ! -e Downloads ] && ln -s /srv/home/billq/Downloads Downloads
+[ ! -e scripts ] && ln -s /srv/home/billq/scripts scripts
+[ ! -e VirtualBox\ VMs ] && ln -s /srv/home/billq/VirtualBox\ VMs VirtualBox\ VMs
+[ ! -e media ] && ln -s /srv/media media
+[ ! -e My\ Pictures ] && ln -s /srv/media/photos My\ Pictures
+[ ! -e Pictures ] && ln -s /srv/media/photos Pictures
+[ ! -e Music ] && ln -s /srv/media/music Music
+[ ! -e My\ Music ] && ln -s /srv/media/music My\ Music

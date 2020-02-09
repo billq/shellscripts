@@ -1,0 +1,47 @@
+#!/bin/ksh
+if [ $# -eq 1 ] && [ "$1" != "-d" ] || [ $# -gt 1 ]
+then
+	echo "USAGE:$0 [-d]"
+	exit 1
+fi
+rm -f $HOME/info/asuns
+rm -f $HOME/info/bsuns
+
+if [ "$1" = "-d" ]
+then
+	DEBUG=1
+fi
+
+db ()
+{
+	if [ "$DEBUG" = "1" ]
+	then
+		echo $1
+	fi
+}
+
+for i in `cat $HOME/etc/hosts|grep -v "^$"|awk '{print $2}'`
+do
+	db "pinging $i"
+	STATUS=`ping $i 2 >/dev/null 2>&1;echo $?`
+	if [ $STATUS -eq 0 ]
+	then
+		db "doing rpcinfo $i"
+		STATUS=`rpcinfo -T tcp $i >/dev/null 2>&1;echo $?`
+		if [ $STATUS -eq 0 ]
+		then
+			db "rshing $i"
+			STATUS=`rsh $i /bin/sun >/dev/null 2>&1;echo $?`
+			if [ $STATUS -eq 0 ]
+			then
+				echo $i >> $HOME/info/asuns
+			else
+				echo $i >> $HOME/info/bsuns
+			fi
+		else
+			echo "$i isn't a Sun"
+		fi
+	else
+		echo "$i is dead"
+	fi
+done

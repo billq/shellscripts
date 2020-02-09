@@ -1,0 +1,72 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+
+#
+# text2ps:  convert plain text to postscript format
+#
+
+USAGE="usage:  text2ps [-N num] [-pl|p] [files]"
+PAGES_OPT=""
+STDIN_FILE=/usr/tmp/in.$$.$LOGNAME
+trap "rm -f $STDIN_FILE" 1 2 3
+
+# Process command line parameters
+set -- `getopt N:p:? $*`
+for i in $*
+do
+    case $i in
+	-N)	PAGES_OPT="-n$2";			shift 2;;
+	-p)	ORIENT="-p$2";			shift 2;;
+	-\?)	echo "$USAGE" >&2;			exit 1;;
+	--)	shift;					break;;
+    esac
+done
+FILES="$*"
+if [ "$FILES" = "" ]
+then
+    cat - > $STDIN_FILE
+    if [ ! -s $STDIN_FILE ]
+    then
+	echo "text2ps:  empty file read from stdin." >&2
+	exit 1
+    fi
+    FILES=$STDIN_FILE
+fi
+
+# Convert each file into postscript
+for i in $FILES
+do
+    /usr/lbin/postprint $PAGES_OPT $ORIENT $i |\
+        /usr/lbin/postreverse
+    echo initgraphics
+done
+
+# Remove temporary files
+if [ "$STDIN_FILE" != "" ]
+then
+    rm -f $STDIN_FILE
+fi

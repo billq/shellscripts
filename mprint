@@ -1,0 +1,13 @@
+#!/bin/ksh
+typeset -i NUM i
+echo "How many copies? "
+read NUM
+ls -FCa
+echo "Which file? "
+read FILE
+while [ "$i" -lt "$NUM" ]
+do
+	lp $FILE
+	i="i + 1"
+	echo "$i done"
+done

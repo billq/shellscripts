@@ -1,0 +1,1 @@
+xrandr --output DisplayPort-1 --reflect normal --mode 1280x1024 --output DisplayPort-0 --mode 1280x1024 --right-of DisplayPort-1 --output DisplayPort-2 --mode 1280x1024 --above DisplayPort-1 --output DisplayPort-3 --mode 1280x1024 --above DisplayPort-0

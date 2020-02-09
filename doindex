@@ -1,0 +1,77 @@
+#!/bin/ksh
+MYINDEX=`pwd`/docindex.html
+OLD_DIR="mubledypeg"
+
+#
+# Generate the heading
+#
+echo '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>Whitepapers & Technical Documents</title>
+</head>
+<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#ff0000">
+<CENTER>
+<TABLE BORDER=8 WIDTH="100%">
+<TR BGCOLOR="#ffffff">
+<TD ALIGN="center" VALIGN="middle">
+<H1>Whitepapers & Technical Documents</H1>
+</TD></TR></TABLE>
+</CENTER>
+<A NAME="TOP"></A>
+<TABLE BORDER="0" WIDTH="100%">
+<TR>
+<TD ALIGN="RIGHT">' >$MYINDEX
+#
+# Generate the Table of Contents
+#
+for j in `find . -type d -iname "[a-z]*" -prune|sort`
+do
+  echo '<TABLE BORDER="0" WIDTH="100%">' >>$MYINDEX
+  DNAME=`echo $j|sed 's/^\.\///'|sed 's/\//-/g'`
+  LNAME=`echo $j|sed 's/^\.\///'|sed 's/\// /g'`
+  echo "<TR><TD ALIGN="LEFT" BGCOLOR="#99FFFF"><A HREF=#$DNAME>$LNAME<BR></TD></TR>" >>$MYINDEX
+  for k in `find $j -type d -maxdepth 1|sort`
+  do
+    [[ "$k" = "$j" ]] || {
+      DNAME=`echo $k|sed 's/^\.\///'|sed 's/\//-/g'`
+      LNAME=`basename $k`
+      echo "<TR><TD ALIGN="CENTER" BGCOLOR="#66FFFF"><A HREF=#$DNAME>$LNAME<BR></TD></TR>" >>$MYINDEX
+      for l in `find $k -type d -maxdepth 1|sort`
+      do
+      [[ "$l" = "$k" ]] || {
+        DNAME=`echo $l|sed 's/^\.\///'|sed 's/\//-/g'`
+        LNAME=`basename $l`
+        echo "<TR><TD ALIGN="RIGHT" BGCOLOR="#33FFFF"><A HREF=#$DNAME>$LNAME<BR></TD></TR>" >>$MYINDEX
+      }
+      done
+    }
+  done
+  echo '</TABLE>' >>$MYINDEX
+  echo '<HR>' >>$MYINDEX
+done
+echo '</TD></TR>' >> $MYINDEX
+#
+# Generate the Links
+#
+echo '<TR><TD>' >> $MYINDEX
+for j in `find . -type d -iname "[a-z]*"|sort`
+do
+  echo '<TABLE BORDER="0" WIDTH="100%">
+  <TR>
+  <TD>'>>$MYINDEX
+  DIR=`basename $j`
+  FQPN=`echo $j|sed 's/^\.\///'|sed 's/\//-/g'`
+  echo "<TR BGCOLOR="#99FFFF"><TD ALIGN=\"CENTER\" WIDTH=\"80%\"><A NAME=\"$FQPN\"></A><FONT FACE=\"Helvetica,Arial\" SIZE=\"+2\">$DIR</FONT></TD><TD ALIGN="RIGHT"><FONT SIZE=\"-3\"><A HREF=\"#TOP\">back to top</A></FONT></TD></TR>">>$MYINDEX
+  for i in `find $j -type f -maxdepth 1 -iname '*htm*' -o -iname '*pdf' -o -iname '*.ps' -o -iname '*.txt'|sort`
+  do
+    FILE=`basename $i`
+    echo "<TR BGCOLOR="#33FFFF"><TD ALIGN=\"RIGHT\"><A TARGET=\"_blank\" HREF=\"$i\">$FILE</A></TD></TR>" >>$MYINDEX
+  done
+  echo "</TD></TR></TABLE>">>$MYINDEX
+  echo "<HR>">>$MYINDEX
+done
+
+echo '</TABLE>' >>$MYINDEX
+echo '</BODY>' >>$MYINDEX
+echo '</HTML>' >>$MYINDEX

@@ -1,0 +1,4 @@
+#!/bin/sh
+cd /net/coolietown/export/apps/games/quake
+./quake.xil
+

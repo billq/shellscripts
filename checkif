@@ -1,0 +1,43 @@
+#!/bin/ksh
+#
+# finds $1 running on any/all suns and runs $2 if it is
+#
+USAGE="`basename $0` -f interface "
+
+while getopts :f: g
+do
+        case $g in
+        f)      iface=$OPTARG  ;;
+        \?)     echo "$USAGE"
+                exit 2  ;;
+        esac
+done
+shift $(($OPTIND - 1))
+if [[ -z $iface ]] ;then
+	echo $USAGE
+	exit 1
+fi
+for i in `suns`
+do
+	echo "Doing $i"
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			STRINGA=`rsh $i -l root "ifconfig $iface 1>/dev/null" 2>&1`
+			if [ "$STRINGA" = "permission denied" ]
+			then
+				echo "$i has a bad .rhosts"
+			elif [ "$STRINGA" != "" ]
+			then
+				echo "$i don't have no $iface"
+			fi
+		else
+			echo "$i not pingable"
+		fi
+	else
+		echo "$i not in hosts"
+	fi
+done

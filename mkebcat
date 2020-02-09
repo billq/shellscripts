@@ -1,0 +1,14 @@
+#!/bin/ksh
+PATH=/usr/epoch/EB/bin:/usr/epoch/bin:$PATH
+if [ $# -ne 1 ]
+then
+	/bin/echo -n "Volume ID: "
+	read vol_id
+	ebcatsort $vol_id
+	ebtreegen -fv $vol_id
+	ebcatcomp $vol_id
+else
+	echo "This command is an interactive front end to make
+	the Epoch Catalogs"
+	exit 1
+fi

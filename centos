@@ -1,0 +1,1 @@
+rdesktop -z -g 1280x940 -r clipboard:PRIMARYCLIPBOARD -u wquayle dx-chwquayle02

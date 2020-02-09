@@ -1,0 +1,2 @@
+rsh -n c2qaweb -l root /home/bquayle/bin/speaker &
+mike c2qaweb

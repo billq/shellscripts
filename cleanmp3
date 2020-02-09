@@ -1,0 +1,333 @@
+#!/bin/sh 
+# This script cleans a directory heirarchy managled by Windows
+# lack of file naming conventions.  It deletes special characters
+# from file/directory names, replaces the space ( ) with an
+# underscore (_), and the ampersand (&) with _and_
+#
+# The following characters are removed:
+#    !"#$'()*/;<>[]{}^`|
+# Octal values for these are:
+#    \041	!
+#    \042	"
+#    \043	#
+#    \044	$
+#    \046	&
+#    \047	'
+#    \050	(
+#    \051	)
+#    \052	*
+#    \073	;
+#    \074	<
+#    \076	>
+#    \133	[
+#    \135	]
+#    \173	{
+#    \175	}
+#    \136	^
+#    \140	`
+#    \174	|
+
+# man ascii
+
+#set -x
+
+TARGETDIR="${1:-/export/mp3/staging}"
+
+cd $TARGETDIR
+if [ $? -ne 0 ]
+then
+  echo "Can't cd to $TARGETDIR, exiting"
+  exit 1
+else
+  echo "Using $TARGETDIR as the working directory..."
+fi
+
+#
+# Top level dir fix
+#
+STEP1 () {
+find * -type d -print -prune|while read TOPDIR
+do
+  NEWD=`echo "${TOPDIR}"|tr ' ' '_'|tr '\046' '_and_'|tr -d '\173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \052 \136'`
+  OLDD=`echo "${TOPDIR}"`
+  if [ "$NEWD" != "$OLDD" ]
+  then
+    mv "${OLDD}" ${NEWD} 2>/dev/null
+    if [ $? -ne 0 ]
+    then
+      echo "The move of $OLDD to $NEWD failed.  Bailing out"
+      exit 1
+    fi
+    echo "$OLDD fixed up to $NEWD"
+  fi
+done
+}
+
+#
+# Second level dir fix
+#
+STEP2 () {
+find * -type d -print -prune|while read PARENT
+do
+  find $PARENT/* -type d -print -prune|while read SUBDIR
+  do
+    NEWD=`echo "${SUBDIR}"|tr ' ' '_'|tr '\046' '_and_'|tr -d '\173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \052 \136'`
+    OLDD=`echo "${SUBDIR}"`
+    if [ "$NEWD" != "$OLDD" ] 
+    then
+      mv "${OLDD}" ${NEWD} 2>/dev/null
+      if [ $? -ne 0 ] 
+      then
+        echo "The move of $OLDD to $NEWD failed.  Bailing out"
+        exit 1
+      fi
+      echo "$OLDD fixed up to $NEWD"
+    fi
+  done
+done
+}
+
+#
+# Third level dir fix
+#
+STEP3 () {
+find * -type d -print -prune|while read PARENT
+do
+  find $PARENT/* -type d -print -prune|while read SUBDIR
+  do
+    find $SUBDIR/* -type d -print -prune|while read SUBSUBDIR
+    do
+      NEWD=`echo "${SUBSUBDIR}"|tr ' ' '_'|tr '\046' '_and_'|tr -d '\173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \052 \136'`
+      OLDD=`echo "${SUBSUBDIR}"`
+      if [ "$NEWD" != "$OLDD" ] 
+      then
+        mv "${OLDD}" ${NEWD} 2>/dev/null
+        if [ $? -ne 0 ] 
+        then
+          echo "The move of $OLDD to $NEWD failed.  Bailing out"
+          exit 1
+        fi
+        echo "$OLDD fixed up to $NEWD"
+      fi
+    done
+  done
+done
+}
+
+STEP4 () {
+find . -type f -print|while read I
+do
+OLDF=`echo $I|sed 's/^.\///'`
+NEW=`echo "${OLDF}"|sed 's/^.\///'|tr ' ' '_'|tr '\046' '_and_'|tr -d '\173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \052 \136'`
+if [ "$NEW" != "$OLDF" ] 
+then
+  mv "${OLDF}" ${NEW} 2>/dev/null
+  if [ $? -ne 0 ] 
+  then
+    echo "The move of $OLDF to $NEW failed.  Bailing out"
+    exit 1
+  fi
+  echo "$OLDF fixed up to $NEW"
+fi
+done
+}
+
+STEP5 () {
+cd $TARGETDIR
+for i in `ls`
+do
+  if [ -d $i ]
+  then
+    cd $i
+    for j in `ls`
+    do
+#   NAME=`echo $j|grep -i ",_the"|sed 's/,_[the|The|THE]//'|sed 's/^/The_/'`
+      NAME=`echo $j|grep -i ",_the"|gawk '
+{
+  if (RT == "")
+    printf "The_%s", $0
+  else
+    print
+}' RS=",_the" ORS="" IGNORECASE="1"`
+      if [ "$NAME" != "" ]
+      then
+        if [ "$NAME" != "$j" ]
+        then
+	  echo "mv $j $NAME"
+          mv $j $NAME
+        fi
+      fi
+    done
+    cd $TARGETDIR
+  fi
+done
+}
+
+STEP6 () {
+AGAIN=y
+for i in `ls`
+do
+  if [ -d $i ]
+  then
+    cd $i
+    for j in `ls`
+    do
+#   NAME=`echo $j|grep -i $i|sed 's/'$i'//'|sed 's/^[-|_]*//'`
+      NAME=`echo $j|grep -i $i|gawk '
+{
+  if (RT == "")
+    printf "%s", $0
+  else
+    print
+}' RS="$i" ORS="" IGNORECASE="1"|sed 's/^[-|_]*//'`
+      if [ "$NAME" != "" ]
+      then
+        if [ "$NAME" != "$j" ]
+        then
+	  echo "mv $j $NAME"
+          mv $j $NAME
+        fi
+      fi
+    done
+    cd $TARGETDIR
+  fi
+done
+}
+
+STEP7 () {
+cd ${TARGETDIR}
+AGAIN=y
+for i in `ls`
+do
+  if [ -d $i ]
+  then
+    cd $i
+    until [ "$AGAIN" = "n" ]
+    do
+      ls -FC
+      echo -n "Dir? "
+      read DIR
+      if [ "$DIR" != "" ]
+      then
+        mkdir $DIR
+        for j in `ls ${DIR}*`
+        do
+	  if [ -f $j ]
+          then
+            NEWNAME=`echo $j|sed 's/'$DIR'[_|-]*//'`
+            echo "mv $j ${DIR}/${NEWNAME}? "
+            read go
+            if [ "$go" = "" ]
+            then
+              mv $j ${DIR}/${NEWNAME}
+            fi
+          fi
+        done
+      else
+        AGAIN=n
+      fi
+    done
+    AGAIN=y
+    cd $TARGETDIR
+  fi
+done
+}
+
+STEP8 () {
+cd ${TARGETDIR}
+for i in `ls`
+do
+  if [ -d $i ]
+  then
+    cd $i
+    for k in `ls`
+    do
+      if [ -d $k ]
+      then
+        cd $k
+        for j in `ls`
+        do
+#       NAME=`echo $j|grep -i $i|sed 's/'$i'//'|sed 's/^[-|_]*//'`
+          NAME=`echo $j|grep -i $i|gawk '
+{
+  if (RT == "")
+    printf "%s", $0
+  else
+    print
+}' RS="$i" ORS="" IGNORECASE="1"|sed 's/^[-|_]*//'`
+          if [ "$NAME" != "" ]
+          then
+            if [ "$NAME" != "$j" ]
+            then
+	      echo "mv $j $NAME"
+              mv $j $NAME
+            fi
+          fi
+        done
+        cd ..
+      fi
+    done
+    cd $TARGETDIR
+  fi
+done
+}
+
+STEP9 () {
+for i in `ls`
+do
+  if [ -d $i ]
+  then
+    cd $i
+    for k in `ls`
+    do
+      if [ -d $k ]
+      then
+        cd $k
+        for j in `ls`
+        do
+#       NAME=`echo $j|grep -i $k|sed 's/'$k'//'|sed 's/^[-|_]*//'|sed 's/[-|_][-|_]*/_/g'`
+          NAME=`echo $j|grep -i $k|gawk '
+{
+  if (RT == "")
+    printf "%s", $0
+  else
+    print
+}' RS="$k" ORS="" IGNORECASE="1"|sed '
+s/^[-|_]*//
+s/[-|_][-|_]*/_/g
+'`
+          if [ "$NAME" != "" ]
+          then
+            if [ "$NAME" != "$j" ]
+            then
+	      echo "mv $j $NAME"
+              mv $j $NAME
+            fi
+          fi
+        done
+        cd ..
+      fi
+    done
+    cd $TARGETDIR
+  fi
+done
+}
+
+echo "Entering Step 1:"
+STEP1
+echo "Entering Step 2:"
+STEP2
+echo "Entering Step 3:"
+STEP3
+echo "Entering Step 4:"
+STEP4
+echo "Entering Step 5:"
+STEP5
+echo "Entering Step 6:"
+STEP6
+echo "Entering Step 7:"
+STEP7
+echo "Entering Step 8:"
+STEP8
+echo "Entering Step 9:"
+STEP9

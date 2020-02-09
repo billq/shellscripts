@@ -1,0 +1,154 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+ERR="ERROR:$0:"
+HOSTNAME=`/bin/hostname`
+USER=`/usr/ucb/whoami`
+PATH=/usr/5bin:$PATH
+
+echo "
+------------------------------------------------------------
+			RCPHEIR
+------------------------------------------------------------
+
+This is an interactive shell used to move a file heirarchy
+across the network.  You will be prompted for all information.
+
+To execute this shell, you should be logged in to either the
+target or source machine for the transfer.  If this is not
+the case, please interrupt and log in to one of them.
+
+The source machine is the machine that currently holds the
+heirarcy to be transferred.
+
+The target machine is the machine that needs the heirarcy.
+
+The parent directory is the parent of the heirarcy, i.e. if
+you wanted to transfer rtools, your parent would be /usr/add-on.
+
+The heirarcy to transfer in the above case would be rtools.
+
+The parent of the target is the location on the current machine
+that you would like the heirarcy placed under.
+
+Press <Return> to continue, or interrupt (Ctrl-C/<Del>) -> \c"
+read GONOGO
+
+REPEAT="yes"
+while [ "$REPEAT" = "yes" ]
+do
+	echo "
+----------------------------------------------------------------------
+What is the name of the heirarchy to be moved?
+	-> \c"
+	read HEIR
+	echo "
+----------------------------------------------------------------------
+What is the name of the remote machine?
+	-> \c"
+	read REMOTE
+	echo "
+----------------------------------------------------------------------
+What is the parent of the heirarchy on the source machine?
+	-> \c"
+	read SRCPATH
+	echo "
+----------------------------------------------------------------------
+What is the parent of the heirarchy on the target machine?
+	-> \c"
+	read TARGPATH
+	echo "
+----------------------------------------------------------------------
+Testing availability of $REMOTE...\c"
+ping $REMOTE 3
+if [ $? != 0 ]
+then
+	echo "
+----------------------------------------------------------------------
+Sorry, $REMOTE does not seem to be available at the time, please
+try again later..."
+	exit 1
+else
+	rsh $REMOTE sync
+	if [ $? != 0 ]
+	then
+		echo "
+----------------------------------------------------------------------
+Sorry, $REMOTE does not allow access for $USER.  Please fix the .rhosts
+file on $REMOTE to include a line like:
+
+$HOSTNAME $USER
+
+and try again later..."
+		exit 1
+	fi
+
+fi
+if [ -d ${SRCPATH}/${HEIR} ]
+then
+	if [ `rsh $REMOTE ls -d ${SRCPATH}/${HEIR}` ]
+	then
+		echo "
+----------------------------------------------------------------------
+I'm confused, are you on the source or target machine?
+	[S|t] -> \c"
+		read WHICH
+		case $WHICH in
+		""|S*|s*)
+
+			CMD="cd $SRCPATH; tar -cvf - $HEIR|(rsh $REMOTE 'cd '$TARGPATH' ;tar -xvfpB - ')"
+		;;
+		*)
+			CMD="rsh $REMOTE 'cd '$SRCPATH' ;tar -cfB - '$HEIR | (cd $TARGPATH; tar -xvfBp -)"
+		;;
+		esac
+	else
+		CMD="cd $SRCPATH; tar -cvf - $HEIR|(rsh $REMOTE 'cd '$TARGPATH' ;tar -xvfpB - ')"
+	fi
+else
+	CMD="rsh $REMOTE 'cd '$SRCPATH' ;tar -cfB - '$HEIR | (cd $TARGPATH; tar -xvfBp -)"
+fi
+	echo "
+----------------------------------------------------------------------
+O.K. to execute the following?
+$CMD
+	[Y|n] -> \c"
+	read GOFORIT
+	case $GOFORIT in
+	""|y*|Y*)	echo $CMD|/bin/sh	;;
+	*)	GOFORIT=nope	;;
+	esac
+	echo "
+----------------------------------------------------------------------
+More?
+	[Y|n] -> \c"
+	read REPEAT
+	case $REPEAT in
+	""|y*|Y*)	REPEAT=yes	;;
+	*)	REPEAT=nope	;;
+	esac
+
+done

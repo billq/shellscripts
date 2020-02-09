@@ -1,0 +1,20 @@
+for i in `suns`
+do
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			STRINGA=`rsh $i -l root "date" 2>&1`
+			STRINGB=`date`
+			if [ "$STRINGA" = "permission denied" ]
+			then
+				echo "$i has a bad .rhosts"
+			elif [ "$STRINGA" != "$STRINGB" ]
+			then
+				echo "$i is out-of-sync"
+			fi
+		fi
+	fi
+done

@@ -1,0 +1,4 @@
+#!/bin/ksh
+PATH=/home/bquayle/bin:$PATH
+cd ~bquayle/bin
+/home/bquayle/bin/workman.bin&

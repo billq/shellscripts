@@ -1,0 +1,151 @@
+From root Fri Feb 25 22:42:17 1994
+Return-Path: <root>
+Received: from hercules.rockwell.com (hercules.switch.rockwell.com) by yooper.switch.rockwell.com (4.1/SSD-WRQ.V1.2-DNI)
+	id AA10884; Fri, 25 Feb 94 22:42:16 CST
+Date: Fri, 25 Feb 94 22:42:16 CST
+From: root (Operator)
+Message-Id: <9402260442.AA10884@yooper.switch.rockwell.com>
+To: michele, quayle
+Subject: Backup failure on hercules
+Content-Length: 2207
+X-Lines: 55
+Status: RO
+
+ / 
+  DUMP: Date of this level 0 dump: Fri Feb 25 22:00:05 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd13a to /dev/nrst2
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 10824 blocks (5.29MB) on 0.00 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: dumping (Pass IV) [regular files]
+  DUMP: level 0 dump on Fri Feb 25 22:00:05 1994
+  DUMP: Tape rewinding
+  DUMP: 10824 blocks (5.29MB) on 1 volume
+  DUMP: DUMP IS DONE
+ /var 
+  DUMP: Date of this level 0 dump: Fri Feb 25 22:01:22 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd13e to /dev/nrst2
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 5546 blocks (2.71MB) on 0.00 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: dumping (Pass IV) [regular files]
+  DUMP: level 0 dump on Fri Feb 25 22:01:22 1994
+  DUMP: Tape rewinding
+  DUMP: 5364 blocks (2.62MB) on 1 volume
+  DUMP: DUMP IS DONE
+ /export/fcs/dvl 
+  DUMP: Date of this level 0 dump: Fri Feb 25 22:01:50 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd14b to /dev/nrst2
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 1550692 blocks (757.17MB) on 0.41 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: 8.63% done, finished in 0:52
+  DUMP: Tape write error 292 feet into tape 1
+  DUMP: fopen on /dev/tty fails
+  DUMP: The ENTIRE dump is aborted.
+ /export/fcs/dvl/lstng 
+  DUMP: Date of this level 0 dump: Fri Feb 25 22:09:42 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd10b to /dev/nrst2
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 1694646 blocks (827.46MB) on 0.45 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: 3.90% done, finished in 2:03
+  DUMP: 5.98% done, finished in 2:37
+  DUMP: 8.10% done, finished in 2:50
+  DUMP: 10.19% done, finished in 2:56
+  DUMP: 12.37% done, finished in 2:57
+  DUMP: 14.53% done, finished in 2:56
+  DUMP: Tape write error 387 feet into tape 1
+  DUMP: fopen on /dev/tty fails
+  DUMP: The ENTIRE dump is aborted.
+
+From root Sat Feb 26 00:54:17 1994
+Return-Path: <root>
+Received: from hercules.rockwell.com (hercules.switch.rockwell.com) by yooper.switch.rockwell.com (4.1/SSD-WRQ.V1.2-DNI)
+	id AA11126; Sat, 26 Feb 94 00:54:16 CST
+Date: Sat, 26 Feb 94 00:54:16 CST
+From: root (Operator)
+Message-Id: <9402260654.AA11126@yooper.switch.rockwell.com>
+To: michele, quayle
+Subject: Backup failure on hercules
+Content-Length: 2759
+X-Lines: 68
+Status: RO
+
+ /export/diskload
+  DUMP: Date of this level 0 dump: Fri Feb 25 22:00:05 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd8f (/export/diskload) to /dev/nrst11
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 7809090 blocks (3813.03MB) on 0.48 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: dumping (Pass IV) [regular files]
+  DUMP: 2.72% done, finished in 2:58
+  DUMP: 6.16% done, finished in 2:32
+  DUMP: 9.36% done, finished in 2:25
+  DUMP: 12.93% done, finished in 2:14
+  DUMP: 16.66% done, finished in 2:05
+  DUMP: 20.39% done, finished in 1:57
+  DUMP: 24.12% done, finished in 1:50
+  DUMP: 27.85% done, finished in 1:43
+  DUMP: 31.53% done, finished in 1:37
+  DUMP: 35.16% done, finished in 1:32
+  DUMP: 38.60% done, finished in 1:27
+  DUMP: 42.08% done, finished in 1:22
+  DUMP: 45.51% done, finished in 1:17
+  DUMP: 49.02% done, finished in 1:12
+  DUMP: 52.42% done, finished in 1:08
+  DUMP: 55.81% done, finished in 1:03
+  DUMP: 59.19% done, finished in 0:58
+  DUMP: 62.53% done, finished in 0:53
+  DUMP: 65.96% done, finished in 0:49
+  DUMP: 69.34% done, finished in 0:44
+  DUMP: 72.70% done, finished in 0:39
+  DUMP: 76.05% done, finished in 0:34
+  DUMP: 79.70% done, finished in 0:29
+  DUMP: 83.42% done, finished in 0:23
+  DUMP: 87.19% done, finished in 0:18
+  DUMP: 90.59% done, finished in 0:13
+  DUMP: 93.93% done, finished in 0:08
+  DUMP: 97.54% done, finished in 0:03
+  DUMP: level 0 dump on Fri Feb 25 22:00:05 1994
+  DUMP: Tape rewinding
+  DUMP: 7806052 blocks (3811.55MB) on 1 volume
+  DUMP: DUMP IS DONE
+ /export/fcs/off
+  DUMP: Date of this level 0 dump: Sat Feb 26 00:25:23 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd13f to /dev/nrst11
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 2099738 blocks (1025.26MB) on 0.28 tape(s).
+  DUMP: dumping (Pass III) [directories]
+  DUMP: 12.49% done, finished in 0:35
+  DUMP: 25.62% done, finished in 0:29
+  DUMP: 38.51% done, finished in 0:23
+  DUMP: dumping (Pass IV) [regular files]
+  DUMP: 51.75% done, finished in 0:18
+  DUMP: Tape write error 1995 feet into tape 1
+  DUMP: fopen on /dev/tty fails
+  DUMP: The ENTIRE dump is aborted.
+ /export/fcs/off/lstng	NOTE: This has been dumped to Thor nrst0.
+  DUMP: Date of this level 0 dump: Sat Feb 26 00:53:00 1994
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rmd8c (/export/fcs/off/lstng) to /dev/nrst0 on host thor
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 3243998 blocks (1583.98MB) on 0.43 tape(s).
+  DUMP: /dev/nrst0: I/O error
+
+  DUMP: fopen on /dev/tty fails
+  DUMP: The ENTIRE dump is aborted.
+

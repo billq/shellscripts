@@ -1,0 +1,50 @@
+#!/bin/ksh
+INFOBOOK=/apps/dos/lib/ssd_info.txt
+WRKDIR=~quayle/seamless/lib/ssd_info_dir
+PHONEBOOK=$WRKDIR/ssd_info.unix
+typeset -i NUM_MATCH
+
+rm $WRKDIR/*
+cat $INFOBOOK|sed 's/;/:/g'|sed 's/ /:/g'>$WRKDIR/nssd_info
+mv $WRKDIR/nssd_info $PHONEBOOK
+
+for LINE in `grep unknown $PHONEBOOK`
+do
+	USER=""
+	USER2=""
+	ALIAS=""
+	USER=`echo "${LINE}"|cut -f1 -d_|tr [A-Z] [a-z]`
+	ALIAS=`ypmatch $USER aliases 2>/dev/null|sed 's/ //g'`
+	if [ "$ALIAS" != "" ]
+	then
+		echo "${LINE}"|sed s/unknown/${ALIAS}/ >> $WRKDIR/new_info.txt
+	else
+		NUM_MATCH=`ypcat passwd|grep -i $USER|cut -f1 -d:|wc -l|sed 's/ //g'`
+		case $NUM_MATCH in
+		1)
+			USER2=`ypcat passwd|grep -i $USER|cut -f1 -d:`
+			ALIAS=`ypmatch $USER2 aliases 2>/dev/null|sed 's/ //g'`
+			if [ "$ALIAS" != "" ]
+			then
+				echo "${LINE}"|sed s/unknown/${ALIAS}/ >> $WRKDIR/new_info.txt
+			else
+				echo $USER2 has passwd but no alias
+				echo $USER2 >> $WRKDIR/noalias.but.has.passwd
+			fi
+		;;
+		0)
+			echo No passwd for $USER
+			echo $USER >> $WRKDIR/no.passwd
+		;;
+		*)
+			echo Multiple entries for $USER
+			echo $USER >> $WRKDIR/dup.passwd
+		;;
+		esac
+	fi
+done
+echo "Now you have to hand edit the file to check for acuracy.  This sucks."
+read go
+cat $PHONEBOOK new_info.txt |sort >$WRKDIR/good.info
+vi good.info
+echo "O.K. move $WRKDIR/good.info to /apps/dos/lib/ssd_info.txt"

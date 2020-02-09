@@ -1,0 +1,706 @@
+#!/bin/sh
+# Copyright (c) 1998,1999 Robert Woodcock <rcw@debian.org>
+# This code is hereby licensed for public consumption under either the
+# GNU GPL v2 or greater, or Larry Wall's Artistic license - your choice.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+VERSION=1.1.1
+
+usage ()
+{
+echo "This is abcde v$VERSION."
+echo "Usage: abcde [options] [tracks]"
+echo "Options:"
+echo "-d    Specify CDROM device to grab"
+echo "-D    Debugging mode (equivalent to sh -x abcde)"
+echo "-e    Edit returned CDDB information before using"
+echo "-h    This help information"
+echo "-j    Number of encoder processes to run at once"
+echo "-l [num] Low disk space handling option"
+echo "      1 = normal parallelization"
+echo "      2 = disk space conservation"
+echo "-n    Don't query CDDB, just create and use template"
+echo "-p    Create m3u playlist"
+echo "-P    Only create m3u playlist (do no CD ripping)"
+echo "-r [host1,host2...] Remote encode on these hosts as well as the local machine"
+echo "-v    CD is by various artists (will parse Title / Artist info in title data)"
+echo "-V    Select different Various Artists parse mode (implies -v):"
+echo "      -v reverse       Artist / Title"
+echo "      -v forward-dash  Title - Artist"
+echo "      -v reverse-dash  Artist - Title"
+echo "-x    Eject CD after all tracks are read"
+echo "Tracks is a space-delimited list of tracks to grab."
+echo "No wildcards accepted yet."
+}
+
+# tag_filename [noisy|silent] [filename]
+# id3 tags a filename
+# variables used:
+# A lot. [FIXME]
+tag_filename ()
+{
+	FILETOTAG="$2"
+	if [ "$NOID3" != "y" ]; then
+		if [ "$VARIOUSARTISTS" = "y" ]; then
+			case "$VARIOUSARTISTSTYLE" in
+			forward)
+				DTITLEARTIST="$(echo $TRACKNAME | sed 's- / -~-g')"
+				TRACKNAME="$(echo $DTITLEARTIST | cut -f1 -d~)"
+				DARTIST="$(echo $DTITLEARTIST | cut -f2 -d~)"
+				;;
+			forward-dash)
+				DTITLEARTIST="$(echo $TRACKNAME | sed 's, - ,~,g')"
+				TRACKNAME="$(echo $DTITLEARTIST | cut -f1 -d~)"
+				DARTIST="$(echo $DTITLEARTIST | cut -f2 -d~)"
+				;;
+			reverse)
+				DTITLEARTIST="$(echo $TRACKNAME | sed 's- / -~-g')"
+				TRACKNAME="$(echo $DTITLEARTIST | cut -f2 -d~)"
+				DARTIST="$(echo $DTITLEARTIST | cut -f1 -d~)"
+				;;
+			reverse-dash)
+				DTITLEARTIST="$(echo $TRACKNAME | sed 's, - ,~,g')"
+				TRACKNAME="$(echo $DTITLEARTIST | cut -f2 -d~)"
+				DARTIST="$(echo $DTITLEARTIST | cut -f1 -d~)"
+				;;
+			esac
+		fi
+		# Make a separate silent id3 run for the comment field
+		ID3COMMENTDATA=$(eval echo ${ID3COMMENT})
+		export ID3COMMENTDATA
+		$ID3 $ID3OPTS -c "${ID3COMMENTDATA}" "$FILETOTAG" \
+			2>/dev/null >&2
+		# ...and make the rest of the changes...
+		if [ "$1" = "noisy" ]; then
+			# ...visibly...
+			echo Tagging track "$UTRACKNUM: $TRACKNAME..."
+			$ID3 $ID3OPTS -A "$DALBUM" -a "$DARTIST" \
+				-t "$TRACKNAME" -T "$UTRACKNUM" \
+				"$FILETOTAG"
+		else
+			# ...or not.
+			$ID3 $ID3OPTS -A "$DALBUM" -a "$DARTIST" \
+				-t "$TRACKNAME" -T "$UTRACKNUM" \
+				"$FILETOTAG" 2>/dev/null >&2
+		fi
+	fi
+}
+
+# encode_and_tag [noisy|silent|remote [hostname]]
+# if first parameter is noisy, encode noisily on localhost
+# if first parameter is silent, encode silently on localhost
+# if first parameter is "remote", treat third as hostname
+# and encode remotely
+# variables used:
+# A lot. [FIXME]
+encode_and_tag ()
+{
+	case "$1" in
+	noisy)
+		echo Encoding track "$UTRACKNUM: $TRACKNAME..."
+		case "$ENCODERSYNTAX" in
+		lame|gogo) $ENCODER $ENCODEROPTS "$WAVDATA" "$OUTPUTDIR/$OUTPUTFILE" ;;
+		bladeenc|l3enc) $ENCODER "$WAVDATA" "$OUTPUTDIR/$OUTPUTFILE" $ENCODEROPTS ;;
+		mp3enc) $ENCODER -if "$WAVDATA" -of "$OUTPUTDIR/$OUTPUTFILE" $ENCODEROPTS ;;
+		esac
+		tag_filename noisy "$OUTPUTDIR/$OUTPUTFILE"
+	;;
+	silent)
+		case "$ENCODERSYNTAX" in
+		lame|gogo) $ENCODER $ENCODEROPTS "$WAVDATA" "$OUTPUTDIR/$OUTPUTFILE" 2>/dev/null >&2 ;;
+		bladeenc|l3enc) $ENCODER "$WAVDATA" "$OUTPUTDIR/$OUTPUTFILE" $ENCODEROPTS 2>/dev/null >&2 ;;
+		mp3enc) $ENCODER -if "$WAVDATA" -of "$OUTPUTDIR/$OUTPUTFILE" $ENCODEROPTS 2>/dev/null >&2 ;;
+		esac
+		tag_filename silent "$OUTPUTDIR/$OUTPUTFILE"
+	;;
+	remote)
+		$DISTMP3 $DISTMP3OPTS $2 "$WAVDATA" "$OUTPUTDIR/$OUTPUTFILE" 2>/dev/null >&2
+		tag_filename silent "$OUTPUTDIR/$OUTPUTFILE"
+	;;
+	esac
+	rm -f "$WAVDATA"
+	echo "abcde-control-completed-track-$UTRACKNUM" >> "$CDDBDATA"
+}
+
+# relpath() and slash() are Copyright (c) 1999 Stuart Ballard and
+# distributed under the terms of the GNU GPL v2 or later, at your option
+
+# Function to determine if a word contains a slash.
+slash ()
+{
+  case "$1" in
+  */*) return 0;;
+  *) return 1;;
+  esac
+}
+
+# Function to give the relative path from one file to another.
+# Usage: relpath fromfile tofile
+# eg relpath music/Artist/Album.m3u music/Artist/Album/Song.mp3
+# (the result would be Album/Song.mp3)
+# Output is relative path to $2 from $1 on stdout
+
+# This code has the following restrictions:
+# Multiple ////s are not collapsed into single /s, with strange effects.
+# Absolute paths and ../s are handled wrong in FR (but they work in TO)
+# If FR is a directory it must have a trailing /
+
+relpath ()
+{
+
+FR="$1"
+TO="$2"
+
+case "$TO" in
+/*) ;; # No processing is needed for absolute paths
+*)
+	# Loop through common prefixes, ignoring them.
+	while slash "$FR" && [ "$(echo "$FR" | cut -d/ -f1)" = "$(echo "$TO" | cut -d/ -f1)" ]
+	do
+		FR="$(echo "$FR" | cut -d/ -f2-)"
+		TO="$(echo "$TO" | cut -d/ -f2-)"
+	done
+	# Loop through directory portions left in FR, adding appropriate ../s.
+	while slash "$FR"
+	do
+		FR="$(echo "$FR" | cut -d/ -f2-)"
+		TO="../$TO"
+	done
+esac
+
+echo $TO
+}
+
+# Start of execution
+
+# Builtin defaults
+CDDBURL="http://cddb.cddb.com/~cddb/cddb.cgi"
+HELLOINFO="$(whoami)@$(hostname)"
+CDROM=/dev/cdrom
+CDROMREADERSYNTAX=cdparanoia
+ENCODERSYNTAX=lame
+OUTPUTFORMAT='${ARTISTFILE}/${TRACKFILE}.mp3'
+PLAYLISTFORMAT='${ARTISTFILE}_-_${ALBUMFILE}.m3u'
+PLAYLISTDATAPREFIX=''
+ID3COMMENT=''
+LOWDISK=1
+
+# program paths - defaults to checking your $PATH
+LAME=lame
+GOGO=gogo
+BLADEENC=bladeenc
+L3ENC=l3enc
+MP3ENC=mp3enc
+ID3=id3
+CDPARANOIA=cdparanoia
+CDDA2WAV=cdda2wav
+WGET=wget
+CDDISCID=cd-discid
+CDDBTOOL=cddb-tool
+EJECT=eject
+DISTMP3=distmp3
+
+# Options for programs called from abcde
+LAMEOPTS=
+GOGOOPTS=
+BLADEENCOPTS=
+L3ENCOPTS=
+MP3ENCOPTS=
+ID3OPTS=
+CDPARANOIAOPTS=
+CDDA2WAVOPTS=
+WGETOPTS=
+CDDBTOOLOPTS=
+EJECTOPTS=
+DISTMP3OPTS=
+
+# Default to one process if -j isn't specified
+MAXPROCS=1
+
+# User-redefinable functions
+# Custom filename munging:
+mungefilename ()
+{
+	echo "$1" | tr \ / __ | tr -d \'\? | tr -d \[:cntrl:\]
+}
+
+# Momma always taught me not to use no double negatives :)
+# If NOCDDB is set to y, no CDDB read is done
+# If NOID3 is set to y, no ID3 tagging is done
+NOCDDB=n
+NOID3=n
+
+if [ "$OUTPUTDIR" = "" ]; then
+	OUTPUTDIR=$(pwd)
+fi
+
+if [ "$WAVOUTPUTDIR" = "" ]; then
+	WAVOUTPUTDIR="$OUTPUTDIR"
+fi
+
+# Load system defaults
+if [ -r /etc/abcde.conf ]; then
+	. /etc/abcde.conf
+fi
+# Load user preference defaults
+if [ -r $HOME/.abcde.conf ]; then
+	. $HOME/.abcde.conf
+fi
+
+# Parse command line options
+while getopts d:Dehj:l:npPr:vV:x opt ; do
+	case "$opt" in
+		d) CDROM="$OPTARG" ;;
+		D) set -x ;;
+		e) EDITCDDB="y" ;;
+		j) MAXPROCS="$OPTARG" ;;
+		h) usage; exit ;;
+		l) LOWDISK="$OPTARG" ;;
+		n) NOCDDBQUERY="y" ;;
+		p) PLAYLIST="y" ;;
+		P) PLAYLISTONLY="y"; PLAYLIST="y" ;;
+		r) REMOTEHOSTS="$OPTARG" ;;
+		v) VARIOUSARTISTS="y" ;;
+		V) VARIOUSARTISTS="y"
+		VARIOUSARTISTSTYLE=forward
+		case "$OPTARG" in
+			reverse) VARIOUSARTISTSTYLE="reverse" ;;
+			reverse-dash) VARIOUSARTISTSTYLE="reverse-dash" ;;
+			forward-dash) VARIOUSARTISTSTYLE="forward-dash" ;;
+		esac ;;
+		x) EJECTCD="y" ;;
+
+		?) usage; exit ;;
+	esac
+done
+
+if [ $LOWDISK -lt 1 ] || [ $LOWDISK -gt 2 ]; then
+	echo    "abcde: invalid lowdisk option argument."
+	echo    "Lowdisk options:"
+	echo -e "1:\tDefaults \(Parallelize entire CD\)"
+	echo -e "2:\tLowest disk usage \(No parallelization\)"
+	echo -e "3:\tRip timing prediction \(best case parallelization, not yet implemented\)"
+	exit 1
+fi
+
+shift $(($OPTIND - 1))
+
+while [ $# -gt 0 ]; do
+	# Range parsing code courtesy of Vincent Ho
+	RSTART=$(echo $1 | cut -f1 -d-)
+	REND=$(echo $1 | cut -f2 -d-)
+	if [ "$RSTART" = "$REND" ]; then 
+		NEWTRACKS="$RSTART"
+	else
+		NEWTRACKS=$(seq -s ' ' $RSTART $REND)
+	fi
+	TRACKQUEUE=$(echo "$TRACKQUEUE" "$NEWTRACKS")
+
+	shift
+done
+
+# Decide which CDROM reader we're gonna use
+case "$CDROMREADERSYNTAX" in
+	cdparanoia|debug)
+		CDROMREADER="$CDPARANOIA"
+		CDROMREADEROPTS="$CDPARANOIAOPTS"
+		;;
+	cdda2wav)
+		CDROMREADER="$CDDA2WAV"
+		CDROMREADEROPTS="$CDDA2WAVOPTS"
+		;;
+esac
+
+# and which encoder
+case "$ENCODERSYNTAX" in
+	lame)
+		ENCODEROPTS="$LAMEOPTS"
+		ENCODER="$LAME"
+		;;
+	gogo)
+		ENCODEROPTS="$GOGOOPTS"
+		ENCODER="$GOGO"
+		;;
+	bladeenc)
+		ENCODEROPTS="$BLADEENCOPTS"
+		ENCODER="$BLADEENC"
+		;;
+	l3enc)
+		ENCODEROPTS="$L3ENCOPTS"
+		ENCODER="$L3ENC"
+		;;
+	mp3enc)
+		ENCODEROPTS="$MP3ENCOPTS"
+		ENCODER="$MP3ENC"
+		;;
+esac
+
+if [ "$REMOTEHOSTS" != "" ]; then
+	REMOTEENCODE=y
+fi	
+	
+# Make sure a buncha things exist
+for X in $CDROMREADER $CDDISCID $ID3 $ENCODER $WGET ${REMOTEENCODE+$DISTMP3}
+do
+	# Cut off the command-line options we just added in
+	X=$(echo $X | cut -d' ' -f2)
+	if [ "$(which $X)" = "" ]; then
+		echo "abcde error: $X is not in your path."
+		exit 1
+	elif [ \! -x $(which $X) ]; then
+		echo "abcde error: $X is not executable."
+		exit 1
+	fi 
+done
+
+CDROMREADER="$CDROMREADER $CDROMREADEROPTS"
+CDDBTOOL="$CDDBTOOL $CDDBTOOLOPTS"
+
+# Query the CD to get the track info
+echo -n "Getting CD track info... "
+TRACKINFO=$($CDDISCID $CDROM)
+
+# Make sure there's a CD in there by checking cd-discid's return code
+if [ "$?" = "1" ]; then
+	echo "abcde error: CD could not be read. Perhaps there's no CD in the drive?"
+	exit 1
+fi
+
+# Get a full enumeration of tracks, sort it, and put it in the TRACKQUEUE.
+
+TRACKS=$(echo $TRACKINFO | cut -f2 -d' ')
+
+if [ "$TRACKQUEUE" = "" ]; then
+	echo -n "Grabbing entire CD - tracks: "
+	X=0
+	while [ "$X" != "$TRACKS" ]
+	do
+		X=$(expr $X + 1)
+		TRACKQUEUE=$(echo "$TRACKQUEUE" $X)
+	done
+	echo $TRACKQUEUE
+else
+	TRACKQUEUE=$((for X in $TRACKQUEUE; do echo $X; done) | sort -n | uniq | xargs)
+	echo Grabbing tracks: "$TRACKQUEUE"
+fi
+
+# TRACKQUEUE has now been sorted - get the last variable in the list
+for X in $TRACKQUEUE; do :; done
+# get the number of digits to pad TRACKNUM with - we'll use this down below
+TRACKNUMPADDING=$(echo -n $X | wc -c | xargs)
+CDDBDATA=$(mktemp "$OUTPUTDIR"/abcde.XXXXXX) || exit 1
+if [ "$NOCDDBQUERY" = "y" ]; then
+	ERRORCODE=14
+else
+	CDDBUSER=$(echo $HELLOINFO | cut -f1 -d'@')
+	CDDBHOST=$(echo $HELLOINFO | cut -f2- -d'@')
+	$CDDBTOOL get $CDDBURL $CDDBUSER $CDDBHOST $TRACKINFO > "$CDDBDATA"
+	ERRORCODE=$?
+fi
+case $ERRORCODE in
+	0)  # success
+	;;
+	12|13|14)
+		# no match found in database
+		# wget error, or user requested not to use CDDB
+		if [ "$ERRORCODE" = "13" -o $ERRORCODE = "14" ]
+		then
+			CANTSUBMIT=y
+		else
+			CANTSUBMIT=n
+		fi
+		echo -ne "Creating template..."
+		$CDDBTOOL template $TRACKINFO > "$CDDBDATA"
+		echo "done."
+		NOCDDB=y
+		NOID3=y
+		NOSUBMIT=y
+		# Ok now that we have this template file let's
+		# ask the user if they want to put something in it
+		echo "Would you like to edit this blank template file?"
+		echo "If you choose no, your tracks will be named like this:"
+		echo -e "\tUnknown_Artist/Track_01.mp3"
+		echo "and will not be ID3 tagged."
+		echo -n "Edit CDDB template? [y/n] "
+		if [ "$ERRORCODE" = "14" ]
+		then
+			YESNO=y
+			echo y
+		else
+			read YESNO
+		fi
+		while [ "$YESNO" != "y" ] && [ "$YESNO" != "n" ] && [ "$YESNO" != "Y" ] && [ "$YESNO" != "N" ]
+		do
+			echo -n 'Invalid selection. Please answer "y" or "n": '
+			read YESNO
+		done
+		if [ "$YESNO" = "y" ] || [ "$YESNO" = "Y" ]; then
+			EDITCDDB=y
+			if [ "$CANTSUBMIT" = "y" ]; then
+				NOSUBMIT=y   #redundant
+			else
+				NOSUBMIT=n
+			fi
+			NOID3=n
+		fi
+	;;
+	*) # strange and unknown error
+		echo "abcde: $CDDBTOOL returned unknown error code"
+	;;
+esac
+# Let user edit CDDB data if they requested such a thing
+if [ "$EDITCDDB" = "y" ]; then
+	# Use the debian sensible-editor wrapper to pick the editor that the
+	# user has requested via their $EDITOR environment variable
+	if [ -x "/usr/bin/sensible-editor" ]; then
+		/usr/bin/sensible-editor "$CDDBDATA"
+	elif [ -x "$EDITOR" ]; then
+		# That failed, try to load the preferred editor, starting
+		# with their EDITOR variable
+		$EDITOR "$CDDBDATA"
+	# If that fails, check for a vi
+	elif [ -x /usr/bin/vi ]; then
+		/usr/bin/vi "$CDDBDATA"
+	# ae should be on all debian systems
+	elif [ -x /bin/ae ]; then
+		/bin/ae "$CDDBDATA"
+	# bomb out
+	else
+		echo "No editor available. Check your EDITOR environment variable."
+		exit 1
+	fi
+	# delete editor backup file if it exists
+	if [ -w "$CDDBDATA~" ]; then
+		rm -f "$CDDBDATA~"
+	fi
+#
+#	This is temporarily commented out until I have a chance to mess with it a
+#	little more. --rcw 8/31/1999
+#
+#	In the meantime if someone else wants to fiddle with it be my guest.
+#	Please report all issues with the submission code to rcw@debian.org.
+#	--rcw 12/31/1999
+#
+#	# submit the modified file, if they want
+#	if [ "$NOSUBMIT" != "y" ]; then
+#		echo -n "Do you want to submit this entry to $CDDBSUBMIT? [y|N] "
+#		read YESNO
+#		while [ "$YESNO" != "y" ] && [ "$YESNO" != "n" ] && [ "$YESNO" != "Y" ] && [ "$YESNO" != "N" ]
+#		do
+#			echo -n 'Invalid selection. Please answer "y" or "n": '
+#			read YESNO
+#		done
+#		if [ "$YESNO" = "y" ] || [ "$YESNO" = "Y" ]; then
+#			echo -n "Sending..."
+#			$CDDBTOOL send "$CDDBDATA" $CDDBSUBMIT
+#			echo "done."
+#		fi
+#	fi
+
+fi
+# Get Artist and Album info from the CDDB response
+eval $($CDDBTOOL parse "$CDDBDATA" all)
+echo Title: $DALBUM
+echo Artist: $DARTIST
+# Munge filenames as follows: 
+# ' ' -> '_'
+# '/' -> '_'
+# ''' -> ''
+# '?' -> ''
+# Eat control characters
+ARTISTFILE=$(mungefilename "$DARTIST")
+ALBUMFILE=$(mungefilename "$DALBUM")
+TRACKFILE=foo
+OUTPUTFILE=$(eval echo $OUTPUTFORMAT)
+FINALOUTPUTDIR=$(dirname "$OUTPUTDIR/$OUTPUTFILE")
+# Create a directory for the files to go to if it doesn't already exist
+if [ "$PLAYLISTONLY" != "y" ]; then
+	if [ \! -e "$FINALOUTPUTDIR" ]; then
+		mkdir -p "$FINALOUTPUTDIR"
+	fi
+fi
+# Create a playlist file for the playlist data to go into, wiping it out if
+# it exists already
+PLAYLISTFILE=$(eval echo $PLAYLISTFORMAT)
+FINALPLAYLISTDIR=$(dirname "$OUTPUTDIR/$PLAYLISTFILE")
+if [ "$PLAYLIST" = "y" ]; then
+	if [ \! -e "$FINALPLAYLISTDIR" ]; then
+		mkdir -p "$FINALPLAYLISTDIR"
+	fi
+	rm -f "$OUTPUTDIR/$PLAYLISTFILE"
+	touch "$OUTPUTDIR/$PLAYLISTFILE"
+fi
+# Go through the tracks and list them all
+# UTRACKNUM is the un-0-padded tracknum counter
+TRACKOFFSETS=$(echo $TRACKINFO | cut -f3- -d' ')
+for UTRACKNUM in $TRACKQUEUE
+do
+	echo -n "Track $UTRACKNUM: "
+	echo -n $(eval echo \$TRACK${UTRACKNUM})
+	if [ "$UTRACKNUM" = "$TRACKS" ]; then # Last track, need to use a slightly different algorithm
+		FRAMES=$(expr $(expr $(echo $TRACKOFFSETS | cut -f$(expr $TRACKS + 1) -d' ') \* 75) - $(echo $TRACKOFFSETS | cut -f$TRACKS -d' '))
+	else
+		FRAMES=$(expr $(echo $TRACKOFFSETS | cut -f$(expr $UTRACKNUM + 1) -d' ') - $(echo $TRACKOFFSETS | cut -f$UTRACKNUM -d' '))
+	fi
+	SECS=$(expr $FRAMES / 75)
+	MINS=$(expr $SECS / 60)
+	SECS=$(expr $SECS % 60)
+	echo " ($MINS:$(printf %02d $SECS))"
+done
+# For option #2, only one program is running at once so the encoder can be
+# unsilenced right away
+# MAKE SURE that you don't write anything to $CDDBDATA until the _after_
+# the cddb-tool send above.
+if [ "$LOWDISK" = "2" ]; then
+	echo "abcde-control-unsilence" >> $CDDBDATA
+fi
+
+# This is where we split into two programs - one does the ripping, the other
+# does the encoding, tagging, and deletion of all temporary files.
+# Communication is via pipe on file descriptor #1. One filename per line.
+
+export TRACKNUMPADDING CDDBDATA WAVOUTPUTDIR OUTPUTDIR OUTPUTFORMAT ENCODER ID3
+export ID3OPTS ID3COMMENT TRACKQUEUE DALBUM DARTIST PLAYLIST PLAYLISTONLY
+export REMOTEENCODE REMOTEHOSTS DISTMP3 DISTMP3OPTS
+(
+# Start ripping in process #1.
+for UTRACKNUM in $TRACKQUEUE
+do
+	# This entire section must be completely silent to stdout - all
+	# output *must* go to stderr. Otherwise it'll get sent down the
+	# pipe.
+	TRACKNUM=$(printf %0.${TRACKNUMPADDING}d ${UTRACKNUM})
+	TRACKNAME=$($CDDBTOOL parse "$CDDBDATA" track $UTRACKNUM | tr -d \[:cntrl:\])
+	if [ "$PLAYLISTONLY" != "y" ]; then
+		echo "Grabbing track $UTRACKNUM: $TRACKNAME..." >&2
+		WAVDATA=$(mktemp -u "$WAVOUTPUTDIR"/abcde.currenttrack.XXXXXX).wav || exit 1
+		case "$CDROMREADERSYNTAX" in
+			cdparanoia) $CDROMREADER -d $CDROM $UTRACKNUM "$WAVDATA" ;;
+			cdda2wav) $CDROMREADER -H -D $CDROM -t $UTRACKNUM "$WAVDATA" ;;
+			debug) $CDROMREADER -d $CDROM -w $UTRACKNUM-[:5] "$WAVDATA" ;;
+		esac
+	fi
+	# The filename gets sent down the pipe - the encoder thread will
+	# block on the pipe read until this is sent, automagically pausing things
+	# nicely 
+	echo "$WAVDATA"
+
+	if [ "$PLAYLISTONLY" = "y" ]; then LOWDISK=1; fi # this is essentially a goto
+
+	case $LOWDISK in
+	1) # do nothing here - proceed straight to next track (default)
+		;;
+	2) # eat up as little disk space as possible - wait for this track
+	   # to finish encoding
+		while true
+		do
+			grep -q abcde-control-completed-track-$UTRACKNUM "$CDDBDATA" 2>/dev/null
+			RESULT=$?
+			if [ "$RESULT" = "2" ] || [ "$RESULT" = "0" ]; then
+				# grep hit some fatal error (like the CDDBDATA file
+				# was cleaned by an exiting encoder thread),
+				# or found a match, either way we exit
+				break
+			fi
+			sleep 2
+		done
+		;;
+	3) # Door #3 hasn't been built yet - tell the user that
+		echo "Low Disk option #3 not yet available, defaulting to normal parallelization."
+		# I would jump back to #1 to do nothing, but I figured I
+		# could just do nothing right here instead. Code duplication
+		# sucks but it does have its place.
+		;;
+	esac
+done
+# This is downright evil, but elegant nonetheless (it's either this or
+# another tempfile) - we tack a keyword at the end of the CDDBDATA tempfile
+# that signals that the encoder/tagger can produce output.
+if [ "$PLAYLISTONLY" != "y" ]; then
+	echo abcde-control-unsilence >> "$CDDBDATA"
+	echo Finishing encoding... >&2
+fi
+# We are now finished with the cdrom - it can be safely ejected. Note that
+# abcde will not have completed yet.
+if [ "$EJECTCD" = "y" ]; then
+	$EJECT $EJECTOPTS $CDROM
+fi
+) | (
+# The variables down here live in a kind of alternate reality so some of
+# them need to be recreated.
+SILENCE='silent'
+ENCODELOCATION=""
+TRK=0
+while [ "$TRK" -le "$(echo $TRACKQUEUE | wc -w | xargs)" ]
+do
+	for REMOTEHOST in $(echo $REMOTEHOSTS | sed 's-,- -g')
+	do
+		ENCODELOCATION=$ENCODELOCATION:$REMOTEHOST
+		TRK=$(expr $TRK + 1)
+	done
+	NUMPROCS=0
+	while [ "$NUMPROCS" != "$MAXPROCS" ]
+	do
+		NUMPROCS=$(expr $NUMPROCS + 1)
+		ENCODELOCATION=$ENCODELOCATION:
+		TRK=$(expr $TRK + 1)
+	done
+done
+NUMPROCS=0
+HOSTNUM=0
+for UTRACKNUM in $TRACKQUEUE
+do
+	# get next file to process
+	read WAVDATA
+	# quit if we're all done
+	if [ "$?" != "0" ]; then exit; fi
+	TRACKNUM=$(printf %0.${TRACKNUMPADDING}d ${UTRACKNUM})
+	CDDBTRACKNUM=$(expr $UTRACKNUM - 1)
+	TRACKNAME=$(grep ^TTITLE$CDDBTRACKNUM= "$CDDBDATA" | head -1 | cut -f2 -d= | tr -d \[:cntrl:\])
+	TRACKFILE=$(mungefilename "$TRACKNAME")
+	OUTPUTFILE=$(eval echo $OUTPUTFORMAT)
+	# Write playlist data for track
+	if [ "$PLAYLIST" = "y" ]; then
+		if [ "$PLAYLISTDATAPREFIX" != "" ]; then
+			echo -n $PLAYLISTDATAPREFIX >> "$OUTPUTDIR/$PLAYLISTFILE"
+		fi
+		relpath "$PLAYLISTFILE", "$OUTPUTFILE" >> "$OUTPUTDIR/$PLAYLISTFILE"
+	fi
+	if [ "$PLAYLISTONLY" = "y" ]; then continue; fi
+	if grep -q ^abcde-control-unsilence$ "$CDDBDATA" >/dev/null; then
+		SILENCE='noisy'
+	else
+		SILENCE='silent'
+	fi
+	if [ "$(echo $ENCODELOCATION | cut -d: -f$UTRACKNUM)" = "" ]; then
+		# Handle background processes for SMP here
+		NUMPROCS=$(expr $NUMPROCS + 1)
+		# Check if we've started enough processes, and make sure this isn't
+		# the last track
+		if [ "$NUMPROCS" = "$MAXPROCS" ] || [ "$UTRACKNUM" = "$(echo $TRACKQUEUE | wc -w | xargs)" ]; then
+			# Don't background this one - reset the counter, encode the
+			# mp3, lather, rinse, repeat.
+			NUMPROCS=0
+			encode_and_tag $SILENCE
+		else
+			# Background this one, so it immediately goes through the
+			# for loop and finds more stuff to run
+			( encode_and_tag $SILENCE ) &
+		fi
+	else
+		# Handle background processes for remote execution here
+		HOSTNUM=$(expr $HOSTNUM + 1)
+		REMOTEHOST=$(echo $REMOTEHOSTS | cut -d, -f$HOSTNUM)
+		( encode_and_tag remote $REMOTEHOST ) &
+		if [ "$HOSTNUM" = "$(echo $REMOTEHOSTS | sed 's-,- -g' | wc -w | xargs)" ]; then
+			HOSTNUM=0
+		fi
+	fi
+done
+echo "Finished."
+rm -f "$CDDBDATA"
+)
+

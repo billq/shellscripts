@@ -1,0 +1,46 @@
+dtsmcmd -hints "-geometry 80x42+72+48 -state IconicState -workspaces \"ws4 \" -cmd \"/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n lynx -e rlogin lynx -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n lynx -e rlogin lynx -l root"
+
+dtsmcmd -hints "-geometry 80x42+130+73 -state IconicState -workspaces \"ws4 \" -cmd \"/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n cheetah -e rlogin cheetah -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n cheetah -e rlogin cheetah -l root"
+
+dtsmcmd -hints "-geometry 80x42+259+100 -state IconicState -workspaces \"ws2 \" -cmd \"/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1prod -e rlogin db1prod -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1prod -e rlogin db1prod -l root"
+
+dtsmcmd -hints "-geometry 80x42+209+121 -state IconicState -workspaces \"ws6 \" -cmd \"/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n shark -e rlogin shark -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n shark -e rlogin shark -l root"
+
+dtsmcmd -hints "-geometry 80x42+159+97 -state IconicState -workspaces \"ws6 \" -cmd \"/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n moby -e rlogin moby -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n moby -e rlogin moby -l root"
+
+dtsmcmd -hints "-geometry 80x42+111+69 -state IconicState -workspaces \"ws6 \" -cmd \"/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n orca -e rlogin orca -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n orca -e rlogin orca -l root"
+
+dtsmcmd -hints "-geometry 80x42+30+33 -state IconicState -workspaces \"ws6 \" -cmd \"/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n condor -e rlogin condor -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n condor -e rlogin condor -l root"
+
+dtsmcmd -hints "-geometry 80x42+78+45 -state IconicState -workspaces \"ws6 \" -cmd \"/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n falcon -e rlogin falcon -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n falcon -e rlogin falcon -l root"
+
+dtsmcmd -hints "-geometry 80x42+122+45 -state IconicState -workspaces \"ws5 \" -cmd \"/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n hawk -e rlogin hawk -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n hawk -e rlogin hawk -l root"
+
+dtsmcmd -hints "-geometry 80x42+61+33 -state IconicState -workspaces \"ws2 \" -cmd \"/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2qa -e rlogin db2qa -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2qa -e rlogin db2qa -l root"
+
+dtsmcmd -hints "-geometry 80x42+222+99 -state IconicState -workspaces \"ws4 \" -cmd \"/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1dev -e rlogin db1dev -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1dev -e rlogin db1dev -l root"
+
+dtsmcmd -hints "-geometry 80x42+29+33 -state IconicState -workspaces \"ws4 \" -cmd \"/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n puma -e rlogin puma -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg sienna -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n puma -e rlogin puma -l root"
+
+dtsmcmd -hints "-geometry 80x42+56+33 -state IconicState -workspaces \"ws3 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n bridge2 -e rlogin bridge2 -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n bridge2 -e rlogin bridge2 -l root"
+
+dtsmcmd -hints "-geometry 80x42+141+48 -state IconicState -workspaces \"ws3 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n bridge1 -e rlogin bridge1 -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n bridge1 -e rlogin bridge1 -l root"
+
+dtsmcmd -hints "-geometry 80x42+71+33 -state IconicState -workspaces \"ws5 \" -cmd \"/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n eagle -e rlogin eagle -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg forestgreen -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n eagle -e rlogin eagle -l root"
+
+dtsmcmd -hints "-geometry 80x42+176+73 -state IconicState -workspaces \"ws2 \" -cmd \"/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2prod -e rlogin db2prod -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db2prod -e rlogin db2prod -l root"
+
+dtsmcmd -hints "-geometry 80x42+114+48 -state IconicState -workspaces \"ws2 \" -cmd \"/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1qa -e rlogin db1qa -l root \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg darkblue -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -n db1qa -e rlogin db1qa -l root"
+
+dtsmcmd -hints "-geometry 1x1+0+0 -state NormalState -cmd \"/home/nfshost/bquayle/netscape/netscape http://home.netscape.com/ \"" -screen 0 -cmd "/home/nfshost/bquayle/netscape/netscape http://home.netscape.com/"
+
+dtsmcmd -hints "-geometry 80x24+75+33 -state IconicState -workspaces \"ws0 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls"
+
+dtsmcmd -hints "-geometry 76x34+164+97 -state IconicState -workspaces \"ws0 ws1 ws2 ws3 ws4 ws5 ws6 ws7 ws8 ws9 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 34x76 \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 34x76"
+
+dtsmcmd -hints "-geometry 80x24+568+33 -state IconicState -workspaces \"ws0 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls"
+
+dtsmcmd -hints "-geometry 80x42+237+155 -state IconicState -workspaces \"ws0 \" -cmd \"/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 \"" -screen 0 -cmd "/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42"
+
+dtsmcmd -screen 0 -cmd "perfmeter -Wp 0 625 -Ws 378 40 -WP 0 0 +Wi -t cpu -M cpu 100 100 100 -g -L -V -Wn -s 2 -h 20 -m 2"
+

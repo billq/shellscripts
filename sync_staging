@@ -1,0 +1,31 @@
+#!/bin/ksh
+cd staging
+#../space2_
+cd ..
+for i in `ls staging`
+do
+  [[ -d "$i" ]] && {
+    echo "staging/$i is also in ."
+    for j in `ls staging/$i`
+    do
+      [[ -d "${i}/${j}" ]] && {
+        echo "staging/$j is also in ./$i"
+        for k in `ls staging/${i}/${j}`
+        do
+          [[ -f "${i}/${j}/${k}" ]] && {
+            echo "staging/$k is also in ./${i}/${j}"
+          } || {
+                 mv staging/${i}/${j}/${k} ${i}/${j}/${k}
+                 echo "Relocated ${i}/${j}/${k}"
+               }
+        done
+      } || {
+             mv staging/${i}/${j} ${i}/${j}
+             echo "Relocated ${i}/${j}"
+           }
+    done
+  } || {
+         mv staging/${i} ${i}
+         echo "Relocated ${i}"
+       }
+done

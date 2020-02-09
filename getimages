@@ -1,0 +1,82 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#!/bin/sh
+#  A shell script to make connection with the gif site, and transfer all 
+#  pictures for the current day, then convert them to the fast type
+#  xloadimage files, and merge them with a outline of the states.
+#  Original code written in 2 C programs, rewritten as a shell
+#  script by James Jegers 7/29/92
+#  converted to /bin/sh by W.R. Quayle 8/14/92
+
+MAPSDIR="$HOME/lib/X11/xweath/maps"
+CONVERTDIR=${MAPSDIR}/converts
+USAOUTLINE=${MAPSDIR}/usaoutline
+MIDWESTOUTLINE=${MAPSDIR}/midwestoutline
+USASLIDES="usaslides"
+MIDWESTSLIDES="midwestslides"
+
+XLI=$HOME/bin.sun4/xli
+
+#  We actually want the -u option which gets the GMT time files.
+#  Since that is how they are stored there. 
+
+DATE=`date -u +%m%d`
+GET="*v$DATE*.gif"
+
+echo "Getting $GET"
+cd $MAPSDIR
+
+ftp -n vmd.cso.uiuc.edu << EOF
+user anonymous
+cd wx
+binary
+verb
+prompt
+case
+mget $GET
+quit
+EOF
+
+for FILE in $GET
+do
+	echo "Converting file $FILE"
+
+	$XLI -quiet -zoom 300 -dither -savebin $FILE ${CONVERTDIR}/${FILE}.usa
+  $XLI -quiet -clip 250,0,200,200 -dither -zoom 300 -savebin $FILE ${CONVERTDIR}/${FILE}.midwest
+
+done
+
+echo "Cleaning up..."
+cd $MAPSDIR
+find . -name 'cv*.gif' -mtime +1 -exec rm -f {} \;
+
+cd $CONVERTDIR
+find . -name 'cv*.gif*' -mtime +1 -exec rm -f {} \;
+
+ls -1 *.usa > $USASLIDES
+ls -1 *.midwest > $MIDWESTSLIDES
+

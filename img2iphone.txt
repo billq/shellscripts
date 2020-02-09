@@ -1,0 +1,333 @@
+#!/usr/bin/perl
+# Filename:	img2iphone
+# Author:	David Ljung Madison <DaveSource.com>
+# See License:	http://MarginalHacks.com/License/
+# Description:	Copy images to an iphone album
+#
+# WARNING:  This may erase all your images and destroy your phone
+# and burn down your house.  Not responsible for any lost data
+# or damage caused.  (Though we did fix that in the last release)
+#
+# Issues:
+# - If using -mount, then the files may end up being owned by root,
+#   and not eraseable from the iPhone "Camera" or "Photos" application.
+# - Can only transfer image to "Camera Roll" - if anyone knows how
+#   to create other albums, let me know!
+use strict;
+
+##################################################
+# Setup the variables
+##################################################
+my $PROGNAME = $0; $PROGNAME =~ s|.*/||;
+my ($BASENAME,$PROGNAME) = ($0 =~ m|(.*)/(.+)|) ? ($1?$1:'/',$2) : ('.',$0);
+
+##################################################
+# Settings
+##################################################
+
+# iPod Convenience settings
+my $DEFAULT_OPTIONS = {
+	cp_cmd =>	'cp',
+	identify_cmd =>	'identify',	# Optional (for speed)
+	convert_cmd =>	'convert',
+	mount_cmd =>	'iphone-mount',
+	umount_cmd =>	'iphone-umount',
+	conv_conf =>	'/etc/default/ipod-convenience',
+	mount_dcim =>	'DCIM',
+
+	thumbX =>	55,
+	thumbY =>	55,
+
+	num_hashes => 60,
+};
+
+##################################################
+# Usage
+##################################################
+sub doSys {
+	my ($opt,@cmd) = @_;
+	debug("CMD: @cmd");
+	system(@cmd);
+	fatal("Command failed: @cmd") if $?;
+}
+
+sub fatal {
+	foreach my $msg (@_) { print STDERR "[$PROGNAME] ERROR:  $msg\n"; }
+	exit(-1);
+}
+
+sub usage {
+	foreach my $msg (@_) { print STDERR "ERROR:  $msg\n"; }
+	print STDERR <<USAGE;
+
+Usage:\t$PROGNAME [-d] <image|dir>
+  Add images to an iPhone/iPod touch
+
+  -d       Set debug mode
+  -mount   Use iPod Convenience mount/umount commands and mount points
+  -dcim    Specify the DCIM directory (such as "Media/DCIM")
+  -album   Specify the album (such as "101APPLE")
+  -q       No hashes
+  -v       Verbose (instead of hashes)
+
+WARNING:  This may erase all your images and destroy your phone
+and burn down your house.  Not responsible for any lost data
+or damage caused.  (Though we did fix that in the last release)
+
+USAGE
+	exit -1;
+}
+
+sub getFiles {
+	my ($opt,$arg) = @_;
+	return $arg if -f $arg;
+	usage("Unknown file/dir [$arg]") unless -d $arg;
+	opendir(DIR,$arg) || usage("Couldn't read directory [$arg]");
+	my @dir = readdir(DIR);
+	closedir(DIR);
+	@dir = grep(-f $_, map { "$arg/$_" } @dir);
+	@dir;
+}
+
+sub parseArgs {
+	my $opt = $DEFAULT_OPTIONS;
+	while (my $arg=shift(@ARGV)) {
+		if ($arg =~ /^-h$/) { usage(); }
+		if ($arg =~ /^-d$/) { $MAIN::DEBUG=1; next; }
+		if ($arg =~ /^-q$/) { $opt->{q}=1; next; }
+		if ($arg =~ /^-v$/) { $opt->{v}=1; next; }
+		if ($arg =~ /^-mount$/) { $opt->{mount}=1; next; }
+		if ($arg =~ /^-dcim$/) { $opt->{dcim}=shift @ARGV; next; }
+		if ($arg =~ /^-album$/) { $opt->{album}=shift @ARGV; next; }
+		if ($arg =~ /^-/) { usage("Unknown option: $arg"); }
+		push(@{$opt->{files}},getFiles($opt,$arg));
+	}
+	usage("No images/directories specified") unless $opt->{files};
+
+	$opt->{v}=0 if $opt->{q};
+
+	mount($opt) if $opt->{mount};
+	
+	getDestination($opt);
+
+	print "Destination: $opt->{dest}\n";
+
+	$opt;
+}
+
+sub debug {
+	return unless $MAIN::DEBUG;
+	foreach my $msg (@_) { print STDERR "[$PROGNAME] $msg\n"; }
+}
+
+##################################################
+# Handling files/directories
+##################################################
+sub getDestination {
+	my ($opt) = @_;
+	# Figure out final destination
+	if ($opt->{dcim} && !-d $opt->{dcim}) {
+		warn("[WARNING] DCIM directory not found:\n  $opt->{dcim}\n");
+		undef $opt->{dcim};
+	}
+	$opt->{dcim} ||= '.';
+	$opt->{dest} = $opt->{album} ? "$opt->{dcim}/$opt->{album}"
+		: nextPath($opt,$opt->{dcim},"%0.3dAPPLE",101);
+	-d $opt->{dest} || mkdir($opt->{dest},0755) || usage("Couldn't create directory:\n  $opt->{dest}\n");
+	$opt->{dest};
+}
+
+sub nextPath {
+	my ($opt,$dir,$fmt,$start) = @_;
+	opendir(DIR,$dir) || usage("Couldn't read directory [$dir]");
+	my @dir = readdir(DIR);
+	closedir(DIR);
+	my %dir;
+	map {$dir{$_}++} @dir;
+	$start ||= 1;
+	while (1) {
+		my $tst = sprintf($fmt,$start++);
+		return "$dir/$tst" unless $dir{$tst};
+	}
+}
+
+# iPod Convenience
+sub mount {
+	my ($opt) = @_;
+	return unless $opt->{mount};
+	if (!$opt->{dcim} && open(CONF,"<$opt->{conv_conf}")) {
+		while (<CONF>) {
+			s/#.*//;
+			next unless /\S/;
+			next unless /(\S+)="([^"]+)"/ || /(\S+)=(\S+)/;
+			my ($var,$val) = ($1,$2);
+			$opt->{mountpoint} = $val if $var =~ /mountpoint/i;
+			$opt->{dcim} = "$opt->{mountpoint}/$opt->{mount_dcim}";
+		}
+		close CONF;
+	} else {
+		warn("WARNING: Couldn't read conf: [$opt->{conv_conf}]\n  Specify -dest\n\n");
+	}
+
+	doSys($opt,$opt->{mount_cmd});
+}
+
+sub umount {
+	my ($opt) = @_;
+	return unless $opt->{mount};
+	doSys($opt,$opt->{umount_cmd});
+}
+
+##################################################
+# Thumbnails
+##################################################
+sub thumb {
+	my ($opt,$img,$thm) = @_;
+
+	my ($x,$y) = getSize($opt,$img);
+
+	# Scale
+	my ($newX,$newY) = ($opt->{thumbX},$opt->{thumbY});
+	($x/$newX < $y/$newY) ? ($newY=$y) : ($newX=$x);
+	($x,$y) = scale($opt,$img,$newX,$newY,$thm);
+	return warn("Couldn't scale $img\n") unless $x;
+
+	# Now crop
+	my ($offX,$offY) = (0,0);
+	$offX = int(($x-$opt->{thumbX})/2) if $x>$opt->{thumbX};
+	$offY = int(($y-$opt->{thumbY})/2) if $y>$opt->{thumbY};
+	crop($opt,$thm,$opt->{thumbX},$opt->{thumbY},$offX,$offY,$thm)
+		unless $x==$opt->{thumbX} && $y==$opt->{thumbY};
+}
+
+sub getSize {
+	my ($opt,$img) = @_;
+	my ($qimg) = "\Q$img\E";
+	
+	return (0,0) unless (-f $img);
+	
+	# Try to use identify if we have it
+	if ($opt->{identify_cmd}) {
+		print STDERR "getSize() run: $opt->{identify_cmd} -ping $img\n" if ($MAIN::DEBUG);
+		if (open(SIZE,"$opt->{identify_cmd} -ping $qimg 2>&1 |")) {
+			while(<SIZE>) {
+				print STDERR "getSize(): $_" if ($MAIN::DEBUG);
+				if(/\s(\d+)x(\d+)(\s|\+)/) {
+					close(SIZE);
+					return ($1,$2);
+				}
+			}
+		} else {
+			undef $opt->{identify_cmd};
+		}
+	}
+	
+	# Kludgy way to get size, but works with all images that convert reads
+	print STDERR "getSize() run: $opt->{convert_cmd} -verbose $img /dev/null\n" if ($MAIN::DEBUG);
+	open(SIZE,"$opt->{convert_cmd} -verbose $qimg /dev/null 2>&1 |") ||
+		die("[$PROGNAME] Couldn't run convert!  [$opt->{convert_cmd}]\n");
+	while(<SIZE>) {
+		print STDERR "getSize(): $_" if ($MAIN::DEBUG);
+		if(/\s(\d+)x(\d+)(\s|\+)/) {
+			close(SIZE);
+			return ($1,$2);
+		}
+	}
+	die("[$PROGNAME] Can't get [$img] size from 'convert -verbose' output\n");
+}
+
+sub scale {
+	my ($opt,$img,$x,$y,$new) = @_;
+	my $qimg = "\Q$img\E";
+	my $qnew = "\Q$new\E";
+
+	print STDERR "scale() run: $opt->{convert_cmd} -verbose $img -geometry ${x}x${y} $new\n"
+		if ($MAIN::DEBUG);
+	open(SIZE,"$opt->{convert_cmd} -verbose $qimg -geometry ${x}x${y} $qnew 2>&1 |") ||
+		die("[$PROGNAME] Couldn't run convert!  [$opt->{convert_cmd}]\n");
+	while(<SIZE>) {
+		print STDERR "scale(): $_" if ($MAIN::DEBUG);
+		if(/=>(\d+)x(\d+)\s/) {
+			close(SIZE);
+			return ($1,$2);
+		}
+	}
+	close(SIZE);
+
+	# Sometimes convert doesn't give us the new size information
+	getSize($opt,$new);
+}
+
+sub crop {
+	my ($opt,$img,$x,$y,$offX,$offY,$new) = @_;
+	my $qimg = "\Q$img\E";
+	my $qnew = "\Q$new\E";
+	
+	print STDERR "crop() run: $opt->{convert_cmd} $img -crop ${x}x${y}+${offX}+${offY} $new\n"
+		if ($MAIN::DEBUG);
+	system("$opt->{convert_cmd} $qimg -crop ${x}x${y}+${offX}+${offY} $qnew");
+	return unless ($?);
+	print STDERR "[$PROGNAME] Error cropping $img\n";
+}
+
+##################################################
+# Hashes
+##################################################
+sub start_hashes {
+	my ($opt) =@_;
+	return if $opt->{q};
+
+	$opt->{hashes_done} = 0;
+	print STDERR "["," "x$opt->{num_hashes},"]\b","\b"x$opt->{num_hashes};
+}
+
+sub show_hashes {
+  my ($opt,$done,$outof) = @_;
+	return if $opt->{q};
+  return unless $outof;
+
+  my $needed = int($opt->{num_hashes}*($done/$outof));
+  print STDERR "X"x($needed-$opt->{hashes_done});
+  $opt->{hashes_done} = $needed;
+}
+
+sub stop_hashes {
+  my ($opt) = @_;
+	return if $opt->{q};
+
+  show_hashes($opt,1,1);
+  undef $opt->{hashes_done};
+  print STDERR "]\n";
+}
+
+##################################################
+# Main code
+##################################################
+sub main {
+	my $opt = parseArgs();
+	
+	my ($done,$tot) = (0,scalar @{$opt->{files}});
+	start_hashes($opt);
+	foreach my $img ( @{$opt->{files}} ) {
+		my $to = nextPath($opt,$opt->{dest},"IMG_%0.4d.JPG");
+
+		print "Copy: $img -> $to\n" if $opt->{v};
+		if ($img =~ /\.jpe?g$/i) {
+			doSys($opt,$opt->{cp_cmd},$img,$to);
+		} else {
+			doSys($opt,$opt->{convert_cmd},$img,$to);
+		}
+
+		# Thumbnail
+		my $thm = $to;
+		$thm =~ s/JPG$/THM/;
+		#print "THM $thm\n";
+		thumb($opt,$img,$thm);
+
+		show_hashes($opt,++$done,$tot);
+	}
+	stop_hashes($opt);
+
+	umount($opt);
+}
+main();

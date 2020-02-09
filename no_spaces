@@ -1,0 +1,11 @@
+#!/bin/ksh
+find . -type d | while read i
+do
+  NEW_DIR=`echo $i|sed 's/ /_/g'`
+  [[ "$i" != "$NEW_DIR" ]] && mv "$i" $NEW_DIR
+done
+find . -type f | while read i
+do
+  NEW_FILE=`echo $i|sed 's/ /_/g'`
+  [[ "$i" != "$NEW_FILE" ]] && mv "$i" $NEW_FILE
+done

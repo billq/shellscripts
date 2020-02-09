@@ -1,0 +1,16 @@
+while true
+do
+  echo "Feed me, Seymour"
+  read go
+  mount /media/floppy
+  if [ -f "/media/floppy/mavica.htm" ]
+  then
+    echo "Found some pictures!"
+    cp /media/floppy/*.jpg $HOME/public_html/Photo_Album/tmp
+  else
+    ls -FCa /media/floppy
+  fi
+  echo "All done"
+  read go
+  umount /media/floppy
+done

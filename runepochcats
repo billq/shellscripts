@@ -1,0 +1,16 @@
+#!/bin/ksh
+# This shell will run the catsort, treegen and catcomp utilities
+# on all catalogs in an unsorted state.  Use this to "catch up"
+# on the catalogs if a backlog occurs.  To only do one or two
+# work items, use runebcat _workitem_ _workitem_ ...
+# wrq - 9/14/94 2:34 A.M.
+PATH=/usr/epoch/EB/bin:/usr/epoch/bin:$PATH
+for WI in `ebreport history|grep "\*\*Item"|awk '{print $2}'|sed 's/\"//g'`
+do
+	for CAT_ID in `ebreport history -item $WI|grep unsorted|awk '{print $4}'|sort`
+	do
+		ebcatsort $CAT_ID
+		ebtreegen -fv $CAT_ID
+		ebcatcomp $CAT_ID
+	done
+done

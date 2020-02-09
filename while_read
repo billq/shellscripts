@@ -1,0 +1,32 @@
+#!/bin/ksh
+#
+# SAMPLE while-read loop
+#
+rm -f /tmp/thostlist
+echo "Enter host list, end with blank line."
+while :
+do
+	read THING
+	case $THING in
+	"")
+		break
+		;;
+	edit*)
+		set $THING
+		EDIT=1
+		echo $2 >> /tmp/thostlist
+		;;
+	*)
+		echo $THING >> /tmp/thostlist
+		;;
+	esac
+done
+for i in `cat /tmp/thostlist`
+do
+	echo $i
+done
+if [ "$EDIT" = "1" ]
+then
+	netedit hosts
+fi
+rm -f /tmp/thostlist

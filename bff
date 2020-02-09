@@ -1,0 +1,67 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1993 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#
+# bff - find **BIG** files in a heirarchy
+#
+################################################################################
+/bin/echo -n "Base dir? [.] "
+read BASE
+case $BASE in
+	""|\.)
+	;;
+	*)	cd $BASE
+	;;
+esac
+/bin/echo -n "Minimum size? (in kbytes) [1000000] "
+read MIN
+case $MIN in
+	"")	MIN=1000000
+	;;
+	*)	MIN=$MIN
+	;;
+esac
+
+echo "Checking for files larger than $MIN bytes under $BASE..."
+echo "
+
+The following files have been located:
+
+				FILE:		SIZE:
+"
+
+typeset -i MIN
+
+find . -xdev -type f -ls|sed 's/^  *//'|sed 's/  */+/g'|cut -f7,11 -d"+" |sed 's/\.\///'| nawk -F+ '{
+
+	if (limit <= $1) {
+
+	printf ("%40s\t%s\n", $2,$1);
+	next;
+
+	}
+
+	}' limit=$MIN

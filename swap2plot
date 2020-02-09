@@ -1,0 +1,9 @@
+cat swapout|awk '
+$1 == "Mon"	{printf ("%s\t",$4);next}
+$1 == "Tue"	{printf ("%s\t",$4);next}
+$1 == "Wed"	{printf ("%s\t",$4);next}
+$1 == "Thu"	{printf ("%s\t",$4);next}
+$1 == "Fri"	{printf ("%s\t",$4);next}
+$1 == "Sat"	{printf ("%s\t",$4);next}
+$1 == "Sun"	{printf ("%s\t",$4);next}
+$1 == "swap"	{printf ("%s\n",$2);next}'

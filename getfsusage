@@ -1,0 +1,39 @@
+#!/bin/ksh
+#		
+PATH=/usr/ucb:/bin:/usr/bin:/usr/5bin:/usr/lbin:/etc:/usr/etc
+HOSTNAME=`hostname`
+DATE=`date +%D`
+LOG=`logdir troot`/log/usage
+FSREPT=$HOSTNAME.fs
+TMPRECORD=`logdir troot`/tmp/${HOSTNAME}/${FSREPT}
+FSRECORD=$LOG/$FSREPT
+# crontab entry:
+# 20 3 * * 1-5 /usr/add-on/adm/bin/getfsusage quiet >/dev/null 2>&1
+
+if [ "$1" = "quiet" ]
+then
+	ECHO="/dev/null"
+else
+	ECHO=""
+fi
+echo "Getting a list of full filesystems on $HOSTNAME" > $ECHO
+df|grep "dev"|awk '{print $6,$5}'|grep 9[0-9] > $ECHO | tee -a $TMPRECORD
+df|grep "dev"|awk '{print $6,$5}'|grep 100 > $ECHO | tee -a $TMPRECORD
+if [ `date +%w` -eq 0 ]
+then
+	typeset -i USAGE TUSAGE
+	cat $TMPRECORD|sort -u|sed 's/%//' > /tmp/tmprecord.$HOSTNAME
+	mv /tmp/tmprecord.$HOSTNAME $TMPRECORD
+	for FS in `cat $TMPRECORD|awk '{print $1}'|sort -u`
+	do
+		USAGE=0
+		for TUSAGE in `cat $TMPRECORD|grep $FS|cut -f2 -d" "`
+		do
+			if [ $TUSAGE -gt $USAGE ]
+			then
+				USAGE=$TUSAGE
+			fi
+		done
+		echo "$FS $USAGE%" > $ECHO | tee -a $FSRECORD
+	done
+fi

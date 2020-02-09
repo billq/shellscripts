@@ -1,0 +1,4 @@
+if [ -d /home/bquayle/OpenOffice.org1.0.1 ] && [ -f /usr/local/OpenOffice.org1.0.1/program/soffice ]
+then
+  $HOME/OpenOffice.org1.0.1/soffice
+fi

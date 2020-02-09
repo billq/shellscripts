@@ -1,0 +1,103 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+/bin/echo -n "
+-------------------------CONSTRUCTION ZONE------------------------
+Name of executable under repair/construction? 
+
+(full path) -> "
+read NAME
+/bin/echo -n "
+Will this take:
+
+	M - MINUTES
+	H - HOURS
+	D - DAYS
+	W - WEEKS
+	Y - YEARS (seriously, now!)
+
+to fix? -> "
+read UNITS
+case ${UNITS} in
+	m|M)	UNITS="minutes"	;;
+	h|H)	UNITS="hours"	;;
+	d|D)	UNITS="days"	;;
+	w|W)	UNITS="weeks"	;;
+	y|Y)	UNITS="years"	;;
+	*)	UNITS="QUARKS"	;;
+esac
+/bin/echo -n "
+How many ${UNITS} would you estimate? -> "
+read TIME
+
+if [ ${NAME} = "" ]
+then
+	exit 1
+else
+	/bin/echo -n "
+		${NAME}
+will be moved to /tmp (if it already exists), 
+and replaced with a shell which, when executed,
+prints a repair message.  
+
+If this is O.K., type yes -> "
+	read YUP
+	if [ "$YUP" = "yes" ]
+	then
+		if [ -f ${NAME} ]
+		then
+			FNAME=`basename ${NAME}`
+			mv ${NAME} /tmp/${FNAME} 2>/dev/null
+			if [ $? -ne 0 ]
+			then
+				echo "
+__________________________________________________________
+I'm sorry, you are denied permission for the modification
+of this file.  Either su on the machine on which the file
+is resident or contact an SA for assistance.
+__________________________________________________________
+"
+				exit 1
+			fi
+		fi
+		echo "echo ${FNAME} is currently be repaired. ">${NAME} 2>/dev/null
+		echo "echo">>${NAME} 2>/dev/null
+		echo "echo It will be operational again in about ${TIME} ${UNITS}.">>${NAME} 2>/dev/null
+		if [ $? -ne 0 ]
+		then
+			echo "I'm sorry, you are denied permission for
+the modification of this file.  Either su on the machine on which the
+file is resident or contact an SA for assistance."
+			exit 1
+		fi
+		chmod 755 ${NAME} 2>/dev/null
+		echo "The actual message can be tested by executing
+${NAME}"
+	else
+		echo "exiting, no change."
+		exit 1
+	fi
+fi

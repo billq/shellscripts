@@ -1,0 +1,64 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+MASTER=ihaul
+ME=`/bin/hostname`
+
+# Sync time for timeserver to vax->ihcae
+if [ "$ME" = "$MASTER" ]; then
+	/usr/etc/ping ihcae
+	if [ "$?" = "0" ]
+	then
+	/usr/add-on/adm/bin/remtime -s ihcae -u billq -c/u2/billq/bin/remtime
+	fi
+fi
+
+if [ "$MASTER" = "$ME" ];then
+	rdist -f /usr/add-on/adm/lib/Distfile
+fi
+
+if [ "$MASTER" != "$ME" ];then
+	if [ ! -f /etc/passwd.old ]
+	then
+		cp /etc/passwd /etc/passwd.old
+	fi
+	cp /etc/passwd.old /tmp/passwd.$ME
+	getinfo passwd >> /tmp/passwd.$ME
+	mv /tmp/passwd.$ME /etc/passwd
+	chmod 444 /etc/passwd
+fi
+
+# Take time in as well
+
+if [ "$ME" != "$MASTER" ]; then
+	rdate $MASTER
+fi
+
+# Make sure ypmaster is ihaul, for sanity's sake!
+
+/usr/etc/yp/ypset ihaul
+
+exit 0

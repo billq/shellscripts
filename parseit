@@ -1,0 +1,89 @@
+#!/bin/ksh
+#
+# parseit scans the log files on hawk to find time skew > $2 seconds
+#
+THIS_HOST=`hostname`
+SDATE=`date +%m%d%y`
+LOGFILE=${LOGFILE:-/usr/local/Globex2/bin/mktgw1$SDATE.log}
+SKEW=10
+typeset -i SKEW
+
+while getopts :l:s: flags
+do
+  case $flags in
+    l)
+          LOGFILE=$OPTARG
+        ;;
+    s)  
+          SKEW=$OPTARG
+        ;;
+    ?)  
+        echo "USAGE:parseit [-l log_file_name] [-s time_skew_threshold]"
+        echo "time_skew_threshold defaults to a generous 10 seconds."
+        exit 1
+        ;;
+  esac
+done
+
+if [ ! -f "$LOGFILE" ]
+then
+	echo "Can't seem to locate $LOGFILE buddy.  Bailing out."
+	exit 1
+fi
+
+if [ $SKEW -gt 20 ]
+then
+	echo "A 20 second skew is rediculous. Try something less."
+	exit 1
+fi
+cat $LOGFILE|sed 's/:[0-9][0-9][0-9]//'|awk '
+	/^month/	{
+			next
+			}
+
+	$1 == "Trade"   {
+			next
+			}
+
+	$1 == "***"	{
+			next
+			}
+
+	$1 == "Message"	{
+			next
+			}
+
+	$1 == "New"	{
+			next
+			}
+
+	$1 == "STATS"   {
+			next
+			}
+
+	$1 == "*****"	{ val = $5
+			t = split(val, tval, ":")
+
+			#  */ printf ("%s is val\n",val)		/*
+			#  */ printf ("%s is tval[1]\n",tval[1])	/*
+			#  */ printf ("%s is tval[2]\n",tval[2])	/*
+			#  */ printf ("%s is tval[t]\n",tval[t])	/*
+		   	next
+		 }
+
+	/^ES/		{ tar = $3
+		   	r = split(tar, ttar, ":")
+
+			#  */ printf ("%s is tar\n",tar)		/*
+			#  */ printf ("%s is ttar[1]\n",ttar[1])	/*
+			#  */ printf ("%s is ttar[2]\n",ttar[2])	/*
+			#  */ printf ("%s is ttar[r]\n",ttar[r])	/*
+
+		   if (tval[1] == ttar[1] && tval[2] == ttar[2] && tval[3] != ttar[3]) {
+			skew = tval[3] - ttar[3]
+			if ( skew > th ) {
+		   printf ("%s skews %s by more than %s seconds\n",val,tar,th)
+					 }
+		 		   }
+		 }
+' th=$SKEW month=`date +%m`

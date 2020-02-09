@@ -1,0 +1,138 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+REPLY="Y"
+if [ -f /vmunix ]
+then
+	MACH=sun
+else
+	MACH=vax
+fi
+PATH=/usr/5bin:$PATH
+ACCTDIR=$HOME/lib/info/terminals
+TMPDIR=/tmp
+TERMINAL=$1
+while
+	case "$REPLY" in
+		""|Y|y)
+			REPLY=""
+			;;
+		n | N)	exit 0
+			;;
+		*)	echo "error, illegal reply $REPLY."
+			echo "Please re-enter ->\c"
+			read REPLY
+			;;
+	esac
+test "$REPLY" = ""
+do
+clear
+if [ "$TERMINAL" = "" ]; then
+	echo "Which Terminal?
+(give me a unique parameter, like S/N, all for all, or q for quit) ->\c"
+	read TERMINAL
+fi
+case $TERMINAL in
+"all")	
+		while [ "$FILENAME" = "" ]
+		do
+		echo "Give me a valid UNIX filename for the output ->\c"
+		read FILENAME
+		done
+		echo "Generating a table off all terminals in 
+		$FILENAME"
+			echo ".po -.5i
+.TS
+center,allbox,tab(:);
+c s s s s s
+c c c c c c
+l c c c c c.
+Department 52182 Terminal Specifications
+NAME:LOCATION:MANUFACTURER:MODEL:SERIAL NUMBER:MISC">>$FILENAME
+	cat $ACCTDIR/info|sed 's/	/:/g'|sed 's/_/ /g' >>$FILENAME
+	echo ".TE">> $FILENAME
+	echo "Done."
+	echo "Print the file? [Y|n]->\c"
+	read PRINT
+	case $PRINT in
+		""|y*|Y*)	while [ "$PRINTER" = "" ]
+				do
+				echo "Which printer? [ps1|ps2|x2700|x9700]->\c"
+				read PRINTER
+				done
+				case $PRINTER in
+				ps1|PS1)
+				~caetools/bin/prfinal -dps1 $FILENAME
+						;;
+				""|ps2|PS2)
+				~caetools/bin/prfinal -dps2 $FILENAME
+						;;
+				*)
+				~caetools/bin/prfinal -d$PRINTER $FILENAME
+						;;
+				esac
+			;;
+		*)
+			if [ "$MACH" = "vax" ]
+			then
+			/usr/bin/mm -t -E $FILENAME |col>>/tmp/spewinfo.$$
+			else
+			mm -t -E $FILENAME |col>>/tmp/spewinfo.$$
+			fi
+			more /tmp/spewinfo.$$
+			rm /tmp/spewinfo.$$
+			;;
+	esac
+	echo "tinfo all done"
+	#rm $FILENAME
+		;;
+q)	exit 0
+		;;
+*)
+	if [ -z "`cat $ACCTDIR/info |grep -i $TERMINAL`" ]
+	then
+	clear
+	echo "
+		NO SUCH TERMINAL, $TERMINAL, in database\c"
+	else
+	set `cat $ACCTDIR/info | grep -i $TERMINAL`
+	echo "
+	NAME:				$1
+	LOCATION:			$2
+	MANUFACTURER:			$3
+	MODEL:				$4
+	S/N:				$5"
+	fi
+		;;
+esac
+TERMINAL=""
+PRINTER=""
+PRINT=""
+FILENAME=""
+echo "
+	ANOTHER [Y/n] \c"
+read REPLY
+done

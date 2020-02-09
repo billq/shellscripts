@@ -1,0 +1,26 @@
+#!/bin/ksh
+# This shell polls the list of $SUNS and checks for stale NFS mounts.
+# Then unmounts them and remounts to free the STALE condition.
+# A message is mailed to root and an announcement is made to MASTER machine
+# via /dev/audio if it exists.
+# This script is dependant on proper audio files installed in ~qroot/lib/sounds.
+# This script should be run once per day.  Something like:
+# 0 9 * * * /usr/adm/bin/findstalenfs >/dev/null 2>&1
+PATH=/bin:/usr/lbin:/usr/local/bin:/usr/etc:$PATH
+HOSTNAME=`hostname`
+rm -f /tmp/remountfs
+
+for i in $SUNS
+do
+  ping $i 2 >> /tmp/remountfs 2>&1
+  if [ $? = 0 ]
+  then
+    STALE="`rsh -n $i df 2>&1 | grep Stale|cut -f1 -d:`"
+    if [ "$STALE" != "" ]
+    then
+          rsh $i "/usr/etc/umount -avt nfs" >> /tmp/remountfs 2>&1
+          rsh $i "/usr/etc/mount -avt nfs" >> /tmp/remountfs 2>&1
+          rsh $i df >> /tmp/remountfs 2>&1
+    fi
+  fi
+done

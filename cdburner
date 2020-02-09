@@ -1,0 +1,8 @@
+#!/bin/ksh
+xhost +coolietown >/dev/null 2>&1
+RC=`rsh coolietown sun >/dev/null 2>&1;echo $?`
+if [ "$RC" -ne 0 ]
+then
+	echo `hostname` >> $HOME/.rhosts
+fi
+rsh coolietown "/export/apps/HyCD/cdburner"

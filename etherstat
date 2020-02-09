@@ -1,0 +1,219 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+echo "
+NAME
+     etherstat - find packets on Ethernet using the etherfind(8) command
+
+SYNOPSIS
+     etherstat
+
+DESCRIPTION
+     Etherstat is an interacive front end to Etherfind.  See the
+     Etherfind man page for full description.
+
+
+If someone would like to write this script, THANKS!!! - billq
+"
+sleep 20
+exit 0
+#OPTIONS
+#     -n   Don't convert host addresses and port numbers to names.
+#
+#     -u   Make the output line buffered.
+#
+#     -x   Dump the header in hex, in addition to the line printed
+#          for each packet by default.
+#
+#     -c   Exit after receiving count packets.  This is  sometimes
+#          useful  for  dumping  a sample of ethernet traffic to a
+#          file for later analysis.
+#
+#     -i   Etherfind   listens   on   interface.    The    program
+#          netstat(8C) when invoked with the -i flag lists all the
+#          interfaces that a machine has.
+#
+#     -p   Normally, the selected interface is put into  promiscu-
+#          ous  mode, so that etherfind  has access to all packets
+#          on the ethernet.  However, when the -p  flag  is  used,
+#          the interface will not go promiscuous.
+#
+#      expression
+#          The syntax of  of expression is similar to that used by
+#          find(1).  Here are the allowable primaries.
+#
+#          -dst destination
+#               True if the destination field  of  the  packet  is
+#               destination,  which  may be either an address or a
+#               name.
+#
+#          -src source
+#               True if the source field of the packet is  source,
+#               which may be either an address or a name.
+#
+#          -between host1 host2
+#               True if either the source of the packet  is  host1
+#               and  the destination host2, or the source is host2
+#               and the destination host1.
+#
+#
+#
+#Sun Release 3.5     Last change: 28 Aug 1985                    1
+#
+#
+#
+#
+#
+#
+#ETHERFIND(8C)         MAINTENANCE COMMANDS          ETHERFIND(8C)
+#
+#
+#
+#          -dstnet destination
+#               True if the destination field of the packet has  a
+#               network  part  of destination, which may be either
+#               an address or a name.
+#
+#          -srcnet source
+#               True if the source field of the packet has a  net-
+#               work  part  of  source,  which  may  be  either an
+#               address or a name.
+#
+#          -srcport port
+#               True if the packet has  a  source  port  value  of
+#               port.    It   must  be  either  upd  or  tcp  (see
+#               tcp(4P)),udp(4P)).  The port can be a number or  a
+#               name used in /etc/services.
+#
+#          -dstport port
+#               True if the packet has a destination port value of
+#               port.  The port can be a number or a name.
+#
+#          -less length
+#               True if the packet has a length less than or equal
+#               to length.
+#
+#          -greater length
+#               True if the packet has a length  greater  than  or
+#               equal to length.
+#
+#          -proto protocol
+#               True if the packet is an ip packet (see ip(4P)) of
+#               protocol  type protocol.  Protocol can be a number
+#               or one of the names icmp, udp, nd, or tcp.
+#
+#           -byte byte op value
+#               True if byte number byte of the packet is in rela-
+#               tion  op  to value.  Legal values for op are +, <,
+#               >, &, and |.  Thus 4=6 is true if the fourth  byte
+#               of  the packet has the value 6, and 20&0xf is true
+#               if byte twenty has one of its four low order  bits
+#               nonzero.
+#
+#          -broadcast
+#               True if the packet is a broadcast packet.
+#
+#          -arp True if the packet is a arp packet (see arp(4P)).
+#
+#          -rarp
+#               True if the packet is a rarp packet.
+#
+#          -ip  True if the packet is an ip packet.
+#
+#
+#
+#
+#
+#Sun Release 3.5     Last change: 28 Aug 1985                    2
+#
+#
+#
+#
+#
+#
+#ETHERFIND(8C)         MAINTENANCE COMMANDS          ETHERFIND(8C)
+#
+#
+#
+#     The primaries may be combined using the following  operators
+#     (in order of decreasing precedence):
+#
+#          A  parenthesized  group  of  primaries  and   operators
+#          (parentheses  are  special  to  the  Shell  and must be
+#          escaped).
+#
+#          The negation of a primary (`!' is the unary not  opera-
+#          tor).
+#
+#          Concatenation  of  primaries  (the  and  operation   is
+#          implied by the juxtaposition of two primaries).
+#
+#          Alternation of primaries (`-o' is the or operator).
+#
+#EXAMPLE
+#     To find all packets arriving at or departing from sundown
+#          angel% etherfind -src sundown -o -dst sundown
+#          angel%
+#
+#SEE ALSO
+#     traffic(1C), nit(4P)
+#
+#BUGS
+#     The syntax is painful.
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#Sun Release 3.5     Last change: 28 Aug 1985                    3
+#
+#
+#

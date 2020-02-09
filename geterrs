@@ -1,0 +1,39 @@
+#!/bin/ksh
+for FILE in `ls $LOGDIR/net_*.log`
+do
+	NET="`basename $FILE|sed 's/net_//'|sed 's/\.log//'`"
+	echo "Working on the ${NET} net"
+	cat $FILE | nawk '
+	{
+	stat[5] = "Ipkts" ;
+	stat[6] = "Ierrs" ;
+	stat[7] = "Opkts" ;
+	stat[8] = "Oerrs" ;
+	stat[9] = "Colls" ;
+
+	for (COL = 5; COL <= 9; ++COL)
+		sum[COL] += $COL ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	Ierravg = ( sum[6] / sum[5] ) * 100 ;
+	Oerravg =  ( sum[8] / sum[7] ) * 100 ;
+	Collavg =  ( sum[9] / ( sum[7] + sum[5] ) ) * 100 ;
+	PolledHosts = NR
+		}
+	}
+	END {
+	printf "Number of hosts participating in the data acquisition : %s\n\n", PolledHosts ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	if (COL == "6")
+		printf "%s : %14s %6d%%\n", stat[6], sum[6], Ierravg ;
+	else if (COL == "8")
+		printf "%s : %14s %6d%%\n", stat[8], sum[8], Oerravg ;
+	else if (COL == "9")
+		printf "%s : %14s %6d%%\n", stat[9], sum[9], Collavg ;
+	else
+		printf "%s : %14s\n", stat[COL], sum[COL] ;
+		}
+	     }
+	'
+done

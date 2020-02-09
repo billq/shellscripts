@@ -1,0 +1,54 @@
+#!/bin/ksh
+PATH=/opt/schily/bin:$PATH
+DEV=`cdrecord -scanbus 2>/dev/null|grep -i cd|grep -v "^[A-Z]"|awk '{print $1}'`
+[[ -n "$DEV" ]] && {
+  echo "Found probable CD Recorder at $DEV"
+  echo "Shall we use this device? [Y|n] \c"
+  read ANS
+  case $ANS in
+  Y*|y*|"")	DEV="dev=$DEV"	;;
+  *)	echo "O.K., trying with no dev arg to mkisofs or cdrecord.  Good luck!"	;;
+  esac
+} || {
+  echo "You're probably not root, or don't have a cd burner"
+  exit 1
+}
+AGAIN=y
+ROUND=1
+while [ "$AGAIN" = "y" ]
+do
+  echo "Name of source? (Full path) \c"
+  read SOURCE
+  [[ -d "$SOURCE" ]] && {
+    cd ${SOURCE}/..
+    echo "$SOURCE consumes \c"
+    du -sk `basename $SOURCE`|awk '{print $1}'
+    echo "bytes of space."
+    echo "Burn ${SOURCE}? (Y|n) \c"
+    read GOFORIT
+    case $GOFORIT in
+        ""|Y*|y*)	echo "Burning $SOURCE. Stand by..."
+		case $ROUND in
+		1)
+		nice --18 mkisofs -J -R `basename ${SOURCE}`|cdrecord -multi -v fs=8m speed=4 $DEV -
+		ROUND="n"
+		;;
+		*)
+		nice --18 mkisofs -J -R -M $DEV -C `cdrecord -msinfo $DEV` `basename ${SOURCE}`|cdrecord -multi -v fs=8m speed=4 $DEV -
+		esac
+        ;;
+        *)	echo "Skipping..."
+        ;;
+    esac
+  } || {
+    echo "Can't seem to find $SOURCE"
+  }
+    echo "Burn another? (Y|n) \c"
+    read AGAIN
+    case $AGAIN in
+        ""|"Y*"|"y*")	AGAIN="y"
+        ;;
+        *)	AGAIN="n";echo "Bye..."
+        ;;
+    esac
+done

@@ -1,0 +1,54 @@
+#!/bin/ksh
+if [ $# = 0 ]
+then
+	if [ "$SUNS" != "" ]
+	then
+		for i in `echo $SUNS`
+		do
+			echo "Pinging $i"
+			ping $i 2 > /dev/null 2>&1
+			if [ $? -eq 0 ]
+			then
+				echo "Spraying $i"
+				spray -c 1 -l 86 $i > /dev/null 2>&1
+				if [ $? = 0 ]
+				then
+					echo "Checking $i"
+					STAT=`rsh $i 'sun;echo $?'`
+					case $STAT in
+					0)	echo "$i is a Sun, and is accessible"
+						exit 0
+					;;
+					1)	echo "$i is accessible, but is not a Sun"
+						exit 1
+					;;
+					esac
+				fi
+			else
+				echo "$i is dead"
+				exit 1
+			fi
+		done
+	else
+		echo "Can't find any Suns to stat"
+		exit 1
+	fi
+else
+	ping $1 2 > /dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		spray -c 1 -l 86 $1 > /dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			STAT=`rsh $1 'sun;echo $?' 2>&1`
+			case $STAT in
+			0)  exit 0  ;;
+			*)  exit 1  ;;
+			esac
+		else
+			exit 1
+		fi
+	else
+		exit 1
+	fi
+fi

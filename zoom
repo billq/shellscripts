@@ -1,0 +1,6 @@
+#!/bin/ksh
+#
+# this runs zoom on $1, and displays back to $DISPLAY
+#
+[ ! -z $DISPLAY ] || (echo "DISPLAY not set, bailing out";exit 1)
+rsh $1 -l root "export DISPLAY=$DISPLAY;/opt/RICHPse/bin/se /opt/RICHPse/examples/zoom.se"

@@ -1,0 +1,7 @@
+cat /etc/motd|head -1
+uname -a
+grep mem /var/adm/message*|sort -u
+df|grep dev
+ifconfig -a
+grep -i "ethernet" /var/adm/message*
+hostid

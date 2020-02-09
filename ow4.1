@@ -1,0 +1,93 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+export DISPLAY FONTPATH FRAMEBUFFER HELPPATH LD_LIBRARY_PATH
+export MANPATH NEWSSERVER OPENWINHOME PATH XAPPLRESDIR
+
+# error message function
+err () {
+	echo "`basename $0`: $@" 1>&2
+	exit 1
+}
+FRAMEBUFFER=${FRAMEBUFFER-"/dev/cgsix0"}
+NOAUTH=1
+AUTH=
+# Add to the path variable named by $1 the component $2.  $3 must be
+# "append" to indicate where the component is added.
+addpath () {
+    eval value=\"\$$1\"
+    case "$value" in
+	*:$2:*|*:$2|$2:*|$2)
+	    result="$value"
+	    ;;
+	"")
+	    result="$2"
+	    ;;
+	*)
+	    case "$3" in
+		p*)
+		    result="$2:${value}"
+		    ;;
+		*)
+		    result="${value}:$2"
+		    ;;
+	    esac
+    esac
+    eval $1=$result
+    unset result value
+}
+
+# convenience routine which appends a string to a path.
+append () {
+    addpath "$1" "$2" append
+}
+
+# Derive the $NEWSSERVER variable from the digit in $DISPLAY
+newsport=`expr ":0" : '.*:\([0-9][0-9]*\)' + 2000`
+NEWSSERVER=`$OPENWINHOME/bin/newsserverstr $newsport`
+
+append	HELPPATH		$OPENWINHOME/lib/help
+
+# Create magic cookie for authentication, and write server and client files.
+AUTHFNAME=$HOME/.xnews.`hostname`:0
+$OPENWINHOME/lib/mkcookie $AUTHFNAME
+AUTH="-auth $AUTHFNAME"
+
+# Get rid of our function definitions because a bug in some versions of
+# the SunOS sh will turn their names into environment variables otherwise.
+unset err addpath append
+
+# confirm framebuffer configuration
+if [ -x $OPENWINHOME/bin/xn_ck_fbs ]; then
+    $OPENWINHOME/bin/xn_ck_fbs
+fi
+
+# start up xinit and thus the server.
+$OPENWINHOME/bin/xinit -- $OPENWINHOME/bin/xnews :0 $AUTH
+
+rm -f $AUTHFNAME
+
+exit 0

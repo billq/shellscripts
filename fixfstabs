@@ -1,0 +1,118 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+/usr/add-on/adm/bin/amiroot
+if [ "$?" != "0" ]
+then
+	exit 1
+fi
+ME=`/bin/hostname`
+/etc/umount -avt nfs
+#
+#	This gets the "golden" stuff out of the fstab.  The /dev
+#	entries are for diskfull clients or servers.  The usr.MC68020
+#	would be prefixed with whichever machine boots the client.
+#	The export stuff signifies the mounts for a SunOS 4.0 client.
+#
+grep '^/dev/' /etc/fstab > /tmp/fstab.$ME
+grep '/export/root' /etc/fstab >> /tmp/fstab.$ME
+grep '/export/exec' /etc/fstab >> /tmp/fstab.$ME
+grep '/export/share' /etc/fstab >> /tmp/fstab.$ME
+grep ':/usr.MC68020' /etc/fstab >> /tmp/fstab.$ME
+grep 'rfs' /etc/fstab >> /tmp/fstab.$ME
+#
+#	Add *or remove* the appropriate list of servers.  A $SERVERS
+#	variable (defined in roots .profile) would be handy here.
+#
+for i in $SERVERS
+do
+	if [ "`grep $i /tmp/fstab.$ME`" != "" ]
+	then
+#
+#	This is a client that boots off of $i.  Edit
+#	/usr/add-on/adm/lib/fstab.*.cl to make global
+#	changes to the fstabs.
+#	/usr/add-on/adm/lib is expected to be accessible
+#	from all machines
+#
+		cat /usr/add-on/adm/lib/fstab.$i.cl>>/tmp/fstab.$ME
+		cp /etc/fstab /etc/fstab.old
+		mv /tmp/fstab.$ME /etc/fstab
+		break
+	elif [ "$ME" = "$i" ]
+	then
+#
+#	This machine is a server.  We need the elif 'cause it's
+#	inside the loop.  fstab.master is a generic master fstab,
+#	but we have to cut out the lines that would make the server
+#	try to mount itself.
+#
+		cat /usr/add-on/adm/lib/fstab.master|sed /$ME/d>>/tmp/fstab.$ME
+		cp /etc/fstab /etc/fstab.old
+		mv /tmp/fstab.$ME /etc/fstab
+		break
+	elif [ "`cat /tmp/fstab.$ME|grep '/dev/....	/usr	'`" != "" ]
+	then
+#
+#	This is a diskfull client.  Use the master fstab.
+#
+		cat /usr/add-on/adm/lib/fstab.master>>/tmp/fstab.$ME
+		cp /etc/fstab /etc/fstab.old
+		mv /tmp/fstab.$ME /etc/fstab
+		break
+	fi
+done
+for i in `getinfo fstab|awk '{print $2}'`
+do
+#
+#	This section allows the operator to selecivly make mount points
+#	for new filesystems, if they don't already exist.
+#
+	if [ ! -d "$i" ]
+	then
+		/bin/echo -n "mkdir $i? [Y|n] "
+		read YUP
+		case $YUP in
+		""|Y*|y*)	mkdir $i	;;
+		*)		continue	;;
+		esac
+		mkdir $i
+	fi
+done
+#
+#	Mount 'em up!
+#
+/bin/echo -n "Ready to mount? [Y|n] "
+read YUP
+case $YUP in
+	""|Y*|y*)	
+		/etc/mount -av
+		chmod 644 /etc/fstab
+	;;
+	*)	
+		echo "No mounts done."
+	;;
+esac

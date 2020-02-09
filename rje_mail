@@ -1,0 +1,307 @@
+#!/bin/ksh
+
+#	Program name:	"rje_mail"
+#	Author:		Jim Murphy
+#	Implemented:	September 23, 1992
+
+#	History:
+#	07-07-94;markos;added RJE_ADMIN for error mail; replaces root
+#			October 6, 1992
+#	?????   ;murphy;Found a show stopper bug.  The ksh "read" command
+#			deletes all extra white space.  This caused the
+#			two format converter commands to get the wrong info
+#			because they work on data by what column it is found
+#			in.  Implemented changes to the program that use the
+#			translate (tr) command to get around the problem.
+
+#	Purpose:	To find Bill of Material files received from the
+#			I.B.M system and send the requested BOM to the
+#			user.  This script also checks for multiple BOM's
+#			in the same file and splits them into individual
+#			files and mails each to the user who made the
+#			request.
+
+RJE_ADMIN="markos"
+
+ARCH=`/usr/bin/arch`
+
+PATH=/usr/ucb:/usr/bin:.:/usr/etc:/etc
+export PATH
+
+DEBUG=1				# 1 = Normal Operation, 0 = Debug
+SEND=1				# 1 = Dont send mail,   0 = Send mail
+				# SEND applies to DEBUG mode only.
+DISPLAY=1			# more the file, used for testing only.
+
+typeset -l address1
+typeset -RZ4 cnt=0
+##test ${DEBUG} = 0 \
+##	&& home_dir="/metacat2/sherpa" \
+##	|| home_dir="/var/spool/bscrje/raven_rje/output"
+test ${DEBUG} = 0 \
+	&& home_dir="/home/admin/sherpa" \
+	|| home_dir="/var/spool/bscrje/raven_rje/output"
+save_files="dead.letter mailed sna_log"
+outfile=/tmp/mail_boms_bld_file
+workfile=/tmp/mail_boms_tran_file
+cvtfile=/tmp/mail_boms_cvt_file
+logfile=sna_log
+
+#
+#------------- Function "reset_vars" -------------------
+
+#	Set/resets variables to its primary state
+
+function reset_vars
+{
+mailto=1
+more=1
+subject=1
+write=1
+
+return 0
+
+}
+
+#
+#------------- Function "mail_file" -------------------
+
+#	Mails a BOM to the the user who requested it and
+#	if more them one BOM has been detected sets up
+#	the address for the next BOM.
+
+function mail_file
+{
+if test ${mailto} = 0 && test ${write} = 0
+then
+	# The next two commands convert the ctrl-^ characters back to spaces
+	# so the file looks normal again, and moves it back to its proper
+	# file name.
+
+	tr '\036' '\040' < ${outfile} > ${cvtfile}
+	mv ${cvtfile} ${outfile}
+
+	print "Mailing Bill Of Material ${subject} to ${address1}" >> ${logfile}
+	if test ${DEBUG} != 0
+	then
+		mail -s "Bill of Material ${subject}" ${address1} < ${outfile}
+	else
+		test ${DISPLAY} = 0 \
+			&& more ${outfile}
+		test ${SEND} = 0 \
+			&& mail -s "Bill of Material ${subject}" $RJE_ADMIN < ${outfile}
+	fi
+fi
+
+	rm -f ${outfile}
+ 	rm -f ${workfile}
+
+	test ${more} = 0 && address1="${address2}" && mailto=1 \
+		&& more=1 && subject=1 && cvt_address
+
+return 0
+
+}
+
+#
+#------------- Function "cvt_address" -----------------
+
+#	Converts the "VAX/DECNet" addressing form to one that
+#	Sun DECNet software will recoginze.  i.e. "::" to "!"
+
+function cvt_address
+{
+
+address_tmp1=`print ${address1} | sed -e 's/::/!/'`
+IFS=:
+set ${address_tmp1}
+unset IFS
+address_tmp1=$2
+address1=${address_tmp1}
+
+return 0
+
+}
+
+#
+#------------- Function "get_date_time" ---------------
+
+#	Gets the current date and time.  If the -c option is found,
+#	the Month and Day of the Week are converted to words.
+
+function get_date_time
+{
+date '+%m %w %d %y %H %M %S' | read mo day date yr hr min sec
+
+if test "$1" = "-c"
+then
+
+	case ${mo} in
+		01)	mo="January"	;;
+		02)	mo="February"	;;
+		03)	mo="March"	;;
+		04)	mo="April"	;;
+		05)	mo="May"	;;
+		06)	mo="June"	;;
+		07)	mo="July"	;;
+		08)	mo="August"	;;
+		09)	mo="September"	;;
+		10)	mo="October"	;;
+		11)	mo="November"	;;
+		12)	mo="December"	;;
+	esac
+
+	case ${day} in
+		0|7)	day="Sunday"	;;
+		1)	day="Monday"	;;
+		2)	day="Tuesday"	;;
+		3)	day="Wednesday"	;;
+		4)	day="Thursday"	;;
+		5)	day="Friday"	;;
+		6)	day="Saturday"	;;
+	esac
+fi
+
+return 0
+
+}
+
+#
+#------------- Function "rm_old_files" ---------
+
+#	Finds old saved files more then 30 days old and deletes same.
+
+function rm_old_files
+{
+
+find ${home_dir}/mailed -type f -mtime +30 -print > /tmp/rm_old_files
+
+if test -s /tmp/rm_old_files
+then
+	exec 4< /tmp/rm_old_files
+	while read -ru4 file_name
+	do
+		rm -f ${file_name}
+		print "Removing old file ${file_name}" >> ${logfile}
+	done
+fi
+
+return 0
+
+}
+
+#
+#------------- "main program" -------------------------
+
+#	Main part of program.
+
+test -f ${outfile} && rm -f ${outfile}
+test -f ${workfile} && rm -f ${workfile}
+
+get_date_time -c
+
+test ! -d ${home_dir} \
+	&& print "$0: ${home_dir} does not exist!" >&2 \
+	&& exit 1
+
+cd ${home_dir}
+
+if test ! -f ${logfile}
+then
+	touch ${logfile}
+	if test ! -f ${logfile}
+	then
+		print "Unable to create log file ${home_dir}/${logfile}." >&2
+		exit 1
+	else
+		print "\nMissing log file ${home_dir}/${logfile}, recreated same." \
+			>> ${logfile}
+	fi
+fi
+
+if test ! -d ${home_dir}/mailed
+then
+	mkdir ${home_dir}/mailed
+	if test -d ${home_dir}/mailed
+	then
+		print "\nMissing save directory ${home_dir}/mailed, recreated same." \
+			>> ${logfile}
+	else
+		print "Unable to create save directory ${home_dir}/mailed" 
+		exit 1
+	fi
+fi
+
+print "\nDate Stamp ==>  ${day} - ${mo} ${date}, 19${yr} @ ${hr}:${min}:${sec}" \
+	>> ${logfile}
+print "Searching for  B.O.M.'s from the I.B.M. system!" >> ${logfile}
+
+file_cnt=`ls 2> /dev/null | grep P | wc -l`
+if test ${file_cnt} = "0"
+then
+	print "There were no files to process." >> ${logfile}
+	rm_old_files
+	exit 0
+fi
+
+reset_vars
+ 
+for file in `ls | grep P`
+do
+
+	print "Processing file ${home_dir}/${file}." >> ${logfile}
+
+	# The next command converts spaces to ctrl-^ to get around the way
+	# the ksh "read" command works.  The read command removes all white
+	# space and leaves only one space when done.  This cause a problem
+	# when looking for data at a specific column in a line.
+
+	tr '\040' '\036' < ${file} > ${workfile}
+
+	exec 3< ${file}
+	exec 4< ${workfile}
+
+	reset_vars
+
+	while read -ru3 line
+	do
+
+		read -ru4 line3		# uses this as the "real" data line
+		if test ${mailto} = 1 && test ${write} = 1
+		then
+			test ${#line} != 0 && IFS=: && set ${line} \
+				&& unset IFS && test "$1" = "MAILTO" && write=0 \
+				&& address1=${line} && cvt_address
+			continue
+		fi
+
+		if test ${mailto} = 1 && test ${write} = 0 && test ${subject} = 1
+		then
+			test ${#line} != 0 && IFS=: && set ${line} \
+				&& unset IFS && test "$1" != "MAILTO" \
+				&& set ${line} && mailto=0 && subject="$1" 
+		fi
+
+		if test ${write} = 0
+		then
+			test ${#line} != 0 && IFS=: && set ${line} \
+				&& unset IFS && test "$1" = "MAILTO" && more=0 \
+				&& address2=${line} && mail_file && continue
+
+			print ${line3} >> ${outfile}
+		fi
+
+	done
+
+mail_file
+
+mv ${file} ${home_dir}/mailed
+ 
+done
+ 
+rm_old_files
+
+get_date_time -c
+
+print "Date Stamp ==>  ${day} - ${mo} ${date}, 19${yr} @ ${hr}:${min}:${sec}" \
+	>> ${logfile}

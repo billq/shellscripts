@@ -1,0 +1,35 @@
+#!/bin/bash
+if [ $# -ne 1 ]
+then
+  echo "USAGE: $(basename $0) /full/path/to/target/image/with/basename"
+  exit 1
+else
+  target=$1
+  touch $target
+  if [ $? -ne 0 ]
+  then
+    echo "cant touch target"
+    exit 1
+  else
+    rm $target
+  fi
+fi
+
+num=0
+
+for i in $(ls)
+do
+  if [ -f ${target}_${num}.jpg ]
+  then
+    echo "${target}_${num}.jpg exists!"
+    exit 1
+  fi
+  cp $i ${target}_${num}.jpg
+  if [ $? -ne 0 ]
+  then
+    echo "cp failed!"
+    exit 1
+  else
+    num=$((num + 1))
+  fi
+done

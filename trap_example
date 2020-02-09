@@ -1,0 +1,15 @@
+N=5000
+trap '
+ echo "$0 interrupted - cleaning up.."
+ for i in $FILES
+ do
+  rm -f /tmp/$i
+ done
+ exit 1' 1 2
+FILES="a b c d e f g h i j k l m n o p"
+for i in $FILES
+do
+ touch /tmp/$i
+ sleep 10
+done
+trap 1 2

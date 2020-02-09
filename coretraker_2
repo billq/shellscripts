@@ -1,0 +1,325 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             quayle@switch.rockwell.com                       #
+#                                                                              #
+################################################################################
+#
+USAGE="USAGE: $0 [-m] [-a] [-f filesystem]
+
+-m will send each usr mail if coretraker finds a core file belonging
+   to them
+
+-a will cause coretraker to scan all filesystems
+
+-f filesystem will scan only filesystem, which must be a full path"
+
+if [ $# -ne 0 ]
+then
+	case `arch` in
+	sun4)
+		while getopts maf: i 2>/dev/null
+	  	do
+	    		case $i in
+	    		m)     MAIL="y"		;;
+	    		a)     ALL="all"	;;
+	    		f)     FSSY="$OPTARG"	;;
+	    		\?)    echo "$USAGE"	
+		   		exit 2		;;
+	    		esac
+	  	done
+		shift `expr $OPTIND - 1`
+	;;
+	sun3)
+		set -- `getopt maf: $* 2>/dev/null`
+		if [ $? != 0 ]
+		then
+			echo "$USAGE"
+			exit 2
+		fi
+		for i in $*
+		do
+			case $i in
+			-m)     MAIL="y"; shift ;;
+			-a)     ALL="all";shift ;;
+			-f)     FSSY="$2"; shift 2;;
+			esac
+		done
+	;;
+	*)
+		echo "Can't grok `arch` as a platorm."
+		exit 1
+	;;
+	esac
+fi
+HOST=`/bin/hostname`
+DAY=`date +%a`
+FSNAMES="`cat /etc/fstab | grep "/dev"|grep -v hsfs|grep -v cdrom|awk '{print $2}'`"
+NUM="`echo $FSNAMES|wc -w`"
+MESSAGE="Coretraker run on $HOST"
+MAILHEADER="
+
+The following core file was found on your login.  This
+file will be deleted tomorrow.  If you want to retain it
+for debugging, you must move it to a file named something
+other than core.
+
+Questions or comments concerning this procedure should be mailed
+to root.
+
+"
+typeset -i NUM
+
+#
+# The following LONG section finds a workable list of filesystems
+# to peruse.
+#
+case $NUM in
+1)	MON="1"
+	TUE="1"
+	WED="1"
+;;
+2)	MON="1,2"
+	TUE="1,2"
+	WED="1,2"
+;;
+3)	MON="1,2,3"
+	TUE="1,2,3"
+	WED="1,2,3"
+;;
+4)	MON="1,2"
+	TUE="3,4"
+	WED="1,2"
+;;
+5)	MON="1,2"
+	TUE="3,4"
+	WED="5"
+;;
+6)	MON="1,2"
+	TUE="3,4"
+	WED="5,6"
+;;
+7)	MON="1,2,3"
+	TUE="4,5,6"
+	WED="7"
+;;
+8)	MON="1,2,3"
+	TUE="4,5,6"
+	WED="7,8"
+;;
+9)	MON="1,2,3"
+	TUE="4,5,6"
+	WED="7,8,9"
+;;
+10)	MON="1,2,3"
+	TUE="4,5,6"
+	WED="7,8,9,10"
+;;
+11)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11"
+;;
+12)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11,12"
+;;
+13)	MON="1,2,3,4,5"
+	TUE="6,7,8,9,10"
+	WED="11,12,13"
+;;
+14)	MON="1,2,3,4,5"
+	TUE="6,7,8,9,10"
+	WED="11,12,13,14"
+;;
+15)	MON="1,2,3"
+	TUE="4,5,6"
+	WED="7,8,9"
+	THU="10,11,12"
+	FRI="13,14,15"
+;;
+16)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11"
+	THU="12,13,14"
+	FRI="15,16"
+;;
+17)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11"
+	THU="12,13,14"
+	FRI="15,16,17"
+;;
+18)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11,12"
+	THU="13,14,15"
+	FRI="16,17,18"
+;;
+19)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11,12"
+	THU="13,14,15,16"
+	FRI="17,18,19"
+;;
+20)	MON="1,2,3,4"
+	TUE="5,6,7,8"
+	WED="9,10,11,12"
+	THU="13,14,15,16"
+	FRI="17,18,19,20"
+;;
+*)	Mail -s "coretraker limit exceeded" quayle < /dev/null
+;;
+esac
+
+#
+# For hosts with less than 15 filesystems...
+#
+if [ "$THU" = "" ]
+then
+	THU="`echo $MON`"
+fi
+if [ "$FRI" = "" ]
+then
+	FRI="`echo $TUE`"
+fi
+
+#
+# Get the actual device list...
+#
+case $DAY in
+	Mon) FSYS="`echo $FSNAMES|cut -f$MON -d' '`" 
+	;;
+	Tue) FSYS="`echo $FSNAMES|cut -f$TUE -d' '`" 
+	;;
+	Wed) FSYS="`echo $FSNAMES|cut -f$WED -d' '`" 
+	;;
+	Thu) FSYS="`echo $FSNAMES|cut -f$THU -d' '`" 
+	;;
+	Fri) FSYS="`echo $FSNAMES|cut -f$FRI -d' '`" 
+	;;
+	Sat) FSYS="`echo $FSNAMES`"
+	;;
+esac
+
+#
+# option to scan all filesystems...
+#
+if [ -n "$ALL" ]
+then
+	FSYS="`echo $FSNAMES`"
+fi
+if [ -n "$FSSY" ]
+then
+	FSYS="`echo $FSSY`"
+fi
+
+#
+# Start building a mail file...
+#
+echo "CORETRAKER:  Reported CORE Files on $HOST" >/tmp/KORE.files.mail
+echo "Checking the following filesystems..." >> /tmp/KORE.files.mail
+echo "===================" >> /tmp/KORE.files.mail
+echo $FSYS >> /tmp/KORE.files.mail
+echo "===================" >> /tmp/KORE.files.mail
+
+#
+# First find cores more than 1 day old, and get rid of them...
+#
+for I in $FSYS
+do
+	find $I -xdev -name core ! -size 0 -mtime +1 -exec rm {} \; -exec echo {} >> /tmp/KORE.files.removed \;
+done
+
+if [ -s /tmp/KORE.files.removed ]
+then
+	echo "A listing of removed cores follows:">>/tmp/KORE.files.mail
+	echo "=================">>/tmp/KORE.files.mail
+	cat /tmp/KORE.files.removed >> /tmp/KORE.files.mail
+	echo "=================
+Done removing old cores.">>/tmp/KORE.files.mail
+fi
+
+#
+# Clear out the log...
+#
+> /tmp/KORE.files
+# 
+# The real work starts here...
+#
+for I in $FSYS
+do
+	#
+	# Do the find
+	#
+	find $I -xdev -name core ! -size 0 -exec ls -l {} \; >>/tmp/KORE.files
+done
+
+if [ -s /tmp/KORE.files ]
+then
+	if [ -n $MAIL ]
+	then
+	  #
+	  # If there are cores, get a list of who owns them...
+	  #
+	  LOGINS="`cat /tmp/KORE.files|sed 's/  */ /g'|cut -f3 -d' '|sort -u`"
+	  for i in $LOGINS
+	  do
+		#
+		# ...then build a mail message...
+		#
+		echo $MAILHEADER > /tmp/KORE.mail.personnal
+		echo "" >> /tmp/KORE.mail.personnal
+		echo "A listing of core files on $HOST follows:">>/tmp/KORE.mail.personnal
+		grep $i /tmp/KORE.files>> /tmp/KORE.mail.personnal
+		#
+		# ...and send it
+		#
+		ypmatch $i aliases >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			Mail -s "core files found" $i </tmp/KORE.mail.personnal
+		else
+			#
+			# ...or send it to root...
+			#
+			Mail -s "core files found" root </tmp/KORE.mail.personnal
+		fi
+
+	  done
+	fi
+	#
+	# Finally, send mail to root to let them know what's happening...
+	#
+	echo "===================" >> /tmp/KORE.files.mail
+	echo "The following core files were found on ${HOST}:">>/tmp/KORE.files.mail
+	echo "===================" >> /tmp/KORE.files.mail
+	cat /tmp/KORE.files >> /tmp/KORE.files.mail
+	echo "===================" >> /tmp/KORE.files.mail
+	echo "CORETRAKER: Done." >> /tmp/KORE.files.mail
+	echo "===================" >> /tmp/KORE.files.mail
+	Mail -s "$MESSAGE" root </tmp/KORE.files.mail
+fi
+#
+# ...and clean up.
+#
+#rm /tmp/KORE.*

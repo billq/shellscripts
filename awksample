@@ -1,0 +1,689 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1987 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             bill.quayle@gmail.com                            #
+#                                                                              #
+################################################################################
+
+# billsfile contains lines like:
+#
+#UDP:from:ih4ehzt:3626:to:ih4epd:1035::48:bytes
+#08:00:20:0a:1a:7d:08:00:20:0b:60:6c
+
+cat billsfile | awk -f: '
+	$2 == "from"	{mach = $3; next}
+	mach == ""	{next}
+			{
+			addr = $7 $8 $9 $10 $11 $12;
+			print mach " " addr;
+			mach = ""
+			next;
+			}
+' | sort -u
+
+
+#
+# Sample STATE MACHINE:
+#
+
+USED=`cat $LOG|awk '
+	$4 == MPNM      {STATE = 1;next}
+	STATE == "1"    {
+		while (STATE != "EOS")    {
+			if ($2 == "estimated") {
+				size = $5;
+				print size;
+				STATE = EOS;
+				next;
+				}
+			else    {
+				STATE = 1;
+				next;
+					}
+				}
+			}
+		STATE == "EOS"  {next}
+	' MPNM="($MPNM)"`
+
+#
+# Data digest and summary 
+#
+
+#!/bin/ksh
+for FILE in `ls $LOGDIR/net_*.log`
+do
+	NET="`basename $FILE|sed 's/net_//'|sed 's/\.log//'`"
+	echo "Working on the ${NET} net"
+	cat $FILE | nawk '
+	{
+	stat[5] = "Ipkts" ;
+	stat[6] = "Ierrs" ;
+	stat[7] = "Opkts" ;
+	stat[8] = "Oerrs" ;
+	stat[9] = "Colls" ;
+
+	for (COL = 5; COL <= 9; ++COL)
+		sum[COL] += $COL ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	Ierravg = ( sum[6] / sum[5] ) * 100 ;
+	Oerravg =  ( sum[8] / sum[7] ) * 100 ;
+	Collavg =  ( sum[9] / ( sum[7] + sum[5] ) ) * 100 ;
+	PolledHosts = NR
+		}
+	}
+	END {
+	printf "Number of hosts participating in the data acquisition : %s\n\n", PolledHosts ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	if (COL == "6")
+		printf "%s : %14s %6d%%\n", stat[6], sum[6], Ierravg ;
+	else if (COL == "8")
+		printf "%s : %14s %6d%%\n", stat[8], sum[8], Oerravg ;
+	else if (COL == "9")
+		printf "%s : %14s %6d%%\n", stat[9], sum[9], Collavg ;
+	else
+		printf "%s : %14s\n", stat[COL], sum[COL] ;
+		}
+	     }
+	'
+done
+
+#
+# Sample awk shamelessly stolen from some website. re-formatted by me:
+#
+
+#print the second field, then the first. All other fields are ignored.
+
+awk '{print $2,$1}' filename
+
+#print the first and second fields, and then the sine of the third field
+#divided by the second. So, the second and third field had better be numbers.
+#Awk has other built in math functions like sine; read the manpage to see which ones.
+
+awk '{print $1,$2,sin($3/$2)}' filename
+
+#What if you don't want to apply the program to each line of the file? Say, for
+#example, that you only wanted to process lines that had the first field greater
+#than the second. The following program will do that:
+
+awk '$1 > $2 {print $1,$2,$1-$2}' filename
+
+#
+#The part outside the curly braces is called the "pattern", and the part inside
+#is the "action". The comparison operators include the ones from C:
+#
+#	== != < > <= >= ?:
+#
+#If no pattern is given, then the action applies to all lines. This fact was used
+#in the sample programs above. If no action is given, then the entire line is printed.
+#If "print" is used all by itself, the entire line is printed. Thus, the following
+#are equivalent:
+
+awk '$1 > $2'           filename
+awk '$1 > $2{print}'    filename
+awk '$1 > $2{print $0}' filename
+
+#The various fields in a line can also be treated as strings instead of numbers. To
+#compare a field to a string, use the following method:
+
+awk '$1=="foo"{print $2}' filename
+
+#   Using regular expressions
+#What if you want lines in which a certain string is found? Just put a regular expression
+#(in the manner of egrep(1) ) into the pattern, like so:
+
+awk '/foo.*bar/{print $1,$3}' filename
+
+#This will print all lines containing the word "foo" and then later the word "bar". If you
+#want only those lines where "foo" occurs in the second field, use the ~ ("contains") operator:
+
+awk '$2~/foo/{print $3,$1}' filename
+
+#If you want lines where "foo" does not occur in the second field, use the negated ~ operator, !~
+
+awk '$2!~/foo/{print $3,$1}' filename
+
+#This operator can be read as "does not contain".
+
+#    Booleans
+#You can produce complicated patterns with the boolean operators from C, which are ! for
+#"not", && for "and", and || for "or". Parentheses can be used for grouping.
+
+#    Start and End
+#There are three special forms of patterns that do not fit the above descriptions. One
+#is the start-end pair of regular expressions. For example, to print all lines between
+#and including lines that contained "foo" and "bar", you would use
+
+awk '/foo/,/bar/' filename
+
+#    Begin and End
+#The other two special forms are similar; they are the BEGIN and END patterns. Any action
+#associated with the BEGIN pattern will happen before any line-by-line processing is done.
+#Actions with the END pattern will happen after all lines are processed.
+
+#But how do you put more than one pattern-action pair into an awk program? There are several 
+#hoices.
+
+#   1. One is to just mash them together, like so:
+
+awk 'BEGIN{print"fee"} $1=="foo"{print"fi"}
+     END{print"fo fum"}' filename
+
+#   2. Another choice is to put the program into a file, like so:
+
+BEGIN{print"fee"}
+$1=="foo"{print"fi"}
+END{print"fo fum"}
+
+#      Let's say that's in the file giant.awk. Now, run it using the "-f" flag to awk:
+
+awk -f giant.awk filename
+
+#   3. A third choice is to create a file that calls awk all by itself. The following
+#      form will do the trick:
+
+#!/usr/bin/awk -f
+BEGIN{print"fee"}
+$1=="foo"{print"fi"}
+END{print"fo fum"} 
+
+#If we call this file giant2.awk, we can run it by first giving it execute permissions,
+
+chmod u+x giant2.awk
+
+#and then just call it like so:
+
+./giant2.awk filename
+
+#awk has variables that can be either real numbers or strings. For example, the following
+#code prints a running total of the fifth column:
+
+awk '{print x+=$5,$0 }' filename
+
+#This can be used when looking at file sizes from an "ls -l". It is also useful for
+#balancing one's checkbook, if the amount of the check is kept in one column.
+
+#    Awk variables
+#awk variables are initialized to either zero or the empty string the first time they
+#are used. Which one depends on how they are used, of course.
+
+#Variables are also useful for keeping intermediate values. This example also introduces
+#the use of semicolons for separating statements:
+
+awk '{d=($2-($1-4));s=($2+$1);print d/sqrt(s),d*d/s }' filename
+
+#Note that the final statement, a "print" in this case, does not need a semicolon. It
+#doesn't hurt to put it in, though.
+
+#    * Integer variables can be used to refer to fields. If one field contains information
+#      about which other field is important, this script will print only the important field:
+
+awk '{imp=$1; print $imp }' filename
+
+#    * The special variable NF tells you how many fields are in this record. This scrip
+#      prints the first and last field from each record, regardless of how many fields there are:
+
+awk '{print $1,$NF }' filename
+
+#    * The special variable NR tells you which record this is. It is incremented each time
+#      a new record is read in. This gives a simple way of adding line numbers to a file:
+
+awk '{print NR,$0 }' filename
+
+#Of course, there are a myriad of other ways to put line numbers on a file using the various
+#UNIX utilities. This is left as an exercise for the reader.
+
+#    * The special variable FS (Field Separator) determines how awk will split up each
+#      record into fields. This variable can be set on the command line. For example, /etc/passwd
+#      has its fields separated by colons.
+
+awk -F: '{print $1,$3 }' /etc/passwd
+
+#      This variable can actually be set to any regular expression, in the manner of egrep(1). 
+
+#The various fields are also variables, and you can assign things to them. If you wanted to
+#delete the 10th field from each line, you could do it by printing fields 1 through 9, and
+#then from 11 on using a for-loop (see below). But, this will do it very easily:
+
+awk '{$10=""; print }' filename
+
+#In many ways, awk is like C. The "for", "while", "do-while", and "if" constructs all exist.
+#Statements can be grouped with curly braces. This script will print each field of each
+#record on its own line.
+
+awk '{for(i=1;i<=NF;i++) print $i }' filename
+
+#If you want to produce format that is a little better formatted than the "print" statement
+#gives you, you can use "printf" just like in C. Here is an example that treats the first
+#field as a string, and then does some numeric stuff
+
+awk '{printf("%s %03d %02d %.15g\n",$1,$2,$3,$3/$2); }' filename
+
+#Note that with printf, you need the explicit newline character.
+
+#We can use "printf" to print stuff without the newline, which is useful in a for loop. This
+#script prints each record with each of its fields reversed. Ok, so it isn't very useful.
+
+awk '{for(i=NF;i > 0;i--) printf("%s",$i); printf("\n"); }' filename
+
+#     Awk Arrays
+#awk has arrays, but they are only indexed by strings. This can be very useful, but it can
+#also be annoying. For example, we can count the frequency of words in a document (ignoring
+#the icky part about printing them out):
+
+awk '{for(i=1;i <=NF;i++) freq[$i]++ }' filename
+
+#The array will hold an integer value for each word that occurred in the file. Unfortunately,
+#this treats "foo", "Foo", and "foo," as different words. Oh well. How do we print out these
+#frequencies? awk has a special "for" construct that loops over the values in an array. This
+#script is longer than most command lines, so it will be expressed as an executable script:
+
+#!/usr/bin/awk -f
+{for(i=1;i <=NF;i++) freq[$i]++ }
+END{for(word in freq) print word, freq[word]  }
+
+#This loop-over-an-array seems to go in no particular order. Thus, the output from a program
+#like this must often be piped through sort(1) in order to be useful.
+
+#Multi-dimensional arrays are implemented in an odd way. The given indices are concatenated
+#together (with a special separator) to get one string, and it is used as the index. This
+#program will print the word-pair frequencies:
+
+#!/usr/bin/awk -f
+{for(i=1;i < NF;i++) freq[$i,$(i+1)]++ }
+END{for(words in freq) print words, freq[words]  }
+
+#Unfortunately, this will print out the separator, which is by default not a common character.
+#You can change this by assigning something logical like a space to the variable SUBSEP using
+#nawk or gawk (it's not allowed in plain awk).
+
+#!/usr/bin/awk -f
+BEGIN{SUBSEP=""}
+{for(i=1;i < NF;i++) freq[$i,$(i+1)]++}
+END{for(words in freq) print words, freq[words] }
+
+#Unfortunately (that word seems to occur a lot when talking about awk arrays), this doesn't
+#let you refer to the indices individually. The secret to this it to use the "split" function,
+#which breaks a string up into an array.
+
+ 
+#!/usr/bin/awk -f
+BEGIN{SUBSEP="" }
+{for(i=1;i < NF;i++) freq[$i,$(i+1)]++}
+END{ for(words in freq)
+  {
+    split(words,word,SUBSEP); 
+    print word[1], freq[words],word[2];
+  } 
+}	
+
+#When you're using an awk script in a file, you can break your program across multiple lines
+#to make it easier to read. Comments are started the same way as in sh programming, with a #
+
+#!/usr/bin/awk -f
+# this program prints the frequencies of word pairs
+BEGIN{SUBSEP=""} # set the index separator 
+# to a nice character
+{for(i=1;i < NF;i++) freq[$i,$(i+1)]++}
+END{ for(words in freq)
+  {
+    # just to show we can put a comment in here.
+    split(words,word,SUBSEP); # or here
+    print word[1], freq[words],word[2];
+  } 
+}		
+
+#You can use awk to create text, as well as just process existing text. It is useful for quickly
+#generating tables of function values, without the hassle of compiling a C program. For example,
+#it can show that sin(x)/x approaches 1 as x approaches zero:
+
+awk '{x=1.0/NR; print x,sin(x)/x;}'
+
+#will print a new value each time it reads a new line. So, you can hit return until you have
+#all the values you need. Alternately, if you need a set number of values, you can do
+
+awk 'BEGIN{for(i=1;i <=30;i++){x=1.0/i;print x,sin(x)/x;}}' /dev/null
+
+#where 30 is the set number of values.
+
+#It seems twisted*, but awk can be used to generate C code that one doesn't want to type by
+#hand. For example, this script will generate an explicit 3x3 matrix multiplication routine:
+
+gawk 'BEGIN{
+        for(i=0;i<3;i++)
+          for(j=0;j<3;j++){
+            printf("d[%d][%d]=",i,j);
+            for(k=0;k<3;k++){
+              printf("l[%d][%d]*r[%d][%d]%s",
+                     i,k,k,j,(k<2)?"+":";\n");
+            }
+          }
+      }'
+
+#* ok, maybe it is twisted.
+
+#
+#Punctuation guide:
+#
+
+{}           used around the action, and to group statements in the action.
+
+$            denotes a field. $1 is the first field, $0 is the whole record.
+
+~            the "contains" operator. "foobar"~"foo" is true. Strings only.
+
+!~           the "does not contain" operator. Strings only.
+
+==           the equality operator. Works for numbers or strings
+
+< > <= >= != inequality operators. Work for numbers or strings.
+
+#            the begin-comment character
+
+,            separates things in a "print" or "printf" statement.
+
+;            separates statements.
+
+//           used around a regular expression
+
+&&           Boolean and
+
+||           Boolean or
+
+!            boolean not
+
+()           used for grouping Boolean expressions, passing arguments to functions, and around
+             conditions for "for","while", etc.
+
+And now for a grand example:
+
+# This awk program collects statistics on two 
+# "random variables" and the relationships 
+# between them. It looks only at fields 1 and 
+# 2 by default Define the variables F and G 
+# on the command line to force it to look at
+# different fields.  For example: 
+# awk -f stat_2o1.awk F=2 G=3 stuff.dat \
+# F=3 G=5 otherstuff.dat
+# or, from standard input: 
+# awk -f stat_2o1.awk F=1 G=3
+# It ignores blank lines, lines where either 
+# one of the requested fields is empty, and 
+# lines whose first field contains a number 
+# sign. It requires only one pass through the
+# data. This script works with vanilla awk 
+# under SunOS 4.1.3.
+BEGIN{
+  F=1;
+  G=2;
+}
+length($F) > 0 && \
+length($G) > 0 && \
+$1 !~/^#/ {
+  sx1+= $F; sx2 += $F*$F;
+  sy1+= $G; sy2 += $G*$G;
+  sxy1+= $F*$G;
+  if( N==0 ) xmax = xmin = $F;
+  if( xmin > $F ) xmin=$F;
+  if( xmax < $F ) xmax=$F;
+  if( N==0 ) ymax = ymin = $G;
+  if( ymin > $G ) ymin=$G;
+  if( ymax < $G ) ymax=$G;
+  N++;
+}
+ 
+END {
+  printf("%d # N\n"   ,N   );
+  if (N <= 1) 
+    {
+    printf("What's the point?\n");
+    exit 1;
+    }
+  printf("%g # xmin\n",xmin);
+  printf("%g # xmax\n",xmax);
+  printf("%g # xmean\n",xmean=sx1/N);
+  xSigma = sx2 - 2 * xmean * sx1+ N*xmean*xmean;
+  printf("%g # xvar\n"         ,xvar =xSigma/  N  );
+  printf("%g # xvar unbiased\n",xvaru=xSigma/(N-1));
+  printf("%g # xstddev\n"         ,sqrt(xvar ));
+  printf("%g # xstddev unbiased\n",sqrt(xvaru));
+  
+  printf("%g # ymin\n",ymin);
+  printf("%g # ymax\n",ymax);
+  printf("%g # ymean\n",ymean=sy1/N);
+  ySigma = sy2 - 2 * ymean * sy1+ N*ymean*ymean;
+  printf("%g # yvar\n"         ,yvar =ySigma/  N  );
+  printf("%g # yvar unbiased\n",yvaru=ySigma/(N-1));
+  printf("%g # ystddev\n"         ,sqrt(yvar ));
+  printf("%g # ystddev unbiased\n",sqrt(yvaru));
+  if ( xSigma * ySigma <= 0 )
+    r=0;
+  else 
+    r=(sxy1 - xmean*sy1- ymean * sx1+ N * xmean * ymean)
+      /sqrt(xSigma * ySigma);
+  printf("%g # correlation coefficient\n", r);
+  if( r > 1 || r < -1 )
+    printf("SERIOUS ERROR! CORRELATION COEFFICIENT");
+    printf(" OUTSIDE RANGE -1..1\n");
+
+  if( 1-r*r != 0 )
+    printf("%g # Student's T (use with N-2 degfreed)\n&", \
+      t=r*sqrt((N-2)/(1-r*r)) );
+  else
+    printf("0 # Correlation is perfect,");
+    printf(" Student's T is plus infinity\n");
+  b = (sxy1 - ymean * sx1)/(sx2 - xmean * sx1);
+  a = ymean - b * xmean;
+  ss=sy2 - 2*a*sy1- 2*b*sxy1 + N*a*a + 2*a*b*sx1+ b*b*sx2 ;
+  ss/= N-2;
+  printf("%g # a = y-intercept\n", a);
+  printf("%g # b = slope\n"      , b); 
+  printf("%g # s^2 = unbiased estimator for sigsq\n",ss);
+  printf("%g + %g * x # equation ready for cut-and-paste\n",a,b);
+  ra = sqrt(ss * sx2 / (N * xSigma));
+  rb = sqrt(ss       / (    xSigma));
+  printf("%g # radius of confidence interval ");
+  printf("for a, multiply by t\n",ra);
+  printf("%g # radius of confidence interval ");
+  printf("for b, multiply by t\n",rb);
+}    
+
+
+################################### string manipulation: ##################################
+
+index(in, find)
+
+#This searches the string in for the first occurrence of the string find, and returns the
+# position in characters where that occurrence begins in the string in. For example:
+
+    awk 'BEGIN { print index("peanut", "an") }'
+
+#prints `3'. If find is not found, index returns 0. (Remember that string indices in awk
+#start at 1.) 
+
+length(string)
+
+#This gives you the number of characters in string. If string is a number, the length of the
+#digit string representing that number is returned. For example, length("abcde") is 5. By
+#contrast, length(15 * 35) works out to 3. How? Well, 15 * 35 = 525, and 525 is then converted
+#to the string `"525"', which has three characters. If no argument is supplied, length returns
+#the length of $0. In older versions of awk, you could call the length function without any
+#parentheses. Doing so is marked as "deprecated" in the POSIX standard. This means that while
+#you can do this in your programs, it is a feature that can eventually be removed from a future
+#version of the standard. Therefore, for maximal portability of your awk programs you should
+#always supply the parentheses. 
+
+match(string, regexp)
+
+#The match function searches the string, string, for the longest, leftmost substring matched
+#by the regular expression, regexp. It returns the character position, or index, of where that
+#substring begins (1, if it starts at the beginning of string). If no match if found, it
+#returns 0. The match function sets the built-in variable RSTART to the index. It also sets
+#the built-in variable RLENGTH to the length in characters of the matched substring. If no
+#match is found, RSTART is set to 0, and RLENGTH to -1. For example:
+
+    awk '{
+           if ($1 == "FIND")
+             regex = $2
+           else {
+             where = match($0, regex)
+             if (where)
+               print "Match of", regex, "found at", where, "in", $0
+           }
+    }'
+
+#This program looks for lines that match the regular expression stored in the variable regex.
+#This regular expression can be changed. If the first word on a line is `FIND', regex is
+#changed to be the second word on that line. Therefore, given:
+
+    FIND fo*bar
+    My program was a foobar
+    But none of it would doobar
+    FIND Melvin
+    JF+KM
+    This line is property of The Reality Engineering Co.
+    This file created by Melvin.
+
+    awk prints:
+
+    Match of fo*bar found at 18 in My program was a foobar
+    Match of Melvin found at 26 in This file created by Melvin.
+
+split(string, array, fieldsep)
+
+#This divides string into pieces separated by fieldsep, and stores the pieces in array. The
+#first piece is stored in array[1], the second piece in array[2], and so forth. The string
+#value of the third argument, fieldsep, is a regexp describing where to split string (much
+#as FS can be a regexp describing where to split input records). If the fieldsep is omitted,
+#the value of FS is used. split returns the number of elements created. The split function,
+#then, splits strings into pieces in a manner similar to the way input lines are split into
+#fields. For example:
+
+    split("auto-da-fe", a, "-")
+
+#splits the string `auto-da-fe' into three fields using `-' as the separator. It sets the
+#contents of the array a as follows:
+
+    a[1] = "auto"
+    a[2] = "da"
+    a[3] = "fe"
+
+#The value returned by this call to split is 3. As with input field-splitting, when the
+#value of fieldsep is " ", leading and trailing whitespace is ignored, and the elements
+#are separated by runs of whitespace. 
+
+sprintf(format, expression1,...)
+
+#This returns (without printing) the string that printf would have printed out with the
+#same arguments (see section Using printf Statements for Fancier Printing). For example:
+
+    sprintf("pi = %.2f (approx.)", 22/7)
+
+    returns the string "pi = 3.14 (approx.)". 
+
+sub(regexp, replacement, target)
+
+#The sub function alters the value of target. It searches this value, which should be a
+#string, for the leftmost substring matched by the regular expression, regexp, extending
+#this match as far as possible. Then the entire string is changed by replacing the matched
+#text with replacement. The modified string becomes the new value of target. This function
+#is peculiar because target is not simply used to compute a value, and not just any
+#expression will do: it must be a variable, field or array reference, so that sub can store
+#a modified value there. If this argument is omitted, then the default is to use and alter
+#$0. For example:
+
+    str = "water, water, everywhere"
+    sub(/at/, "ith", str)
+
+#sets str to "wither, water, everywhere", by replacing the leftmost, longest occurrence of
+#`at' with `ith'. The sub function returns the number of substitutions made (either one or
+#zero). If the special character `&' appears in replacement, it stands for the precise
+#substring that was matched by regexp. (If the regexp can match more than one string, then
+#this precise substring may vary.) For example:
+
+    awk '{ sub(/candidate/, "& and his wife"); print }'
+
+#changes the first occurrence of `candidate' to `candidate and his wife' on each input
+#line. Here is another example:
+
+    awk 'BEGIN {
+            str = "daabaaa"
+            sub(/a*/, "c&c", str)
+            print str
+    }'
+
+#prints `dcaacbaaa'. This show how `&' can represent a non-constant string, and also
+#illustrates the "leftmost, longest" rule. The effect of this special character (`&') can
+#be turned off by putting a backslash before it in the string. As usual, to insert one
+#backslash in the string, you must write two backslashes. Therefore, write `\\&' in a
+#string constant to include a literal `&' in the replacement. For example, here is how
+#to replace the first `|' on each line with an `&':
+
+    awk '{ sub(/\|/, "\\&"); print }'
+
+#Note: as mentioned above, the third argument to sub must be an lvalue. Some versions of
+#awk allow the third argument to be an expression which is not an lvalue. In such a case,
+#sub would still search for the pattern and return 0 or 1, but the result of the substitution
+#(if any) would be thrown away because there is no place to put it. Such versions of awk
+#accept expressions like this:
+
+    sub(/USA/, "United States", "the USA and Canada")
+
+#But that is considered erroneous in gawk. 
+
+gsub(regexp, replacement, target)
+
+#This is similar to the sub function, except gsub replaces all of the longest, leftmost,
+#nonoverlapping matching substrings it can find. The `g' in gsub stands for "global,"
+#which means replace everywhere. For example:
+
+    awk '{ gsub(/Britain/, "United Kingdom"); print }'
+
+#replaces all occurrences of the string `Britain' with `United Kingdom' for all input
+#records. The gsub function returns the number of substitutions made. If the variable to
+#be searched and altered, target, is omitted, then the entire input record, $0, is used.
+#As in sub, the characters `&' and `\' are special, and the third argument must be an
+#lvalue. 
+
+substr(string, start, length)
+
+#This returns a length-character-long substring of string, starting at character number
+#start. The first character of a string is character number one. For example,
+#substr("washington", 5, 3) returns "ing". If length is not present, this function returns
+#the whole suffix of string that begins at character number start. For example,
+#substr("washington", 5) returns "ington". This is also the case if length is greater than
+#the number of characters remaining in the string, counting from character number start. 
+
+tolower(string)
+
+#This returns a copy of string, with each upper-case character in the string replaced with
+#its corresponding lower-case character. Nonalphabetic characters are left unchanged. For
+#example, tolower("MiXeD cAsE 123") returns "mixed case 123". 
+
+toupper(string)
+
+#This returns a copy of string, with each lower-case character in the string replaced with
+#its corresponding upper-case character. Nonalphabetic characters are left unchanged. For
+#example, toupper("MiXeD cAsE 123") returns "MIXED CASE 123". 
+

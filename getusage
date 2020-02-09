@@ -1,0 +1,182 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+# This script gathers usage data for each login on each server.  The more
+# servers, the longer it takes to run.  It sure would be nice to do servers
+# in prallel, but that would probably require quite a rewrite!
+# 
+# To run this, you should have an environmental variable set called SERVERS.
+# You can hard code this, or do it via a ypmatch/netgroup thing.
+SERVERS="ih4ehz ih4elab ih4sh ih4ehw ih4ehwa ih4epd"
+# You should run this from one master machine,
+MASTER="ih4ehz"
+# Once this is done, you can run the thing out of cron, like:
+# 20 3 * * 7 /usr/add-on/adm/bin/getusage -quiet >/dev/null 2>&1
+# I suggest (strongly) that you do this on Saturday or Sunday in the wee hours,
+# as it puts quite a strong load on the cpu and the network.  
+LOGDIR=/usr/add-on/adm/log
+TMPDIR=/usr/add-on/adm/tmp
+
+PATH=$PATH:/usr/tran/sparc/bin
+
+
+TRUSTED=root #name of a user that has rsh access to all $SERVERS
+ME=`hostname`
+if [ "$1" = "-quiet" ]
+then
+	ECHO="/dev/null"
+else
+	ECHO=""
+fi
+if [ "$ME" != "$MASTER" ]
+then
+	echo "Please run $0 on $MASTER" > $ECHO
+	exit 1
+fi
+echo "
+
+				GETUSAGE
+
+
+	This utility will scan all users files on
+	$SERVERS,
+	and generate a disk usage report on the
+	postscript printer.
+" > $ECHO
+if [ "$TRUSTED" != "root" ]
+then
+	echo "
+
+	As $TRUSTED is listed as the trusted user,
+	an inaccurate record will be reported.
+	To resolve this problem, allow root access
+	via rsh across all servers.
+
+
+	"
+fi
+if [ `hostname` != "$MASTER" ]
+then
+	echo "This script must be run from $MASTER"
+	exit 1
+fi
+echo "
+SUN FILESYSTEM USAGE CHART
+__________________________
+">$TMPDIR/usage.rept
+for server in $SERVERS
+do
+	if [ -f "$TMPDIR/df.$server" ]
+	then
+		rm $TMPDIR/df.$server
+	fi
+	if [ -f "$TMPDIR/du.$server" ]
+	then
+		rm $TMPDIR/du.$server
+	fi
+	if [ "$server" = "$ME" ]
+	then
+		PREFIX=""
+	else
+		PREFIX="rsh $server -l $TRUSTED"
+	fi
+	echo "Getting a list of filesystems to stat on $server" > $ECHO
+
+	FSNAMES="`$PREFIX cat /etc/fstab | grep "/dev"|awk '{print $2}'|sed '/^\/$/d'|sed '/^\/usr/d'|sed '/^\/var/d'|sed '/^\/tmp/d'|sed '/^\/export/d'|sed '/cdrom/d'`"
+
+	echo "Getting df list of filesystems on $server" > $ECHO
+
+	$PREFIX df $FSNAMES >> $TMPDIR/df.$server 2>/dev/null
+
+	for fsname in $FSNAMES
+	do
+		echo "Getting du list of users files on $server" > $ECHO
+
+		$PREFIX du -s $fsname/* | sed '/lost+found/d' > $TMPDIR/du.$server.tmp 2>/dev/null
+
+		for login in `cat $TMPDIR/du.$server.tmp|cut -f2 -d"	"`
+		do
+			LOGIN=`basename $login`
+			if [ "$server" = "ih4sh" ] || [ "$server" = "ih4elab" ]
+			then
+				PREF="rsh ih4sh -l $TRUSTED"
+			else
+				PREF=""
+			fi
+			user="`$PREF ypmatch $LOGIN passwd 2> /dev/null`"
+			USER="`echo $user|cut -f5 -d:|sed 's/(.*//'`"
+			if [ "$USER" = "" ]
+			then
+				echo "UNKNOWN_USER">>$TMPDIR/user.$server
+			else
+				echo $USER >> $TMPDIR/user.$server
+			fi
+			USER=""
+		done
+
+		paste $TMPDIR/du.$server.tmp $TMPDIR/user.$server|sort -nr|awk '{printf ("%12s\t%12s\t%12s\n", $1,$2,$3)}' >> $TMPDIR/du.$server
+
+		rm $TMPDIR/user.$server
+		echo "">>$TMPDIR/du.$server
+	done
+	rm $TMPDIR/du.$server.tmp
+	echo "$server filesystem usage for `date +%D`">>$TMPDIR/usage.rept
+	cat $TMPDIR/df.$server >> $TMPDIR/usage.rept
+	echo "
+">>$TMPDIR/usage.rept
+	echo "$server filesystem usage by user for `date +%D`">>$TMPDIR/usage.rept
+	echo | awk '{printf ("%12s%12s%12s\n", "Usage(Kb)","Login","Owner")}'>>$TMPDIR/usage.rept
+	cat $TMPDIR/du.$server>>$TMPDIR/usage.rept
+done
+echo "
+filesystem usage by group for `date +%D`">>$TMPDIR/usage.rept
+for group in basso erickson jachcinski kreutzjans mclaughlin mclear miller schlough wiley wilson yeh zeile
+do
+	for guser in `ypmatch $group netgroup|sed 's/(,//g'|sed 's/,)//g'`
+	do
+		for server in $SERVERS 
+		do
+			grep $guser $TMPDIR/du.$server >> $TMPDIR/${group}.du
+		done
+	done
+	echo "
+filesystem usage for ${group}'s group">>$TMPDIR/usage.rept
+	cat $TMPDIR/${group}.du|sort -nr >> $TMPDIR/usage.rept
+	cat $TMPDIR/${group}.du | nawk '
+	{ s += $1 }
+	END {print "Total usage -> ", s }
+	'>> $TMPDIR/usage.rept
+	rm $TMPDIR/${group}.du
+done
+enscript -Papple -2 -G -r $TMPDIR/usage.rept
+DATE=`date +%y%m%d`
+echo "This report will now be saved in $LOGDIR/usage/usage.$DATE" > $ECHO
+mv $TMPDIR/usage.rept $LOGDIR/usage/usage.$DATE
+for server in $SERVERS
+do
+	rm $TMPDIR/du.$server
+	rm $TMPDIR/df.$server
+done

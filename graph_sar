@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+# sarplot.cgi, shs 11/14/02, plot sar data
+
+# ---------------------------------------------------------- modules
+use IPC::Open3;
+use CGI qw(:standard);
+
+# ------------------------------------------------------- parameters
+$opt=param('opt');
+if ( ! $opt =~ /\w/ ) {                 # replace if not single letter
+    $opt="u";
+}
+
+$dt=`date`;                             # save date for title
+
+chomp($dt);
+@sarstats=`sar -$opt`;                  # capture data from sar
+$data="/tmp/stats$$";                   # identify temp file
+my $gnuplot = "/usr/local/bin/gnuplot";
+
+# ----------------------------------------------- process sar output
+open DATA, ">$data" or die "Cannot open $data for writing";
+
+foreach $line (@sarstats) {
+    if ( $line=~/\d+:\d+:\d+.+[a-z]/ ) {        # capture column headings
+        @hdgs=split ' ',$line;  # store in array for later use
+    } else {
+        print DATA "$line";
+    }
+}
+close DATA;
+$sz=$#hdgs;                                     # number of data columns
+
+# ------------------------------------------------------ run gnuplot
+$| = 1;                                 # disable buffering
+
+my $pid = open3(\*GNUPLOT, \*GRAPHDATA, \*ERROR, $gnuplot);
+
+# send commands to gnuplot
+print GNUPLOT << "END";
+set term png color
+set title "$dt (sar -$opt)";
+set timefmt "%H:%M:%S"
+set xdata time
+set format x "%H:%M:%S"
+set xtics border rotate
+set xrange ["00:00" to "23:59"]
+END
+
+# send command line for each data column
+print GNUPLOT "plot ";
+for ($x=2; $x<=$sz; $x++) {
+    $h=$x-1;
+    print GNUPLOT "'$data' using 1:$x t '$hdgs[$h]' with line,";
+}
+# last line is separate becayse is has no continuation character
+print GNUPLOT "'$data' using 1:$x t '$hdgs[$x-1]' with line";
+
+close(GNUPLOT);
+
+# identify data type
+print header("image/png");
+
+# send the image back to the browser
+while ($length = sysread(GRAPHDATA,$content,1024)) {
+        syswrite(STDOUT,$content,$length);
+}
+
+close(GRAPHDATA);

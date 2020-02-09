@@ -1,0 +1,60 @@
+#!/bin/ksh
+# hostmon - monitor hosts and report down
+SLEEPTIME=${SLEEPTIME:-600}
+SOUNDIR=/adm/lib/sounds
+PATH=$PATH:/usr/local/bin
+SERVERS="hercules raven yooper trooper chaos tbsun2 bootes cetus zeus thor orion camelot tbsun zod"
+typeset -i CURRSTAT LASTSTAT index
+
+FLASHPEGGED () {
+if [ -c /dev/audio ]
+then
+	play -v 100 ${SOUNDIR}/alert.au
+	play -v 100 ${SOUNDIR}/${SERVER}.au
+	play -v 100 ${SOUNDIR}/runaway.au
+else
+	echo 
+fi
+}
+
+FLASHDOWN () {
+if [ -c /dev/audio ]
+then
+	play -v 100 ${SOUNDIR}/alert.au
+	play -v 100 ${SOUNDIR}/${SERVER}.au
+	play -v 100 ${SOUNDIR}/is_down.au
+else
+	echo 
+fi
+}
+
+
+while true
+do
+	clear
+	echo "HOST                                    STAUS"
+	echo "------------------------------------------------"
+
+	for SERVER in $SERVERS
+	do
+		spray -c 1 -l 1 -d 1 $SERVER >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			FLASHDOWN
+			echo "$SERVER                                 DOWN"
+			echo "------------------------------------------------"
+		else
+			echo "$SERVER                                  UP"
+			echo "------------------------------------------------"
+			CURRSTAT[index]=`rsh $SERVER vmstat -S 1 3|sed '1,4d'|awk '{print $NF}'`
+			if [ LASTSTAT[index] -eq 0 ] && [ CURRSTAT[index] -eq 0 ]
+			then
+				FLASHPEGGED
+			fi
+			LASTSTAT[index]=CURRSTAT[index]
+			let "index = index + 1"
+		fi
+	done
+	index=0
+	sleep $SLEEPTIME
+done

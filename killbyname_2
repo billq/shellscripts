@@ -1,0 +1,45 @@
+#!/bin/ksh
+#		
+if [ -f /vmunix ]
+then
+	PS=/usr/bin/ps
+	ECHO=/usr/5bin/echo
+else
+	PS=/usr/ucb/ps
+	ECHO=/usr/bin/echo
+fi
+if [ "$1" = "" ]
+then
+	$ECHO "Give me a name of a process to kill -> \c"
+	read NAME
+else
+	NAME=$1
+	echo "Setting the name of the doomed process to $NAME"
+fi
+$ECHO "Please choose a level...
+
+		9  = sure kill, but may leave children
+		15 = make sure children are dead too
+
+		Level of kill? -> [15] \c"
+read LEVEL
+case $LEVEL in
+9)	LEVEL=9		;;
+*)	LEVEL=15	;;
+esac
+$PS -awwux |grep -v "killbyname $NAME"|grep $NAME|sed '/grep/d'
+$ECHO "O.K. to kill all of these? [Y|n] -> \c"
+read GOFORIT
+case $GOFORIT
+in
+y*|Y*|"")
+	for i in `$PS -aux|grep -v "killbyname $NAME"|grep $NAME |sed 's/  */:/g'|sed '/grep/d'|cut -f2 -d":"`
+	do
+		kill -$LEVEL $i
+	done
+	;;
+*)
+	echo "No kills done"
+	exit 1
+	;;
+esac

@@ -1,0 +1,110 @@
+#!/bin/ksh
+#
+# This fine script generates an HTML Table of Contents for .
+#
+# Remove the following to make the script generic
+#
+cd /home/bquayle/public_html/CME/info
+#
+# WRQ - 11/30/00
+#
+PWD=`pwd`
+#
+# Generate the header
+#
+echo "
+Content-type: text/html
+
+
+<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML//EN\">
+<HTML>
+<HEAD>
+<TITLE>Table of Contents</TITLE>
+</HEAD>
+<BODY BACKGROUND=\"/images/backgrounds/caveice.jpg\" TEXT=\"#000000\" LINK=\"#0000ff\" VLINK=\"#ff0000\">
+<A NAME=top></A>
+<CENTER>
+<TABLE BORDER=8 WIDTH=\"100%\">
+  <TR BGCOLOR=\"#ffffff\">
+    <TD ALIGN=\"center\" VALIGN=\"middle\"> <H1>Table of Contents - `basename $PWD`</H1> </TD>
+  </TR>
+</TABLE>
+</CENTER>
+<TABLE BORDER=\"0\">
+"
+#
+# Get the width of the table.  This finds the depth of the tree.
+#
+TS=`find . -type f|sed 's/^.\///'|awk -F/ '{print NF-1}'|sort -u|tail -1`
+#
+# Print the table header.
+#
+echo "<TH COLSPAN=$TS>Table of Contents</TH>"
+#
+# Creat a table of contents out of the directory tree
+#
+find . -type d |sed 's/\.//'|sed 's/^\///'|while read DIR
+do
+  [[ -n "$DIR" ]] && {
+    echo "<TR>"
+    POS=`echo $DIR|awk -F/ '{print NF}'`
+    COUNTER=$(($POS-1))
+    while [ $COUNTER -gt 0 ]
+    do
+      echo "<TD>&nbsp;</TD>"
+      COUNTER=$(($COUNTER-1))
+    done
+    echo $DIR|awk -F/ -v V=$POS '{printf("<TD><A HREF=#%s>%s</A></TD>\n",$V,$V)}'
+    PADDING=$(($TS-$POS-1))
+    while [ $PADDING -gt 0 ]
+    do
+      echo "<TD>&nbsp;</TD>"
+      PADDING=$(($PADDING-1))
+    done
+    echo "</TR>"
+    }
+done
+#
+# Now, do a listing of the files in the tree
+#
+# Fix TS because we add a "top" link column, and we're going to the file level.
+#
+TS=$((TS + 2))
+echo "</TABLE>
+<TABLE BORDER=\"0\">"
+echo "<TH COLSPAN=$TS>Documents</TH>"
+#
+# This is not entirely straight forward, and took quite a few train rides to
+# iron out the syntax.  Basically, what we're doing is creating a table based
+# on the layout of the underlying filesystem structure.  Let's see you do this
+# in Windows:-)
+#
+find . -name "*.txt" -o -name "*.TXT" -o -name "*.htm*" -o -name "*.HTM*" -o -name "*.ps" -o -name "*.PS" -o -name "*.pdf" -o -name "*.PDF" -o -name "*.doc" -o -name "*.DOC" -o -name "*.xls" -o -name "*.XLS" -o -type d |sed 's/\.//'|sed 's/^\///'|while read FILE
+do
+  [[ -n "$FILE" ]] && {
+    echo "<TR>"
+    POS=`echo $FILE|awk -F/ '{print NF}'`
+    COUNTER=$(($POS-1))
+    while [ $COUNTER -gt 0 ]
+    do
+      echo "<TD>&nbsp;</TD>"
+      COUNTER=$(($COUNTER-1))
+    done
+    [[ -d "$FILE" ]] && {
+      echo $FILE|awk -F/ -v V=$POS '{printf("<TD><A NAME=%s>%s</A></TD>\n",$V,$V)}'
+    } || {
+      echo $FILE|awk -F/ -v FILE=$FILE -v V=$POS '{printf("<TD><A HREF=/info/%s>%s</A></TD>\n",$FILE,$V)}'
+    }
+    PADDING=$(($TS-$POS-1))
+    while [ $PADDING -gt 0 ]
+    do
+      echo "<TD>&nbsp;</TD>"
+      PADDING=$(($PADDING-1))
+    done
+    echo "<TD><A HREF=#top>top</A></TD>"
+    echo "</TR>"
+    }
+done
+echo "</TABLE>
+</BODY>
+</HTML>"

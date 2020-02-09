@@ -1,0 +1,312 @@
+#!/bin/sh
+
+# Copyright (C) 1999 Nathaniel Smith <njs@uclink4.berkeley.edu>
+# This code is hereby licensed for public consumption under either the
+# GNU GPL v2 or greater, or Larry Wall's Artistic License - your choice.
+#
+# You should have recieved a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Thanks to Robert Woodcock <rcw@debian.org> from whose cdgrab I stole portions
+# of this code.
+
+# TODO:
+#  - Clean up so uses fewer temp files
+#  - Add more error checking
+
+# KNOWN BUGS:
+#  - Not much error checking, esp. of arguments
+#  - Submitted via: line is created by template, when it really should be in send.
+#    Oh well.
+#  - Very slow, relatively speaking, but this is probably acceptable.
+#  - This code is disgusting in parts, but then, it's a shell script.
+
+VERSION=0.1.5
+NAME=cddb-tool
+
+#return codes
+BAD_SYNTAX_ERR=10  # invalid CDDB file
+NO_TMP_ERR=11      # can't create a temp file
+NO_MATCH_ERR=12    # try submitting one
+LOOKUP_ERR=13      # problem connecting to cddb server
+EMPTY_QUERY_RESPONSE=14	# query response = "", (probably no net connection)
+
+TMP=/tmp   # where to put tempfiles
+
+# assume a reasonable default if $WGET is undefined
+if [ "$WGET" = "" ]; then
+  WGET=wget
+fi
+
+usage() {
+  cat << EOF
+$NAME version $VERSION
+usage: one of:
+  $0 parse file -i|-d|-a|-t num|-c|-p
+  $0 template
+  $0 send [file] address
+  $0 get server user host disc-id tracks
+  $0 help
+EOF
+}
+
+help() {
+  cat << EOF
+$NAME version $VERSION
+A toolbox for doing cddb related stuff
+
+Usage: $0 command [command_options]
+
+Commands:
+  parse file option
+        Get data out of a cddb file; use - for stdin
+        options: (use 1 and only 1)
+          id          prints disc id
+          album       prints album title
+          track num   prints title of track num
+          artist      prints artist
+          category    prints category
+          cddbgenre   synonym for category
+          all         parse file and dumps to stdout in a form
+                      source'able by the shell
+  send [file] address
+        Mails file file (or stdin of no file specified)
+        to specified address, using correct format.  Category should
+        be one of blues, classical, country, data, folk, jazz, newage,
+        reggae, rock, soundtrack, misc.
+  template disc-id tracks
+        Generates a template (empty) cddb file to stdout.  The command
+        line should be essentially the output of cd-discid.
+  get server user host disc-id tracks
+        Looks up disc on server (should be of form "http://host/cddb/cddb.cgi")
+        remainder of command line is in the same form as that returned
+        by the cd-discid program.  CDDB file is dumped to stdout.  File
+        will contain an extra #CATEGORY= line, which leaves it a valid CDDB
+        file but which will be recognized by parse and send commands.  Uses
+        wget, so if you need to use a proxy then just configure wget to do
+        so.  user and host will be used for identifying ourselves to the 
+        CDDB server.
+  help  
+        Display this.
+EOF
+}
+
+# takes 1 argument, a filename, and dumps out a sh parseable version
+parse() {
+  if [ "$1" = "-" ]; then  
+    # for convenience, so we can grep it multiple times
+    TMPFILE=$(mktemp $TMP/$NAME.parsing.XXXXXX) || exit $NO_TMP_ERR
+    cat > $TMPFILE
+    CDDBFILE="$_PARSE_TMPFILE"
+  else
+    CDDBFILE="$1"
+  fi
+    
+  set -e
+  # names chosen to match usage in abcde code
+  DISCID=$(grep ^DISCID= "$CDDBFILE" | cut -f2 -d= | tr -d \[:cntrl:\])
+  DARTISTALBUM=$(grep ^DTITLE= "$CDDBFILE" | cut -f2- -d= | sed 's- / -~-g')
+  DARTIST=$(echo $DARTISTALBUM | cut -f1 -d~ | sed 's,\\,\\\\,g;s,\([\"\$\`]\),\\\1,g' | tr -d \[:cntrl:\])
+  DALBUM=$(echo $DARTISTALBUM | cut -f2 -d~ | sed 's,\\,\\\\,g;s,\([\"\$\`]\),\\\1,g' | tr -d \[:cntrl:\])
+  CDDBGENRE=$(grep '^#CATEGORY=' "$CDDBFILE" | cut -f2- -d=)
+
+  set +e
+  echo DISCID=\"$DISCID\"
+  echo DALBUM=\"$DALBUM\"
+  echo DARTIST=\"$DARTIST\"
+  echo CDDBGENRE=\"$CDDBGENRE\"
+  NUMTRACKS=$(grep -E '^TTITLE[0-9]+=' "$CDDBFILE" | wc -l)
+  CURRTRACK=0
+  while [ "$CURRTRACK" -lt $NUMTRACKS ]; do
+    CURRTRACKM1=$CURRTRACK # Track minus 1 (cddb numbers from 0)
+    CURRTRACK=$(expr $CURRTRACK + 1)
+    echo -n "TRACK${CURRTRACK}=\""
+    grep ^TTITLE${CURRTRACKM1}= "$CDDBFILE" | cut -f2 -d= | sed 's,\\,\\\\,g;s,\([\"\$\`]\),\\\1,g' | tr -d \[:cntrl:\]
+    echo \"
+  done
+  # clean up
+  if [ -f $_PARSE_TMPFILE ]; then
+    rm -f $_PARSE_TMPFILE
+  fi
+}
+
+COMMAND=$1
+shift
+case $COMMAND in
+  parse)
+    TMPFILE=$(mktemp $TMP/$NAME.parsed.XXXXXX) || exit $NO_TMP_ERR
+    parse "$1" > "$TMPFILE"
+    . "$TMPFILE"
+    shift
+    case "$1" in
+      id) echo "$DISCID" ;;
+      album) echo "$DALBUM" ;;
+      track) 
+        shift
+        if [ "$1" = "" ]; then 
+          echo "$0: Error: parse track needs a number" >&2
+          rm -f $TMPFILE
+          exit $BAD_SYNTAX_ERR
+        else 
+          eval echo "\$TRACK$1"
+        fi ;;
+      artist) echo $DARTIST ;;
+      category|cddbgenre) echo $CDDBGENRE ;;
+      all) cat "$TMPFILE" ;;
+      *) echo "$0: Error: unknown parse option $1" >&2; rm -f $TMPFILE; exit $BAD_SYNTAX_ERR ;;
+    esac
+    rm -f "$TMPFILE"
+  ;;
+
+  template)
+    DISCID="$1"
+    shift
+    echo '# xmcd CD database file'
+    echo '#'
+    echo '# Track frame offsets:'
+    NUMTRACKS="$1"
+    shift
+    X=0
+    while [ "$X" -lt "$NUMTRACKS" ]; do
+      echo -e "#\t$1"
+      shift
+      X=$(expr $X + 1)
+    done
+    LENGTH="$1"
+    echo "#"
+    echo "# Disc Length: $LENGTH seconds"
+    echo "#"
+    echo "# Submitted via: $NAME $VERSION"
+    echo "#"
+    echo "#blues,classical,country,data,folk,jazz,newage,reggae,rock,soundtrack,misc"
+    echo "#CATEGORY=misc"
+    echo DISCID="$DISCID"
+    echo "DTITLE=Unknown Artist / Unknown Album"
+    # TTITLE0 -- TTITLEn
+    X=0
+    while [ "$X" != "$NUMTRACKS" ]; do
+      X=$(expr $X + 1)
+      echo "TTITLE$(expr $X - 1)=Track $X"
+    done
+    echo "EXTD="
+    # EXTT0 -- EXTTn
+    X=0
+    while [ "$X" -lt "$NUMTRACKS" ]; do
+      echo "EXTT${X}="
+      X=$(expr $X + 1)
+    done
+    echo "PLAYORDER="
+  ;;
+
+  send) 
+    if [ "$2" != "" ]; then
+      FILE="$1"
+      ADDRESS="$2"
+    else
+      TMPFILE=$(mktemp $TMP/$NAME.sending.XXXXXX) || exit $NO_TMP_ERR
+      cat > "$TMPFILE"
+      FILE="$TMPFILE"
+      ADDRESS="$1"
+    fi
+    grep -v "^#CATEGORY=" "$FILE" | mail "$ADDRESS" -s "cddb $($0 parse $FILE category) $($0 parse $FILE id)"
+    if [ "$TMPFILE" != "" ]; then
+      rm -f "$TMPFILE"
+    fi
+  ;;
+
+  get)
+    SERVER="$1"
+    shift
+    USER="$1"
+    shift
+    HOST="$1"
+    shift
+    HELLOINFO="$USER+$HOST+$NAME+$VERSION"
+    TRACKINFO="$*"
+    TRACKINFOPLUS=$(echo $TRACKINFO | tr ' ' '+')
+    echo -n "Looking up CD name.." >&2
+    CDINFO=$($WGET -q -O - "$SERVER?cmd=cddb+query+$TRACKINFOPLUS\&hello=$HELLOINFO\&proto=3" | tr -d '\r') \
+     2>/dev/null || exit $LOOKUP_ERR
+    echo -n ".." >&2
+    if [ "$CDINFO" = "" ]; then
+      echo "Unable to query CDDB server." >&2
+      exit $EMPTY_QUERY_RESPONSE
+    fi
+    RESPONSECODE=$(echo $CDINFO | cut -f1 -d' ')
+    case $RESPONSECODE in
+    200)
+      # all is well
+      echo "found it." >&2
+      ;;
+    202)
+      # no match at all
+      echo "No match found in database." >&2
+      exit $NO_MATCH_ERR
+      ;;
+    403)
+      # corrupt
+      echo "Entry is corrupt." >&2
+      exit $NO_MATCH_ERR
+      ;;
+    409)
+      # no handshake?!?
+      echo "No handshake.  Sorry." >&2
+      exit $NO_MATCH_ERR
+      ;;
+    210|211)
+      # Multiple or inexact matches
+      CDCHOICES=$(echo "$CDINFO" | tail +2 | grep -v ^[.])
+      NUMCDCHOICES=$(echo "$CDCHOICES" | wc -l | xargs)
+      if [ "$NUMCDCHOICES" = "1" ]; then
+        # One inexact match
+        CDCHOICENUM=1
+        echo -n "Inexact match: " >&2
+      else # Multiple matches found
+        echo -n "Multiple " >&2
+        if [ "$RESPONSECODE" = "211" ]; then echo -n "inexact " >&2; fi
+        echo "matches found, please select one." >&2
+        echo "Number of CD choices: $NUMCDCHOICES" >&2
+        X=0
+        while [ "$X" != "$NUMCDCHOICES" ]; do
+          X=$(expr $X + 1)
+          echo $X: $(echo "$CDCHOICES" | head -$X | tail -1) >&2
+        done
+        echo -n "Selection [1-$NUMCDCHOICES]: " >&2
+        read CDCHOICE
+        # Make sure we get a valid choice
+        CDCHOICENUM=$(echo "$CDCHOICE" | xargs printf %d 2>/dev/null)
+        while [ "${CDCHOICENUM:-0}" -lt 1 ] || [ "$CDCHOICENUM" -gt $NUMCDCHOICES ]; do
+          echo "Invalid selection. Please choose a number between 1 and $NUMCDCHOICES." >&2
+          echo -n "Selection [1-$NUMCDCHOICES]: " >&2
+          read CDCHOICE
+          CDCHOICENUM=$(echo "$CDCHOICE" | xargs printf %d 2>/dev/null)
+        done
+        echo -n "Selected: " >&2
+     fi
+     # Selection is valid, use it
+     CDINFO="$RESPONSECODE $(echo "$CDCHOICES" | head -$CDCHOICENUM | tail -1)"
+     echo $CDINFO >&2
+  esac
+  CATEGORY=$(echo $CDINFO | cut -f2 -d' ')
+  DISCID=$(echo $CDINFO | cut -f3 -d' ')
+
+  echo -n "Getting CD info..." >&2
+  # Create a tempfile
+  CDDBDATA=$(mktemp $TMP/$NAME.get.XXXXXX) || exit $NO_TMP_ERR
+  $WGET -q -O $CDDBDATA "$SERVER?cmd=cddb+read+$CATEGORY+$DISCID\&hello=$HELLOINFO\&proto=3" 2>/dev/null
+  echo "got it." >&2
+  RESPONSECODE=$(cat $CDDBDATA | head -1 | cut -f1 -d' ')
+  if [ ${RESPONSECODE:-999} -gt 399 ]; then
+    echo "$NAME: CDDB error: $(cat $CDDBDATA | head -1)" >&2
+    rm -f $CDDBDATA
+    exit $NO_MATCH_ERR
+  fi
+  tail +2 $CDDBDATA | tr -d '\r' | grep -v '^[.]$'
+  echo "#CATEGORY=$CATEGORY"
+  rm -f $CDDBDATA
+  ;;
+
+  help) help ;;
+  *) usage ;;
+esac

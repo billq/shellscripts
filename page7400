@@ -1,0 +1,11 @@
+#!/bin/ksh
+if [ `hostname` = "raven" ]
+then
+	echo "ATH" > /dev/cua0
+	echo "ATH" > /dev/cua0
+	echo "ATDT9,9605491,,,,,,,,9607400#" > /dev/cua0
+	sleep 25
+	echo "ATH" > /dev/cua0
+else
+	rsh raven "/home/admin/adm/bin.script/pagesa $*"
+fi

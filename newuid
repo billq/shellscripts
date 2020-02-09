@@ -1,0 +1,88 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+ERR="ERROR:$0:"
+BNAME=`/bin/hostname`
+OPER=`/usr/ucb/whoami`
+if [ "$OPER" != "root" ]
+then
+	echo $ERR"Not logged in as root"
+	exit 1
+fi
+REPEAT="yes"
+while [ "$REPEAT" = "yes" ]
+do
+	/bin/echo -n "Name of user: "
+	read NAME
+	HOMEDIR=`getinfo passwd|grep "^$NAME:"|cut -d: -f6`
+	if [ ! -d "$HOMEDIR" -o "$HOMEDIR" = "" ]; then
+		echo $ERR"Cannot find a home for $NAME,
+there must exist a valid entry for $NAME
+in the yppasswd file, and a home directory
+for the user.  Re-enter name of user to change."
+		continue
+	fi
+	case `dirname $HOMEDIR` in
+		/a*)	PREFIX="rsh ihaul"
+			;;
+		/b*)	PREFIX="rsh boston"
+			;;
+		/usr/add-on)	PREFIX="rsh ihaul"
+			;;
+		*)	echo "Don't know where `dirname $HOMEDIR` is! 
+				Exiting, fix $0"
+			exit 1
+			;;
+	esac
+	if [ "$PREFIX" = "rsh $BNAME" ]; then
+		PREFIX=""
+	fi
+	echo "Changing ownership and group of $NAME's files.  This may take a while."
+	/bin/echo -n "O.K. to continue? "
+	read REP
+	case $REP in
+		y*|Y*)	
+			$PREFIX /usr/add-on/adm/bin/chowngrp $HOMEDIR $NAME
+			;;
+		n*|N*)	echo "Skipping $NAME conversion"
+			;;
+		*)	echo "Reply not understood, exiting with code 1."
+			exit 1
+			;;
+	esac
+	cd /
+	/bin/echo -n "All done? "
+	read ANS
+	case $ANS in
+		y*|Y*)	REPEAT="no"
+			;;
+		n*|N*)	REPEAT="yes"
+			;;
+		*)	echo "Reply not understood, exiting with code 1."
+			exit 1
+			;;
+	esac
+done

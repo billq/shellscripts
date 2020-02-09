@@ -1,0 +1,9 @@
+LogFile=$HOME/tmp/sync.log
+DateStamp=$(date +%s)
+if [ -f "$LogFile" ]
+then
+  mv $LogFile ${LogFile}.$DateStamp
+fi
+rsync -HAXva /home/billq/Documents /srv/home/billq/Documents >$LogFile 2>&1
+rsync -HAXva /home/billq/scripts /srv/home/billq/scripts >>$LogFile 2>&1
+#rsync -HAXva /home/billq/media/Drawings /srv/home/billq/media/Drawings >>$LogFile 2>&1

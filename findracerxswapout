@@ -1,0 +1,14 @@
+#!/bin/ksh
+typeset -i HWM IU RESULT
+HWM=250000
+IU=`ps -elf|awk '{print $10}'|/home/admin/adm/bin.script/totalcol -c 1`
+RESULT="HWM - IU"
+if [ $RESULT -le 0 ]
+then
+	echo "HWM exceeded"
+#	/usr/ucb/mail -s"CHECK RUNNING PROCESSES ON RACERX!!" sysadmin </dev/null
+else
+	echo $RESULT is result
+	echo $HWM is hwm
+	echo $IU is iu
+fi

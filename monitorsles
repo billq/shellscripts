@@ -1,0 +1,11 @@
+#!/bin/ksh
+DATE=`date +%T`
+SLELIST="slesp001 slenp002 slesp003 slenp004 slesp005 slenp006 slesp007 slenp008 slesp009 slenp010 slesp011 slenp012 slesp013 slenp014 slesp015" #slenp016 slesp017 slenp018 slesp019 slenp020 slesp021"
+for i in $SLELIST
+do
+  ping $i 2 >/dev/null 2>&1
+  [[ $? -ne 0 ]] && {
+    mail -s "$i is down!" np_bquayle
+  done
+  rsh -n "$i vmstat 30" > /tmp/vmstat.${i}.${DATE} &
+done

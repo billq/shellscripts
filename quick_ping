@@ -1,0 +1,23 @@
+#!/bin/ksh
+#
+# pings on all suns
+#
+for i in `suns`
+do
+echo "doing $i"
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			echo "$i not pingable"
+			NP="$NP $i"
+		fi
+	else
+		echo "$i not in hosts"
+		NH="$NH $i"
+	fi
+done
+echo "Counldn't ping $NP"
+echo "Couldn't find $NH"

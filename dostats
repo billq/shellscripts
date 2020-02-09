@@ -1,0 +1,10 @@
+#!/bin/ksh
+for host in yooper trooper chaos raven hercules solaris2
+do
+	if [ ! -d ${LOGDIR}/${host} ]
+	then
+		mkdir ${LOGDIR}/${host}
+	fi
+	rsh ${host} "~qroot/bin.script/nvm" >${LOGDIR}/${host}/nvm.out 2>&1 &
+	rsh ${host} "~qroot/bin.script/llm" >${LOGDIR}/${host}/llm.out 2>&1 &
+done

@@ -1,0 +1,26 @@
+#!/bin/ksh
+# Monday morning wake up.
+116_net="`ypmatch 116_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+117_net="`ypmatch 117_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+118_net="`ypmatch 118_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+119_net="`ypmatch 119_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+120_net="`ypmatch 120_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+121_net="`ypmatch 121_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+122_net="`ypmatch 122_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+for i in $116_net $117_net $118_net $119_net $120_net $121_net $122_net
+do
+	ping $i 2 >>/tmp/uplist 2>&1
+done
+for i in `grep alive /tmp/uplist|cut -f1 -d" "`
+do
+	rsh $i sun
+done
+for i in `grep answering /tmp/uplist|cut -f1 -d" "`
+do
+	echo $i >> /tmp/monday.morn
+done
+if [ -s /tmp/monday.morn ]
+then
+	Mail -s "Machines that won't wake up this morning" root < /tmp/monday.morn
+	rm /tmp/monday.morn /tmp/uplist
+fi

@@ -1,0 +1,76 @@
+#!/bin/ksh
+NETS="`ypcat hosts|grep Sun|cut -f3 -d.|sort|uniq`"
+for n in $NETS
+do
+	rm -f $LOGDIR/net_${n}.log
+done
+rm -f $LOGDIR/noaccess
+rm -f $LOGDIR/nospray
+rm -f $LOGDIR/dead
+for i in $SUNS
+do
+	ping $i 2 > /dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		spray -c 1 -l 86 $i > /dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			STAT=`rsh $i 'sun;echo $?' 2>&1`
+			case $STAT in
+			0)  SUNUP=0  ;;
+			*)  echo $i >> $LOGDIR/noaccess
+			    SUNUP=1  ;;
+			esac
+		else
+			echo $i >> $LOGDIR/nospray
+			SUNUP=1
+		fi
+	else
+		echo $i >> $LOGDIR/dead
+		SUNUP=1
+	fi
+	if [ "$SUNUP" = "0" ]
+	then
+		NET="`ypmatch $i hosts|cut -f3 -d"."`"
+		SHORTNAME="`echo $i|sed 's/switch\.rockwell\.com//'`"
+		rsh $i "/usr/ucb/netstat -i|grep $SHORTNAME">>$LOGDIR/net_${NET}.log
+	fi
+done
+for FILE in `ls $LOGDIR/net_*.log`
+do
+	NET="`basename $FILE|sed 's/net_//'|sed 's/\.log//'`"
+	echo "Working on the ${NET} net"
+	cat $FILE | nawk '
+	{
+	stat[5] = "Ipkts" ;
+	stat[6] = "Ierrs" ;
+	stat[7] = "Opkts" ;
+	stat[8] = "Oerrs" ;
+	stat[9] = "Colls" ;
+
+	for (COL = 5; COL <= 9; ++COL)
+		sum[COL] += $COL ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	Ierravg = ( sum[6] / sum[5] ) * 100 ;
+	Oerravg =  ( sum[8] / sum[7] ) * 100 ;
+	Collavg =  ( sum[9] / ( sum[7] + sum[5] ) ) * 100 ;
+	PolledHosts = NR
+		}
+	}
+	END {
+	printf "Number of hosts participating in the data acquisition : %s\n\n", PolledHosts ;
+	for (COL = 5; COL <= 9; ++COL)
+		{
+	if (COL == "6")
+		printf "%s : %14s %6d%%\n", stat[6], sum[6], Ierravg ;
+	else if (COL == "8")
+		printf "%s : %14s %6d%%\n", stat[8], sum[8], Oerravg ;
+	else if (COL == "9")
+		printf "%s : %14s %6d%%\n", stat[9], sum[9], Collavg ;
+	else
+		printf "%s : %14s\n", stat[COL], sum[COL] ;
+		}
+	     }
+	'
+done

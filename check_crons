@@ -1,0 +1,11 @@
+#!/bin/ksh
+for SL in `ypcat hosts|grep "sl.[n,s][p,b]..."|awk '{print $2}'|sort -u|grep -v "\-"|grep -v "s$"|grep -v qb`
+do
+  echo "Checking $SL"
+  rsh $SL "tail -6 /var/spool/cron/crontabs/sl*"
+done
+for XDF in `ypcat hosts|grep "xdf[n,s][p,b]..."|awk '{print $2}'|sort -u|grep -v "\-"|grep -v "s$"|grep -v qb`
+do
+  echo "Checking $XDF"
+  rsh $XDF "tail -6 /var/spool/cron/crontabs/xd*"
+done

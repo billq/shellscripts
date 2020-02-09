@@ -1,0 +1,89 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+
+#
+# maker2ps:  convert FrameMaker file to postscript output
+#
+
+USAGE="usage:  maker2ps [files]"
+export PATH; PATH=$PATH:/usr/add-on/frame/bin
+ORIG_DIR=`pwd`
+TEMP_DIR=/usr/tmp/fm.$$.$LOGNAME
+STDIN_FILE=$TEMP_DIR/stdin.doc
+mkdir $TEMP_DIR
+trap "rm -rf $TEMP_DIR" 1 2 3
+
+# Parse command line parameters
+set -- `getopt N:p:? $*`
+for i in $*
+do
+    case $i in
+	-N)	PAGES_OPT="-n$2";			shift 2;;
+	-p)	ORIENT="-p$2";			shift 2;;
+	-\?)	echo "$USAGE" >&2;			exit 1;;
+	--)	shift;					break;;
+    esac
+done
+FILES=$*
+if [ "$FILES" = "" ]
+then
+    cat - > $STDIN_FILE
+    if [ ! -s $STDIN_FILE ]
+    then
+	echo "maker2ps:  empty file read from stdin." >&2
+	rm -rf $TEMP_DIR
+	exit 1
+    fi
+    FILES=$STDIN_FILE
+fi
+
+# Convert each file into postscript
+for i in $FILES
+do
+    if [ ! -r $i ]
+    then
+        echo "maker2ps:  \"$i\" is not readable." >&2
+        rm -rf $TEMP_DIR
+        exit 1
+    fi
+    BASENAME=`basename $i`
+    DIRNAME=`dirname $i`
+    cd $DIRNAME
+#
+# Add multi page option
+#
+    fmbook $BASENAME -f$TEMP_DIR/ -p >/dev/null
+    for j in $TEMP_DIR/*
+    do
+        cat $j
+    done
+    rm -f $TEMP_DIR/*
+    cd $ORIG_DIR
+done
+
+# Remove temporary files
+rm -rf $TEMP_DIR

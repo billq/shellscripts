@@ -1,0 +1,4 @@
+#!/bin/csh -f
+cd ${TOKAMAK_HOME}/TOKworkman
+echo "Running workman..."
+${TOKAMAK_HOME}/TOKworkman/bin/workman

@@ -1,0 +1,1 @@
+xrandr --output DisplayPort-0 --output DisplayPort-1 --left-of DisplayPort-0 --output DisplayPort-2 --above DisplayPort-1 --output DisplayPort-3 --right-of DisplayPort-2

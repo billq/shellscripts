@@ -1,0 +1,119 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+BNAME=`/bin/hostname`
+
+/bin/echo -n "This shell makes a record of all system specifics.  It should
+be run before any life-threatening work is done on the system.  It
+will generate two monster files named system_name.find and
+system_name.stats; where system_name is the name of the system.  The
+files contain, respectivly, a full find from root and the files
+/etc/ethers, /etc/passwd, /etc/group, and a dkinfo of the disks. 
+
+Hit cr to dump out stats, q to bail out: "
+read BAIL
+case $BAIL in
+	q)	exit 1
+		;;
+	*)	
+		;;
+esac
+/usr/add-on/adm/bin/amiroot
+if [ $? -ne 0 ]
+then
+	exit 1
+fi
+/bin/echo -n "Which system do you want to dump stats from? (CR for $BNAME)"
+read SYSTEM
+SYSTEM=${SYSTEM:-$BNAME}
+if [ "$BNAME" = "$SYSTEM" ]
+then
+	PREFIX=""
+else
+	PREFIX="rsh $SYSTEM"
+fi
+/bin/echo -n "Files will be dumped to /usr/add-on/adm/lib/stats unless you give me
+a different (writtable) path here -> "
+read DUMP_PATH
+if [ "$DUMP_PATH" = "" ]
+then
+	DUMP_PATH="/usr/add-on/adm/lib/stats"
+else
+	if [ ! -w "$DUMP_PATH/*" ] || [ ! -d "$DUMP_PATH" ]
+	then
+	echo "$DUMP_PATH is either non-existant or non-writtable,
+Please either create it, or re-execute $0."
+	exit 1
+	fi
+fi
+echo "
+
+The first thing we'll do is a full find from root.  This will take
+considerable time, to say the least.  We're going to background this one,
+so we may continue on with phase two.
+
+
+Executing \"$PREFIX find / -print>>$DUMP_PATH/$SYSTEM.find\&\" "
+$PREFIX find / -print>>$DUMP_PATH/$SYSTEM.find&
+
+echo "
+
+Next we get /etc/ethers:
+getinfo ethers>>$DUMP_PATH/$SYSTEM.stats"
+getinfo ethers>>$DUMP_PATH/$SYSTEM.stats
+
+echo "
+
+/etc/passwd:
+getinfo passwd>>$DUMP_PATH/$SYSTEM.stats"
+getinfo passwd>>$DUMP_PATH/$SYSTEM.stats
+
+echo "
+
+/etc/group:
+getinfo group>>$DUMP_PATH/$SYSTEM.stats"
+getinfo group>>$DUMP_PATH/$SYSTEM.stats
+
+echo "
+
+/etc/fstab:
+$PREFIX cat /etc/fstab>>$DUMP_PATH/$SYSTEM.stats"
+$PREFIX cat /etc/fstab>>$DUMP_PATH/$SYSTEM.stats
+
+FILESYSTEMS=`mount|grep "^/dev"|awk '{print $1}'|sed 's/\/dev\///'|sed 's/[a-h]$//'|uniq`
+echo "
+
+and finally a dkinfo:
+"
+for i in $FILESYSTEMS
+do
+	echo "
+$PREFIX /etc/dkinfo $i>>$DUMP_PATH/$SYSTEM.stats"
+$PREFIX /etc/dkinfo $i>>$DUMP_PATH/$SYSTEM.stats
+done
+echo "
+
+All done, but don't forget, you've still got the find running!"

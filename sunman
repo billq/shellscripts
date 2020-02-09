@@ -1,0 +1,33 @@
+#!/bin/ksh
+IFS=:
+MANPATH=""
+for temp in $PATH
+do
+	MANDIR=`echo ${temp%/bin}/man`
+	if [ -d "$MANDIR" ] || [ -h "$MANDIR" ]
+	then
+		MYMANPATH="${MYMANPATH}:${MANDIR}"
+	fi
+done
+IFS=^M
+if [ "`echo $MYMANPATH|grep '/usr/man'`" = "" ]
+then
+	MYMANPATH="$MYMANPATH:/usr/man"
+fi
+if [ "`echo $MYMANPATH|grep '/usr/share/man'`" = "" ]
+then
+	MYMANPATH="$MYMANPATH:/usr/share/man"
+fi
+MANPATH="`echo $MYMANPATH`"
+IFS=" "
+while true
+do
+/bin/echo -n "Please enter the man you're looking for.
+
+	-> "
+	read GO
+	clear
+	man $GO
+	sleep 2
+	clear
+done

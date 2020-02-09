@@ -1,0 +1,31 @@
+#!/bin/ksh
+PROCS=`psrinfo |wc -l|awk '{print $1}'`
+case $PROCS in
+1|2)	W5=10
+	W15=8
+	C5=15
+	C15=10 ;;
+[3-6])	W5=15
+	W15=10
+	C5=20
+	C15=18 ;;
+[7-12]) W5=30
+	W15=20
+	C5=35
+	C15=27 ;;
+*)	W5=120
+	W15=110
+	C5=150
+	C15=130 ;;
+esac
+
+while true
+do
+  set `uptime|awk '{print $(NF-2), $(NF-1), $NF}'|sed 's/,//g'`
+  typeset -i ONE=$1
+  typeset -i FIVE=$2
+  typeset -i FIFTEEN=$3
+  [[ $FIVE -gt $W5 && $FIFTEEN -gt $W15 ]] && echo "WARNING: Load average increasing on `hostname`"
+  [[ $FIVE -gt 20 && $FIFTEEN -gt 15 ]] && echo "CRITICAL: Load average increasing on `hostname`"
+  sleep 5
+done

@@ -1,0 +1,9 @@
+if [ -f /usr/lib/hpnp/hpnptyd ]; then
+	/usr/lib/hpnp/hpnptyd -x hp4a-txt -m /dev/ptyra
+	/usr/lib/hpnp/hpnptyd -x hp4b-txt -m /dev/ptyrb
+	/usr/lib/hpnp/hpnptyd -x hp4c-txt -m /dev/ptyrc
+	/usr/lib/hpnp/hpnptyd -x hp4a -m /dev/ptyrd
+	/usr/lib/hpnp/hpnptyd -x hp4b -m /dev/ptyre
+	/usr/lib/hpnp/hpnptyd -x hp4c -m /dev/ptyrf
+	echo -n ' hpnp'
+fi

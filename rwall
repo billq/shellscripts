@@ -1,0 +1,74 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+echo "This utility allows anyone to wall any message to any Sun."
+echo
+echo "Usage is interactive.  You can either enter a standard message to be 
+walled to the Sun of your choice, or be prompted for each wall message
+per Sun."
+echo
+/bin/echo -n "Now, hit:
+
+	a) for all Suns
+	p) for selected Suns
+
+> "
+read WHICH
+case $WHICH in
+	a)	TARGET=$SUNS
+		;;
+	p)	/bin/echo -n "Which Sun(s) do you want to wall to:"
+		read TARGET
+		;;
+esac
+/bin/echo -n "Do you want:
+
+	s) A standard message to be walled to $TARGET
+
+	c) A custom message for each one
+
+> "
+read MESSAGE
+case $MESSAGE in
+	s)	echo "ENTER your message in the vi session that follows"
+		sleep 5
+		vi /tmp/wallmsg$$
+		chgrp rtools /tmp/wallmsg$$
+		rcp /tmp/wallmsg$$ ihaul:/usr/add-on/rtools/lib/.
+		chmod 644 /usr/add-on/rtools/lib/wallmsg$$
+		MESSG=/usr/add-on/rtools/lib/wallmsg$$
+		for i in $TARGET
+		do
+			rsh $i wall -a $MESSG
+		done
+		;;
+	c)	for i in $TARGET
+		do
+			echo "PLEASE ENTER A MESAGE TO BE WALLED TO $i"
+			rsh $i wall -a
+		done
+		;;
+esac

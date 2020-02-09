@@ -1,0 +1,13 @@
+#!/bin/ksh
+if [ $# -ne 1 ]
+then
+	echo "Usage $0 remote_host"
+	exit 1
+fi
+REMOTE="$1"
+rsh $REMOTE -l billq mt -f /dev/rmt/0hn eom
+for FS in `cat /etc/vfstab | grep rdsk|awk '{print $2}'`
+do
+	ufsdump 0ubf 126 billq@$REMOTE:/dev/rmt/0hn $FS
+done
+rsh $REMOTE -l billq mt -f /dev/rmt/0hn rewoffl

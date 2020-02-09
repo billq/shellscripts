@@ -1,0 +1,102 @@
+#!/bin/bash
+# Usage: 
+# uttsc [options] server
+# -a <application>        Launch specified application
+# -c <working folder>     Application path, requires -a
+# -C                      Use shared colourmap
+# -k <keyboard>           Keyboard type
+# -l <locale>             Locale
+# -E <window_attribute>   Enable window manager decorations
+# -m                      Full screen mode, cannot be used with -g
+# -b                      Disable pulldown header, requires -m
+# -K                      Handle shortcuts locally, cannot be used with -m
+# -g <widthxheight>[+|-<xoffset>+|-<yoffset>]
+#                         Desktop geometry, cannot be used with -m
+# -x <Xdisplay>           Launch on specified display
+# -P port                 Specify port to use for RDP
+# -O                      Enable optimized hotdesking
+# -n <client_name>        Client name 
+# -u <username>           User name
+# -d <domain>             Domain name, requires -u
+# -p                      Read password from TTY, requires -u and cannot be used with -i
+# -i                      Read password from STDIN, cannot be used with -p
+# -z                      Disable compression
+# -A <color_depth>        Use specified color depth 
+# -s                      Console session connection
+# -t <timeout>            Connection Timeout in Sec
+# -B                      Disable backing store
+# -T <window_title>       Window Title, cannot be used with -b
+# -M off|xvideo|xvenc|all Enable media playback over XVideo and XvEnc extensions 
+# -r Enable device redirection as specified
+#         [-r comport:<comport>=<devicepath>,...] : Enable Serial redirection
+#         [-r printer:<printer name>[=<driver name>]...] : Enable Printer redirection
+#         [-r disk:<drive name>=<drive path>,...] : Enable drive redirection
+#         [-r sound:low|high|off] : Audio redirection
+#         [-r scard:on]  : Enable smartcard redirection 
+# -R <TCP receiver buffer size>           Adjust TCP receiver buffer size
+# -F off|x11|xvideo|all   Set flash acceleration support path
+# 
+# uttsc -v                Display version information.
+# uttsc -h                Display usage.
+# 
+if [ "$SUN_SUNRAY_TOKEN" = "" ]
+then
+  CMD="rdesktop localhost:20000"
+else
+  #xrandr -q 1>/dev/null
+  #if [ "$?" = "1" ] ;then
+    XRES=1024
+    YRES=768
+  #else
+  #  XRES=$(xrandr -q|awk '$1 ~ /*/ {printf("%s\n",$2)}')
+  #  YRES=$(xrandr -q|awk '$1 ~ /*/ {printf("%s\n",$4)}')
+  #fi
+  NX=$((XRES - 12))
+  NY=$((YRES - 32))
+  #NX=$XRES
+  #NY=$YRES
+  G="-g ${NX}x${NY}"
+  #CMD="/opt/SUNWuttsc/bin/uttsc -P 20000 -O -t 5 -M all localhost"
+  CMD="/opt/SUNWuttsc/bin/uttsc $G -P 20000 -O -t 5 -M all localhost"
+  #CMD="/opt/SUNWuttsc/bin/uttsc $G -P 20000 -O -t 5 -M all -r sound:high localhost"
+fi
+exec $CMD
+#uttsc [options] server
+#-a <application>        Launch specified application
+#-c <working folder>     Application path, requires -a
+#-C                      Use shared colourmap
+#-k <keyboard>           Keyboard type
+#-l <locale>             Locale
+#-E <window_attribute>   Enable window manager decorations
+#-m                      Full screen mode, cannot be used with -g
+#-b                      Disable pulldown header, requires -m
+#-K                      Handle shortcuts locally, cannot be used with -m
+#-g <widthxheight>[+|-<xoffset>+|-<yoffset>]
+#                        Desktop geometry, cannot be used with -m
+#-x <Xdisplay>           Launch on specified display
+#-P port                 Specify port to use for RDP
+#-O                      Enable optimized hotdesking
+#-n <client_name>        Client name 
+#-u <username>           User name
+#-d <domain>             Domain name, requires -u
+#-p                      Read password from TTY, requires -u and cannot be used with -i
+#-i                      Read password from STDIN, cannot be used with -p
+#-z                      Disable compression
+#-A <color_depth>        Use specified color depth 
+#-s                      Console session connection
+#-t <timeout>            Connection Timeout in Sec
+#-B                      Disable backing store
+#-T <window_title>       Window Title, cannot be used with -b
+#-M off|xvideo|xvenc|all Enable media playback over XVideo and XvEnc extensions 
+#-r Enable device redirection as specified
+#        [-r comport:<comport>=<devicepath>,...] : Enable Serial redirection
+#        [-r printer:<printer name>[=<driver name>]...] : Enable Printer redirection
+#        [-r disk:<drive name>=<drive path>,...] : Enable drive redirection
+#        [-r sound:low|high|off] : Audio redirection
+#        [-r scard:on]  : Enable smartcard redirection 
+#-R <TCP receiver buffer size>           Adjust TCP receiver buffer size
+#-F off|x11|xvideo|all   Set flash acceleration support path
+#
+#uttsc -v                Display version information.
+#uttsc -h                Display usage.
+#

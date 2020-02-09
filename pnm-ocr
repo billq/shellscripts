@@ -1,0 +1,14 @@
+for i in $(seq --format=%003.f 1 150)
+do
+  if [ -f scan-$i.pnm ]
+  then
+    echo preparing page $i
+    unpaper scan-$i.pnm unpapered-$i.pnm
+    convert unpapered-$i.pnm prepared-$i.tif && rm unpapered-$i.pnm
+    echo doing OCR on page $i
+    tesseract prepared-$i.tif tesseract-$i -l eng
+    cat tesseract-$i.txt |tr -d '\n' >> book.txt
+  else
+    echo all done.
+  fi
+done

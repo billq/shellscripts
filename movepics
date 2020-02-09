@@ -1,0 +1,37 @@
+while true
+do
+  echo "Put a new disk in and hit return"
+  read go
+  mount /mnt/floppy
+  for i in `ls /mnt/floppy/*.jpg /mnt/floppy/*.mpg`
+  do
+    lname=`basename $i`
+    if [ -f $lname ]
+    then
+      echo " There is already a file called $lname in ., adding a new prefix..."
+      fix_name=`echo $lname|sed 's/mvc/pic/'`
+      lname=$fix_name
+    fi
+    cp $i ./$lname
+    echo -n "."
+    if [ $? -ne 0 ]
+    then
+      echo "
+                           Something bad happened. Tell dad.
+      "
+      umount /mnt/floppy
+      exit 1
+    fi
+    diff $i $lname
+    if [ $? -eq 0 ]
+    then
+      rm $i
+    else
+      echo "The copy failed.  Bailing out."
+      exit 1
+    fi
+  done
+  rm /mnt/floppy/*
+  umount /mnt/floppy
+  echo "done."
+done

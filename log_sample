@@ -1,0 +1,24 @@
+#!/bin/ksh
+#
+# This is a sample of how to tee stdout to a logfile
+#
+LOGFILE=/tmp/sample_log.$$
+
+teeit () {
+tee -a $LOGFILE
+}
+
+trap "rm $LOGFILE" 0 15
+echo "Testing 1, 2, 3..." |teeit
+echo "Does this work? \c" |teeit
+read ANS
+echo "$ANS" >> $LOGFILE
+case $ANS in
+""|Y*|y*)
+  date |teeit
+;;
+*)
+  echo "FUBAR!" |teeit
+;;
+esac
+trap 0 15

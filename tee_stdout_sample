@@ -1,0 +1,25 @@
+#!/bin/ksh
+#
+# This is a sample of how to tee stdout to a logfile
+#
+if [ -n "$LOGFILE" ]
+then
+  trap 'rm $LOGFILE' 0 15
+  echo "Testing 1, 2, 3..."
+  echo "Does this work? \c"
+  read ANS
+  case $ANS in
+  ""|Y*|y*)
+	  date
+  ;;
+  *)
+	  ping yooper
+  ;;
+  esac
+  trap 0 15
+  exit 0
+fi
+echo "No LOGFILE."
+LOGFILE=/tmp/sample_log.$$
+export LOGFILE
+exec $0 |tee -a $LOGFILE 2>&1

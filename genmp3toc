@@ -1,0 +1,2 @@
+find . -type d -print|while read i ;do find "$i" -type f -print|sed 's/.mp3//'>>TOC
+done

@@ -1,0 +1,100 @@
+#!/bin/ksh
+#		
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@oaknet.chi.il.us                           #
+#                                                                              #
+################################################################################
+/bin/echo -n "
+This script will:
+
+	a) Put an ethernet interface into promiscuous mode
+	b) Run etherfind on that interface
+	c) Grab packets off of the ethernet, converting source and
+	   destination ethernet addressess to an /etc/ethers format
+	   table under /tmp.
+	d) Terminate after 3000 packets have been collected.
+	e) Sort and uniq the table.
+	f) Put you into vi to edit the table.
+	g) Give you the opportunity to rerun the collection.
+	h) Kill the promiscuous mode on the interface.
+	i) quit.
+
+This script must be run as root.
+
+	O.K. to go for it? -> [Y|n] "
+read GOFORIT
+case $GOFORIT in
+""|Y*|y*)
+		ifconfig -a
+		/bin/echo -n "Which interface?
+
+			[ie0] -> "
+		read INTER
+		case $INTER in
+		""|ie0)	INTER="ie0"
+			echo "Interface used: $INTER"	;;
+		*)	echo "Interface used: $INTER"	;;
+		esac
+		/usr/5bin/echo "Putting $INTER into promiscuous mode...\c"
+		/usr/etc/rpc.etherd $INTER&
+		echo "done."
+		AGAIN="YES"
+		while [ "$AGAIN" = "YES" ]
+		do
+			/usr/5bin/echo "Running etherfind on $INTER ....\c"
+			/usr/etc/etherfind -i $INTER -x -c 3000 -v -l 12 -greater 1|sed '/^$/d'|sed 's/^ //'|sed 's/ /:/g'|sed 's/\./:/g'>>/tmp/efind.$$
+			echo "done."
+			/usr/5bin/echo "Processing file...\c"
+			cat /tmp/efind.$$| awk -f: '
+				$2 == "from"	{mach = $3; next}
+				mach == ""	{next}
+						{
+						printf ("%s\t%s:%s:%s:%s:%s:%s\n", mach,$7,$8,$9,$10,$11,$12) ;
+						mach = ""
+						next;
+						}
+						' | sort -u>>/tmp/efind2.$$
+			echo "done."
+			vi /tmp/efind2.$$
+			mv /tmp/efind2.$$ /tmp/efind.$$
+			/bin/echo -n "Rerun the collection? 
+	
+			-> [Y|n] "
+			read GOFORIT
+			case $GOFORIT in
+			""|Y*|y*)	AGAIN="YES"	
+					SUFFIX="`date +%S`"
+					mv /tmp/efind.$$ /tmp/efind.$SUFFIX	;;
+			*)		killbyname rpc.etherd
+					echo "Available output files in /tmp:
+					"
+					ls -FC /tmp/efind*
+					exit 1		;;
+			esac
+		done
+;;
+*)		echo "exiting"
+		exit 1
+;;
+esac

@@ -1,0 +1,19 @@
+#!/bin/ksh
+if [ "$1" = "" ]
+then
+	echo "Regex to grep for? "
+	read targ
+else
+	targ=$1
+fi
+IFS=:
+for temp in $PATH
+do
+       	if [ -d "$temp" ] || [ -h "$temp" ]
+       	then
+		ls $temp/*${targ} 2>/dev/null
+       	fi
+done
+IFS=^M
+MANPATH="`echo $MYMANPATH`"
+IFS=" "

@@ -1,0 +1,286 @@
+From - Tue Nov  5 12:06:36 2002
+Return-Path: <Unix_in_the_Enterprise@ui.unixinsider.com>
+Received: from kualoa.easymailers.net ([64.95.141.150])
+          by cmepop2.cam-colo.bbnplanet.com (Post.Office MTA v3.5.3
+          release 223 ID# 0-61921U3000L300S0V35) with ESMTP id com
+          for <bquayle@cme.com>; Thu, 24 Oct 2002 02:58:45 -0400
+Received: from kualoa.easymailers.net (cs-01-out [192.168.6.200])
+	by kualoa.easymailers.net (Postfix) with SMTP id 32C0814E0636
+	for <bquayle@cme.com>; Thu, 24 Oct 2002 02:52:08 -0400 (EDT)
+From: Unix_in_the_Enterprise@ui.unixinsider.com
+To: bquayle@cme.com
+MIME-Version: 1.0
+Content-type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7Bit
+X-Header-Partid: 14724
+X-Header-Userid: 76262433
+X-Header-Date: 24-Oct-2002
+X-Header-Version: 6.2
+X-Header-Pitchid: 66134
+Subject: Graphing sar data
+Message-Id: <20021024065208.32C0814E0636@kualoa.easymailers.net>
+Date: Thu, 24 Oct 2002 02:52:08 -0400 (EDT)
+X-Mozilla-Status: 8001
+X-Mozilla-Status2: 00000000
+X-UIDL: 20021024065846.AAB23886@cmepop2.cam-colo.bbnplanet.com
+
+
+UNIX IN THE ENTERPRISE --- October 24, 2002
+Published by ITworld.com -- changing the way you view IT
+http://www.itworld.com/newsletters
+________________________________________________________________________________
+
+HIGHLIGHTS
+
+* The sar utility, if turned on and configured to run under the default
+settings, provides quite a bit of performance data at virtually no cost. 
+
+________________________________________________________________________________
+
+SPONSORED LINK
+
+ENTER NOW -- WIN $25,000!
+
+Enter the Dream Come True Sweepstakes for your chance to win $25K!
+If you win, you can take the cash, or choose from hundreds of other 
+great prizes -- a Harley Davidson, or a European vacation, or an 
+exclusive outing to a favorite sports event, or a fully-loaded PC! You 
+choose!
+
+http://ui.unixinsider.com/GoNow/a14724a66134a76262433a0
+______________________________________________________________________________
+
+Graphing sar data
+By Sandra Henry-Stocker
+
+The sar utility, if turned on and configured to run under the default
+settings, provides quite a bit of performance data at virtually no cost.
+
+The sar commands that run via cron are run once every 20 minutes during
+normal business hours (8 AM to 6 PM Monday through Friday) and every
+hour otherwise. They collect data that is maintained in kernel counters
+so that it can be used at any time to examine how a system was
+performing over a selected span of time.
+
+If you want to display sar data in graph form, you will probably do one
+of two things: 1) download the data into an Excel or other brand of
+spreadsheet and graph it from there, or 2) use gnuplot.  In this column,
+we're going to examine a simple Perl script for plotting CPU usage
+through gnuplot. This script can be modified to look at other data if
+you care to invest the time.
+
+For the record, this script is running on a Solaris 9 system which is
+running gnuplot 3.7.1.  Solaris 9 includes gnuplot on the software
+companion CD along with many other useful third party applications. This
+version of gnuplot provides support for the PNG (portable network
+graphics) format which the script uses to create its output file.
+
+One of the problems that had to be overcome to make an understandable
+graph was the irregular interval at which sar runs. Graphed in its most
+raw form, we might end up with a graph displaying three data points for
+some hours -- all lined up vertically.  We could modify the sar schedule
+to run only once an hour or only every 20 minutes so that graphing the
+data would be more straight-forward, but these default settings make a
+lot of sense. Besides, I make a habit of never modifying defaults unless
+there is a very good reason to do so.  Instead, the script accomodates
+to the irregular data sampling schedule by averaging the data during the
+every-twenty-minute samplings. This avoids any need to graphically
+"explain" the 20-minute sampling period.
+
+Let's look at the script:
+
+---------------------------- cut here ----------------------------
+#!/usr/bin/perl
+
+@cpu=`sar`;
+$datafile="/tmp/cpu-data$$";
+$cmndfile="/tmp/cpu-cmnd$$";
+---------------------------- cut here ----------------------------
+
+The first thing we do (see above) is collect some sar data and stuff it
+into an array. The sar command by itself, once sar has been fully turned
+on, reports CPU usage like this:
+
+00:00:01    %usr    %sys    %wio   %idle
+01:00:00       7       1       0      92
+
+We then define two output files. In the first, we will store the
+processed data for our graph. In the second, we will store the commands
+needed to instruct gnuplot to create the graph.  We call these files
+$datafile and $cmndfile, respectively.
+
+---------------------------- cut here ----------------------------
+foreach $line (@cpu) {
+    if ( $line=~/\d+:\d+:\d+\s+\d+/ ) {
+        $_ = $line;
+        ($hr)=/^(\d+)/;
+        ($min)=/^\d+:(\d+)/;
+        ($usr)=/\s+(\d+)/;
+        ($sys)=/\s+\d+\s+(\d+)/;
+        ($wio)=/\s+\d+\s+\d+\s+(\d+)/;
+        ($idle)=/\s+\d+\s+\d+\s+\d+\s+(\d+)/;
+	@hrs[$hr]=$hr;
+	@usr[$hr]=@usr[$hr]+$usr;
+	@sys[$hr]=@sys[$hr]+$sys;
+	@wio[$hr]=@wio[$hr]+$wio;
+	@idle[$hr]=@idle[$hr]+$idle;
+	@ints[$hr]=@ints[$hr]+1;
+    }
+}
+---------------------------- cut here ----------------------------
+
+In the foreach loop above, we are first checking whether each line in
+the array begins with something like this "01:00:00       7".  In other
+words, three colon-separated numeric fields, some white space and
+another numeric field.  In the two sar data lines shown above, the
+second line would match this pattern while the first would not.
+
+We then selectively extract the columns of each line and store the
+values in arrays for each of the reported values -- user time, system
+time, wait I/O and idle.  Since each array is indexed by the hour and
+initialized to zero, we can add each value to the current value. This
+accomodates the hours in which we are collecting several samples.  We
+create a sum of the three values and count the number of instances in
+the @ints array. Though we could simply assume that we are using the
+defaults, this method accommodates to the data that we receive and
+requires less checking.
+
+---------------------------- cut here ----------------------------
+open DATA, ">$datafile" or die "Cannot open $datafile for writing";
+open CMND, ">$cmndfile" or die "Cannot open $cmndfile for writing";
+---------------------------- cut here ----------------------------
+
+In typical Perl fashion, we check whether we can, in fact, open both of
+our output files.  Otherwise, we exit with an error message.
+
+---------------------------- cut here ----------------------------
+foreach $hr (@hrs) {
+    if ($hr != 0) {
+        $usr=sprintf("%.1f",$usr[$hr]/$ints[$hr]);
+        $sys=sprintf("%.1f",$sys[$hr]/$ints[$hr]);
+        $wio=sprintf("%.1f",$wio[$hr]/$ints[$hr]);
+        $idle=sprintf("%.1f",$idle[$hr]/$ints[$hr]);
+        print DATA "$hr\t$usr\t$sys\t$wio\t$idle\n";
+    }
+}
+---------------------------- cut here ----------------------------
+
+At this point, we've already extracted all of the data from the sar
+output.  We format it for the data file that we're going to use with
+gnuplot.  Because I didn't want to see values like
+10.3333333333333333333333 in the data file, I used a format in the
+sprintf line that reduces each value to a single decimal value.
+
+---------------------------- cut here ----------------------------
+close DATA;
+---------------------------- cut here ----------------------------
+
+Done with the data file, we close it.
+
+---------------------------- cut here ----------------------------
+print CMND "set term png color\n";
+print CMND "set out 'cpu.png'\n";
+print CMND "set grid\n";
+print CMND "set title 'CPU Usage'\n";
+print CMND "set ylabel 'percent'\n";
+print CMND "plot '$datafile' using 1:2 title 'usr' with lines, \\\n";
+print CMND "     '$datafile' using 1:3 title 'sys' with lines, \\\n";
+print CMND "     '$datafile' using 1:4 title 'wio' with lines, \\\n";
+print CMND "     '$datafile' using 1:5 title 'idle' with lines\n";
+---------------------------- cut here ----------------------------
+
+The next thing we do is create the command file for gnuplot to use. The
+set term command tells gnuplot that we want a color png file. In the
+next line, we give it a name.  In the third line, we say that we want a
+grid included on the graph.
+
+On lines 4 and 5, we add a title and a label for the y (vertical) axis.
+On lines 6-9, we identify the columns in the data field that we want to
+graph.  Each cpu usage column is plotted against the hour (field 1). The
+\\\n at the of lines 6-8 is an escaped \ that acts as a continuation
+character and a linefeed.  The lines being added to the command file
+will look like this:
+
+    '/tmp/cpu-data10554' using 1:3 title 'sys' with lines, \
+
+---------------------------- cut here ----------------------------
+# create graph using constructed gnuplot command file and data
+# NOTE: the datafile is specified within the command file
+system("/opt/sfw/bin/gnuplot $cmndfile");
+
+# clean up temp files
+system("rm $datafile");
+system("rm $cmndfile");
+---------------------------- cut here ----------------------------
+
+We kindly add a couple comments for anyone that might have to read and
+understand this script three years from today.  Then, we run the gnuplot
+command to create the graph.  For this, we use Perl's "system" command.
+
+Last, we remove the files that we used to hold the data and the gnuplot
+commands. Our graph is left in cpu.png in the current directory. We can
+randomize this name if we want to keep a series of these graphs.
+
+Feel free to use this script in any way you like and send me email about
+some of the clever things that you do with gnuplot and/or sar.
+
+About the author(s)
+-------------------
+Sandra Henry-Stocker has been administering Unix systems for nearly 18 
+years.  She describes herself as "USL" (Unix as a second language) but 
+remembers enough English to write books and buy groceries.  She 
+currently works for TeleCommunication Systems, a wireless 
+communications company, in Annapolis, Maryland -- where no one else 
+necessarily shares any of her opinions -- and lives with her second 
+family on a small farm on Maryland's Eastern Shore. Send comments and 
+suggestions to sstocker@itworld.com.
+________________________________________________________________________________
+
+CUSTOMER SERVICE
+
+NEWSLETTER FAQS
+For commonly asked newsletter questions, go to: 
+http://www.itworld.com/response/site_support.html
+
+UNSUBSCRIBE
+For instruction on how to unsubscribe, go to: 
+http://www.itworld.com/response/site_support.html#unsubnl
+
+CHANGE YOUR EMAIL ADDRESS
+For instruction on how to change your email address, go to:
+http://www.itworld.com/response/site_support.html#email
+________________________________________________________________________________
+
+CONTACTS
+
+* Editorial: Jodie Naze, Director, Newsletter Publishing, 
+  jodie_naze@accelacommunications.com
+* Advertising: Clare O'Brien, Vice President of Sales, 
+  clare_obrien@accelacommunications.com
+
+________________________________________________________________________________
+
+PRIVACY POLICY
+
+ITworld.com has been TRUSTe certified 
+http://www.itworld.com/Privacy/
+
+ITworld.com is a product of Accela Communications, Inc.
+
+Copyright 2002 Accela Communications, Inc., All Rights Reserved.
+http://www.accelacommunications.com
+http://www.itworld.com
+
+
+
+
+Click here to forward this message to a friend!
+http://ui.unixinsider.com/GoForward/a14724a66134aSa76262433a25
+
+SUBSCRIBE/UNSUBSCRIBE
+Please click on the link below to modify your subscription, unsubscribe,
+or change your email address:
+
+http://ui.unixinsider.com/Change-Remove/a14724a76262433a25a66134
+
+

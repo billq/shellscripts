@@ -1,0 +1,38 @@
+#! /bin/sh
+#
+# @(#)manual_ypxfr
+#
+# manual_ypxfr - Do a manual ypxfr from the nis slaves.
+
+#	Revision History:
+#	
+#	05-14-96; quayle;	created
+#
+#set -x
+case $# in
+1)
+	MAPNAME=$1
+;;
+*)
+	echo "USAGE: manual_ypxfr mapname
+	This does a manual forced ypxfr of mapname from all the ypservers
+	by doing an rsh to each server and a ypxfr -f from that server."
+	exit 1
+;;
+esac
+NISMASTER=`ypwhich -t -m $MAPNAME 2>/dev/null`
+if [ $? -ne 0 ]
+then
+	echo "ERROR: $MAPNAME is not a valid NIS map."
+	exit 1
+fi
+echo $NISMASTER|grep -s yooper
+if [ $? -ne 0 ]
+then
+	echo "ERROR: NISMASTER for $MAPNAME is not yooper."
+	exit 1
+fi
+for SYSTEM in `ypcat ypservers`
+do
+	rsh $SYSTEM "PATH=/usr/etc/yp:/usr/lib/netsvc/yp;ypxfr -f -h $NISMASTER $MAPNAME"
+done

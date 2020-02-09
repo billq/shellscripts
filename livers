@@ -1,0 +1,24 @@
+#!/bin/ksh
+>$HOME/lib/deaduns
+>$HOME/lib/notsun
+>$HOME/lib/notsuneither
+>$HOME/lib/goodsuns
+for i in $SUNS
+do
+	ping $i 2
+	if [ $? -ne 0 ]
+	then
+		echo $i >> $HOME/lib/deaduns
+	else
+		spray -c 1 -l 1 $i
+		if [ $? -ne 0 ]
+		then
+			echo $i >> $HOME/lib/notsun
+		elif [ "`rsh $i 'sun;echo \$?' 2> /dev/null`" != "0" ]
+		then
+			echo $i >> $HOME/lib/notsuneither
+		else
+			echo $i >> $HOME/lib/goodsuns
+		fi
+	fi
+done

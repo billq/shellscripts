@@ -1,0 +1,46 @@
+#!/bin/ksh
+#
+# This turns your $HOME/.netscape/bookmarks.html file into an index.html in .
+#
+[[ -f "index.html" ]] && {
+  echo "Won't overwrite index.html in ."
+  exit 1
+}
+#
+# Generate the header and preliminary static content.
+#
+echo "
+<HTML><HEAD>
+<TITLE>Bill's Home Page</TITLE>
+</HEAD>
+<BODY TEXT=\"#FFFFFF\" LINK=\"#00FF00\" VLINK=\"#FF0000\" BACKGROUND=images/backgrounds/black01.gif>
+
+<H1>Welcome to Bill's Home Page!</H1>
+<A HREF=\"http://www.sun.com/logos/products.html\"><IMG SRC=\"images/icons/SunAnimate.gif\"></A>
+<TABLE WIDTH=\"100%\" BORDER=0>
+<TR><TD>
+This is my lame excuse for my at-work personal website.
+I don't put a great deal of effort into this, as most of my HTML work is spent on the <A HREF=/index.html>Open Systems Group Home</A>.
+(As a matter of fact, this page is generated from running my <A HREF=bin/build_home>build_home</A>shell script, which parses my netscape bookmarks file.)
+This provides basic functionality to my testing ground for the group site, and a quick and dirty link listing of stuff that probably doesn't belong on the group site.
+</TD></TR>
+
+<TR><TD><A HREF=\"info/FrameFAQ.html\" onMouseOver=\"window.status='FrameMaker FAQ';return true\">FrameMaker FAQ</A></TD></TR>
+<TR><TD><A HREF=\"samples/forms.html\" onMouseOver=\"window.status='My quick-n-dirty forms hack.';return true\">Form hack</A></TD></TR>
+<TR><TD><A HREF=\"backbone/index.html\" onMouseOver=\"window.status='Cool stuff.';return true\">Backbone ad</A></TD></TR>
+<TR><TD><A HREF=\"images/\" onMouseOver=\"window.status='Pretty pictures.';return true\">My images</A></TD></TR>
+<TR><TD><A HREF=\"src/\" onMouseOver=\"window.status='My Source';return true\">My Source</A></TD></TR>
+<TR><TD><A HREF=\"docs/\" onMouseOver=\"window.status='My Docs';return true\">My Docs</A></TD></TR>
+<TR><TD><A HREF=\"info/\" onMouseOver=\"window.status='My Info';return true\">My Info</A></TD></TR>" >index.html
+#
+# Now, churn the bookmarks.html file into a link listing...
+#
+cat $HOME/.netscape/bookmarks.html|sed 's/^  *//'|grep "^<DT>"|sed 's/DT/TR><TD/'|sed 's/$/<\/TD><\/TR>/'|sed 's/ADD_DATE.*[0-9][0-9]">/>/'|sed 's/ FOLDED//'>>index.html
+#
+# And close out the HTML footer.
+#
+echo "
+</TABLE>
+<TR><TD><IMG SRC=\"images/clipart/spinning_krause.gif\"></A></TD></TR>
+<H6>Concerning these pages contact <EM><A HREF=\"mailto:bquayle@cme.com\">me.</A></EM></H6>
+</BODY></HTML>" >> index.html

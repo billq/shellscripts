@@ -1,0 +1,3234 @@
+#!/bin/ksh 
+#
+#/home/admin/adm/bin.script/admin_archive_8mm
+#
+# @(#) This program was written to archive everything from /usr/release/doc,
+# @(#) /usr/release/photo, /usr/release/com including Interleaf documents,
+# @(#) Word Perfect documents, Gerber files, Com files, Generic cam files,
+# @(#) Schematic_pinloc files, Artwork Photoplots, Artwork Drilltapes, CV
+# @(#) AI files, CV Faultfinder files, Camboms files, Test Procedures, Firmware
+# @(#) files, Label Gerber files, CV Databases, Dazix Databases, and Production
+# @(#) Software files. All of these files reside on the archive system or
+# @(#) have the the file system mounted to the archive system.
+#
+# HISTORY
+# 
+# 07-26-96 markos ;  Placed in /home/admin/adm/bin.script & changed 
+#		      /usr/local/bin_${ARCH} to /usr/local/bin/
+# 03-09-94 markos  ; Updated techpubs taping to get the .@ and ",<number>" files
+#		     that are now being used for Spectrum documents.
+#		     Also took out the "-f" in the first line of the script to allow filename wildcard
+#		     usage.
+# 11-05-93 shearer ; Changed Techpubs mail from root@alena@leaf10 to root@alena.
+# 08-31-93 shearer ; Fixed a problem with production_software not working for
+#		   ;  local tape drive.
+# 08-27-93 shearer ; Added new function PRINTFILE to printout the file listing  
+#                  ; generated on currect run of the program.
+# 08-19-93 shearer ; Made variable for tape device name TAPEDEV. Also if 
+#                  ; ${TAPEHOST} is raven set ${TAPEDEV} to /dev/nrst9.
+# 08-18-93 shearer ; Fixed sintax error on line 1319.
+# 08-16-93 shearer ; Added debug print message in subroutin REMVDBS.
+# 06-18-93 shearer ; Released with production_software application.
+# 06-14-93 shearer ; Started adding the info for production software option.
+# 06-11-93 shearer ; Added print statement for what is being removed in dazix
+#                  ; application.
+# 06-08-93 shearer ; Released with techpbs option.
+# 05-27-93 shearer ; Added techpubs option.
+# 05-17-93 shearer ; Fixed a problem with firmware archive to check for .obj
+#                  ; file or directory. Before would only check for .obj file.
+# 05-07-93 shearer ; Added the print out of each dazix file listing.
+# 05-06-93 shearer ; Updated to find dazix index under the ${TAPETYPE} directory.
+# 05-05-93 shearer ; Released with Dazix option added.
+# 05-04-93 shearer ; Fix test error on lines 777 and 780, also translated 
+#                  ; ${DRAWING[${I}] to lower case letters for cv_database
+#                  ; option.
+# 05-03-93 shearer ; Released with CV Database options.
+# 04-20-93 shearer ; Added function to change the total drawing count if a file
+#                  ; is not found. Also add Gencam file Option and Cam-Mod 
+#                  ; option.
+# 04-16-93 shearer ; Fixed missing header from listing done with local tape 
+#                  ; drive.
+# 04-14-93 shearer ; Released with Firmware option.
+# 04-06-93 shearer ; Released with Word Perfect option.
+# 03-25-93 shearer ; Released with Interleaf option only.
+# 03-16-93 shearer ; Started
+#
+# NOTES:
+#  Exit Status 0 everything ok.
+#              4 Illegal command line option.
+#              5 Program aborted by User.
+#              6 Remote tape host not responding.
+#	       7 Tape error.
+#              8 Option not available.
+#	       9 Part not found.
+#             10 Missing part number to file name translation file.
+#             11 Missing number form files that relate part numbers to file 
+#                names.
+#
+
+# Initialize starting variables.
+
+APPLICATION=""				# Variable as to the application option
+					# specified.
+ARCH=`/usr/bin/arch`			# Variable set to the systems architecture
+ASSEMBLY[${I}]=""			# Variable for Assembly number that goes
+					# into the index file.
+DATE=`date +%D`				# Date in mm/dd/yy format.
+DRAWINGS[${I}]=""			# Array that stores multiple names for
+					# release.
+FILETYPE[${I}]=""			# Array index for Unix file or directory
+HOSTNAME=`hostname`			# Host where program started from.
+I=0					# Variable for array index. K-shell 
+					# limit is 512 0 to 511.
+IF_FILE[${I}]=""			# Varible is used when generating tar 
+					# include file. 2 means 2 numbers and 1
+					# means 1 number.
+LOWAPPL=""				# Variable for application in lower case
+RELPREFIX[${I}]=""			# Array for release prefix directory.
+RELEASEDIR="/usr/release/doc"		# Interleaf release directory starting
+					# point.
+REMVDBS[${I}]=""			# Variable that stores whether database 
+					# should be removed after Archiving.
+TAPEDEV="/dev/nrst1"			# Default tape device name.
+TOTALDRAWINGS=""			# Variable for total number of file 
+					# being released. Must be between 1 
+					# and 300.
+TYPE[${I}]=""				# Array for Interleaf extensions.
+USERNAME[${I}]=""			# Array for User name requesting the 
+					# archive.
+
+					# tar command input file name 
+					# /tmp/${LOWAPPL}_infile1${PPID}_${I}
+
+#*******************************************************************************
+# FUNCTIONS
+
+# This function will clean up garbage files created by this program.
+
+function CHGTOTALDRAWS
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION CHGTOTALDRAWS STARTING."
+  fi
+
+  print " "
+  print "     DO YOU WISH TO ENTER A DIFFERENT PART NUMBER ?"
+  print "     ENTER y TO CONTINUE OR ANYTHING ELSE TO STOP."
+  print -n "     CONTINUE > "
+  read CONTINUE
+  if [ ${DEBUG} = "yes" ]
+    then
+      print " "
+      print "CONTINUE = ${CONTINUE}"
+  fi
+  test ${CONTINUE}
+  if [ $? -eq 1 ]
+    then
+      if [ ${I} -gt 1 ]
+        then
+          print " "
+          print "     DO YOU WISH TO ARCHIVE THE PARTS ALREADY ENTERED?"
+          print "     ENTER y TO CONTINUE OR ANYTHING ELSE TO ABORT PROGRAM."
+          print -n "     CONTINUE > "
+          read CONTINUE
+          if [ ${DEBUG} = "yes" ]
+            then 
+              print "CONTINUE = ${CONTINUE}" 
+          fi 
+          test ${CONTINUE}
+          if [ $? -eq 1 ]
+            then
+              print ""
+              print "     PROGRAM ABORTED BY USER" 
+              if [ ${DEBUG} = "yes" ] 
+                then 
+                  print " "
+                  print "Program exiting with a status of 5." 
+              fi 
+              CLEANUP                   # Cleanup all temperary files  
+              exit 5
+            else
+              if [ ${I} -gt 1 ]
+                then
+                  TOTALDRAWINGS=`expr ${I} - 1`
+                  print ""
+                  print "     TOTAL DRAWINGS HAS BEEN CHANGED TO ${TOTALDRAWINGS}."
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print ""
+                      print "TOTALDRAWINGS = ${TOTALDRAWINGS}"
+                  fi
+                else
+                  print ""
+                  print "     PROGRAM ABORTED BY USER"
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print " "
+                      print "Program exiting with a status of 5."
+                  fi
+                  CLEANUP                   # Cleanup all temperary files
+                  exit 5
+              fi
+          fi
+        else
+          print ""
+          print "     PROGRAM ABORTED BY USER"
+          if [ ${DEBUG} = "yes" ]
+            then
+              print " "
+              print "Program exiting with a status of 5."
+          fi
+          CLEANUP                   # Cleanup all temperary files
+          exit 5
+      fi
+    elif [ ${CONTINUE} = "y" ]
+        then
+          DRAWING[${I}]=""
+          RELPREFIX[${I}]=""
+
+          case ${LOWAPPL} in
+
+            interleaf | techpbs )
+              TYPE[${I}]=""
+              FILETYPE[${I}]=""
+            ;;
+            dazix )
+            ;;
+            cv_database )
+              USERNAME[${I}]=""
+            ;;
+          esac
+
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "DRAWING[${I}] = ${DRAWING[${I}]}"
+              print "RELPREFIX[${I}] = ${RELPREFIX[${I}]}"
+              print "TOTALDRAWINGS = ${TOTALDRAWINGS}"
+              print "TYPE[${I}] = ${TYPE[${I}]}"
+          fi 
+
+						# Everything gets over written.
+        else
+          if [ {$I} -eq 1 ]
+            then
+              print ""
+              print "     PROGRAM ABORTED BY USER"
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "Program exiting with a status of 5."
+              fi 
+              CLEANUP                   # Cleanup all temperary files
+              exit 5
+            else
+              print ""
+              print "    DO YOU WISH TO ARCHIVE THE PARTS ALREADY ENTERED?"
+              print "    ENTER y TO CONTINUE OR ANYTHING ELSE TO ABORT PROGRAM."
+              print -n "     CONTINUE > "
+              read CONTINUE
+              if [ ${DEBUG} = "yes" ]
+                then 
+                  print "CONTINUE = ${CONTINUE}"
+              fi   
+              test ${CONTINUE}
+              if [ $? -eq 1 ]
+                then    
+                  print ""
+                  print "     PROGRAM ABORTED BY USER" 
+                  if [ ${DEBUG} = "yes" ] 
+                    then 
+                      print "Program exiting with a status of 5."
+                  fi 
+                  CLEANUP                   # Cleanup all temperary files
+                  exit 5
+                elif [ ${CONTINUE} != "y" ]
+                    then
+                      print ""
+                      print "     PROGRAM ABORTED BY USER"
+                      if [ ${DEBUG} = "yes" ]
+                        then
+                          print "Program exiting with a status of 5."
+                      fi    
+                      CLEANUP                   # Cleanup all temperary files
+                      exit 5
+              fi
+          fi
+  fi
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION CHGTOTALDRAWS ENDING."
+  fi
+ }
+
+function CLEANUP
+ {
+  if [ ${DEBUG} = "yes" ] 
+    then
+      print "FUNCTION CLEANUP STARTING." 
+  fi
+
+  I=1
+
+  until [ ${I} -gt ${TOTALDRAWINGS} ]
+    do
+      if [ -f /tmp/${LOWAPPL}_infile1${PPID}_${I} ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "REMOVING /tmp/${LOWAPPL}_infile1${PPID}_${I} ........"
+          fi
+          rm -rf /tmp/${LOWAPPL}_infile1${PPID}_${I}
+      fi
+      if [ -f /tmp/${LOWAPPL}_infile2${PPID}_${I} ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "REMOVING /tmp/${LOWAPPL}_infile2${PPID}_${I} ........"
+          fi
+          rm -rf /tmp/${LOWAPPL}_infile2${PPID}_${I}
+      fi
+      if [ -d ${PARTSDIR}/tmp/${RELPREFIX[${I}]} -a ${LOWAPPL} = "production_software" ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "REMOVING ${PARTSDIR}/tmp/${RELPREFIX[${I}]} ........"
+          fi
+          rm -rf ${PARTSDIR}/tmp/${RELPREFIX[${I}]}
+      fi
+      I=`expr ${I} + 1`
+    done
+
+  if [ -f /tmp/tape_error${PPID} ]
+    then
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "REMOVING /tmp/tape_error${PPID} ........ "
+      fi
+      rm -rf /tmp/tape_error${PPID}
+  fi
+
+  if [ -f /tmp/tempdoc${PPID} ]
+    then
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "REMOVING /tmp/tempdoc${PPID} ........"
+      fi
+      rm -rf /tmp/tempdoc${PPID}
+  fi
+ 
+  if [ -f /tmp/tempdoc1${PPID} ]
+    then
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "REMOVING /tmp/tempdoc1${PPID} ........"
+      fi
+      rm -rf /tmp/tempdoc1${PPID}
+  fi
+ 
+  if [ -f /tmp/mail${PPID} ]
+    then
+      if [ ${DEBUG} = "yes" ] 
+        then 
+          print "REMOVING /tmp/mail${PPID} ........"
+      fi
+      rm -rf /tmp/mail${PPID}
+  fi
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION CLEANUP ENDING."
+  fi
+ }
+
+# This function will setup the array DRAWING[${I}] to store all the file names
+# to be put to tape.
+
+function DRAWINGS
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION DRAWINGS STARTING."
+  fi
+  test ${DRAWING[${I}]}
+  while [ $? -eq 1 ]
+    do
+      case  ${LOWAPPL} in
+
+            interleaf )
+                 print " "
+                 print "     Enter the drawing name or number. Example 07-CCS001-1-B"
+                 ;;
+            word_perfect )
+                 print " "
+                 print "     Enter the drawing name or number. Example 0014100a."
+                 ;;
+            gencam )
+                 print " "
+                 print "     Enter the artwork number-issue-revision or the"
+                 print "     assembly number-issue-revision."
+                 print "     Example 40-310022-b-b"
+                 ;;
+            cam-mod )
+                 print " "
+                 print "     Enter the artwork number-issue-revision or the"
+                 print "     assembly number-issue-revision."
+                 print "     Example 81-001587-e-a"
+                 ;;
+            firmware )
+                 print " "
+                 print "     Enter the firmware part number. Example 78-000758-0"
+                 ;;
+            dazix )
+                 print ""
+                 print "     Enter the Artwork Number or Folder name. Example 40-310031-A-A"
+                 ;;
+            techpbs )
+                 print " "
+                 print "     Enter the drawing name or number. Example RD170092I1Rc"
+                 ;;
+            cv_database )
+                 print " "
+                 print "     Enter the drawing number/revision. Example 21-104094-0/rev-a"
+                 ;;
+            production_software )
+                 print " "
+                 print "     Enter the part number-issue-rev."
+                 print "     Example(s) 77-RS0041-F-A or 12-949281-D "
+                 ;;
+      esac
+
+      print -n "     DRAWING${I} > "
+
+      read DRAWING[${I}]
+      if [ ${DEBUG} = "yes" ]
+        then
+          print " "
+          print "DRAWING[${I}] = ${DRAWING[${I}]}"
+      fi
+      test ${DRAWING[${I}]}
+      if [ $? -eq 1 ]
+        then
+          print " "
+          print "     YOU MUST ENTER SOMETHING OR "q" TO QUIT."
+        else 
+          if [ ${DRAWING[${I}]} = "q" -o ${DRAWING[${I}]} = "Q" ]
+            then
+              print " "
+              print "     PROGRAM ABORTED BY USER ....... "
+              print " "
+              if [ $DEBUG = "yes" ]
+                then
+                  print " "
+                  print "Exit Status should be 5."
+              fi
+              exit 5
+          fi
+      fi
+      test ${DRAWING[${I}]}
+    done
+
+  case ${LOWAPPL} in
+  
+    dazix )
+
+     #DRAWING[${I}]=`print ${DRAWING[${I}]} | /usr/local/bin_${ARCH}/dazix_wtou`
+     DRAWING[${I}]=`print ${DRAWING[${I}]} | /usr/local/bin/dazix_wtou`
+
+     if [ ${DEBUG} = "yes" ]
+       then
+        print "Z TRANSLATION OF DRAWING[${I}] = ${DRAWING[${I}]}"
+      fi
+     ;;
+
+    cv_database )
+
+     DRAWING[${I}]=`print ${DRAWING[${I}]} |tr A-Z a-z`
+   
+     if [ ${DEBUG} = "yes" ]
+       then
+        print "TRANSLATION OF DRAWING[${I}] TO LOWER CASE LETTERS = ${DRAWING[${I}]}"
+     fi
+    ;;
+
+  esac
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION DRAWING ENDING."
+  fi
+ }
+
+# If the drawing name doesn`t have a "-" as the third character ask for the    
+# release directory name, else use the first 2 chacters to detrimine the 
+# directory name.
+
+function FINDRELDIR
+ {
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION FINDRELDIR STARTING."
+  fi
+
+  case  ${LOWAPPL} in
+
+   gencam )
+      RELDIRCHECK[${I}]="cam/gencam/ssd"
+    ;;
+
+   cam-mod )
+      RELDIRCHECK[${I}]="cam/cam-mod/ssd"
+    ;;
+
+   firmware )
+      RELDIRCHECK[${I}]="firm/ssd"
+    ;;
+
+   dazix )
+      RELDIRCHECK[${I}]=${DRAWING[${I}]}".fld"
+    ;;
+
+   techpbs|cv_database )
+      RELDIRCHECK[${I}]="nothing"
+    ;;
+
+   production_software )
+      RELDIRCHECK[${I}]="data"
+    ;;
+
+   * )
+      RELDIRCHECK[${I}]=`echo ${DRAWING[${I}]}|cut -c3`
+    ;;
+
+  esac
+
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "RELDIRCHECK[${I}] = ${RELDIRCHECK[${I}]}"
+  fi
+
+  RELPREFIX[${I}]=${RELDIRCHECK[${I}]}	
+
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "RELPREFIX[${I}] = ${RELPREFIX[${I}]}"
+  fi
+
+  while [ ! -d ${PARTSDIR}/${RELPREFIX[${I}]} ]
+    do
+      if [ ${LOWAPPL} = "dazix" -o ${LOWAPPL} = "techpbs" ]
+        then
+          break
+      fi 
+
+      if [ ${RELDIRCHECK[${I}]} != "-" ]
+        then
+          print " "
+          print "     Can't detrimine the release directory name."
+          print "     Please enter the release directory name starting after"
+          print "     ${PARTSDIR}. "
+          print " "
+          case ${LOWAPPL} in
+
+            interleaf )
+              print "       Example: forms/ssd.leaf or test_proc/ssd.leaf"
+            ;;
+            word_perfect )
+              print "       Example: forms/ssd.wp or 99/ssd.wp"
+            ;;
+            cv_database )
+              print "       Example: md/xcl or ce/eco"
+            ;;
+          esac
+          print " "
+          print -n "     RELEASE DIRECTORY ${I} > "
+          read RELDIRCHECK[${I}]
+          test ${RELDIRCHECK[${I}]}
+          while [ $? -eq 1 ]
+            do
+              print " "
+              print "     YOU MUST ENTER SOMETHING .... "
+              print -n "     RELEASE DIRECTORY > "
+              read RELDIRCHECK[${I}]
+              test ${RELDIRCHECK[${I}]}
+            done
+          RELPREFIX[${I}]=${RELDIRCHECK[${I}]}
+          if [ ${DEBUG} = "yes" ] 
+            then 
+              print "RELPREFIX[${I}] = ${RELPREFIX[${I}]}" 
+          fi
+        else
+          case ${LOWAPPL} in 
+
+           interleaf )
+              RELPREFIX[${I}]=`echo ${DRAWING[${I}]}|cut -c1-2|tr A-Z a-z`"/ssd.leaf"
+              if [ ${RELPREFIX[${I}]} = "tp/ssd.leaf" ]
+                then
+                  RELPREFIX[${I}]="test_proc/ssd.leaf"
+              fi
+              ;;
+
+           word_perfect )
+              RELPREFIX[${I}]=`echo ${DRAWING[${I}]}|cut -c1-2`"/ssd.wp"
+              ;;
+
+           * )
+             
+              ;;
+          esac
+
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "RELPREFIX[${I}] = ${RELPREFIX[${I}]}"
+              print "PARTSDIR = ${PARTSDIR}"
+          fi
+      fi
+    done
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION FINDRELDIR ENDING."
+  fi
+
+ }
+
+# This function will reformat the index file.
+
+function FORMATINDEX
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION FORMATINDEX STARTING."
+  fi
+
+  # The variable ${PPID} is equal to the parent process ID number.
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "PPID = ${PPID}"
+  fi
+
+  case ${LOWAPPL} in
+
+    dazix )
+
+      cp ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index /tmp/tempdoc${PPID}
+      ;;
+
+    * )
+
+      cp ${RELEASEDIR}/.archived/${LOWAPPL}/index /tmp/tempdoc${PPID}
+      ;;
+
+  esac
+
+  # copy the top 3 header line into file called /tmp/head${PPID}
+
+  head -3 /tmp/tempdoc${PPID} > /tmp/head${PPID}
+
+  # Change two spaces with a ":" for the next awk command.
+
+  sed -e '/\*/d' -e '/${APPLICATION} ARCHIVE INDEX/d' -e 's/   */:/g' \
+/tmp/tempdoc${PPID} > /tmp/tempdoc1${PPID}
+
+  # Sort the file into nice even columns. 
+
+  case ${LOWAPPL} in
+
+    dazix )
+      sort /tmp/tempdoc1${PPID}|awk 'BEGIN {FS = ":"} {printf ("%-18s%-20s%-15s%-10s%-10s%-8s\n", $1, $2, $3, $4, $5, $6)}' >> /tmp/head${PPID}
+
+      # Move temperary file back to original index file.
+
+      mv /tmp/head${PPID}  ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+    ;;
+
+    cv_database )
+      sort /tmp/tempdoc1${PPID}|awk 'BEGIN {FS = ":"} {printf ("%-28s%-10s%-10s%-10s%-10s%-12s\n", $1, $2, $3, $4, $5, $6)}' >> /tmp/head${PPID}
+
+      # Move temperary file back to original index file.
+
+      mv /tmp/head${PPID}  ${RELEASEDIR}/.archived/${LOWAPPL}/index
+    ;;
+
+    production_software )
+
+      sort /tmp/tempdoc1${PPID}|awk 'BEGIN {FS = ":"} {printf ("%-25s%-10s%-15s%-15s%-8s\n", $1, $2, $3, $4, $5)}' >> /tmp/head${PPID}
+
+      # Move temperary file back to original index file.
+
+      mv /tmp/head${PPID}  ${RELEASEDIR}/.archived/${LOWAPPL}/index
+   ;;
+
+    * )
+      sort /tmp/tempdoc1${PPID}|awk 'BEGIN {FS = ":"} {printf ("%-25s%-10s%-25s%-8s\n", $1, $2, $3, $4)}' >> /tmp/head${PPID}
+
+      # Move temperary file back to original index file.
+
+      mv /tmp/head${PPID}  ${RELEASEDIR}/.archived/${LOWAPPL}/index
+   ;;
+
+  esac
+
+  
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION FORMATINDEX ENDING."
+  fi
+
+ }
+    
+# This function will generate a file that will contain all files and/or 
+# directories to be archived.
+
+function GENINPUTFILE
+ {
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION GENINPUTFILE STARTING."
+  fi
+
+  case ${LOWAPPL} in
+
+    firmware )
+
+      find ${DRAWING[${I}]} > /tmp/${LOWAPPL}_infile1${PPID}_${I}
+
+    ;;
+
+    production_software )
+
+    # First test to see if the variable ASSEMBLY[${I}] is set to something.
+    # If it is then the variable IF_FILE[${I}] is set to 2. This will cause the
+    # awk to be cycled thru twice. The first time looking for files related to
+    # the IF number and the second time thru for files related to the part 
+    # number.
+
+      test ${ASSEMBLY[${I}]}
+      if [ $? -eq 0 ]
+       then
+        IF_FILE[${I}]=2
+       else
+        IF_FILE[${I}]=1
+      fi
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "IF_FILE[${I}] = ${IF_FILE[${I}]}"
+      fi
+      while [ ${IF_FILE[${I}]} -ge 1 ]
+       do
+        PARTFILE=""
+        for PARTFILE in `ls ${PARTSDIR}/${RELPREFIX[${I}]}| grep  _file` 
+          do
+            awk 'BEGIN{
+                       cnt="'${IF_FILE[${I}]}'"      ;
+                       if ( cnt == 2 )
+                         {
+                          prtnmbr="'${ASSEMBLY[${I}]}'" ;
+                         }
+                        else
+                         {
+                          prtnmbr="'${DRAWING[${I}]}'"	;
+                         }
+                      }\
+             {
+              if ( FILENAME == "/product/data/part_to_file" )
+                {
+                 if ( $1 == prtnmbr )
+                  {
+                   print $2
+                  }
+                }   
+              if ( FILENAME == "/product/data/cif_file" )
+                {   
+                 if ( $1 == prtnmbr )
+                   {
+                    print $5
+                   }
+                }   
+              if ( FILENAME == "/product/data/promsets_file" )
+                {   
+                 if ( $1 == prtnmbr )
+                   {
+                    print $5
+                   }
+                }
+             } ' ${PARTSDIR}/${RELPREFIX[${I}]}/${PARTFILE} >> \
+                 /tmp/${LOWAPPL}_infile${IF_FILE[${I}]}${PPID}_${I}
+
+            # This will check the file /tmp/${LOWAPPL}_infile${IF_FILE[${I}]}
+            # ${PPID}_${I} for any size. If it has size of zero print correct
+            # error message. If IF_FILE[${I}] is 2 then the IF number wasn`t 
+            # found, else the part number was found.
+
+            if [ ${DEBUG} = "yes" ]
+              then
+                ls -lsg /tmp/${LOWAPPL}_infile${IF_FILE[${I}]}${PPID}_${I}
+            fi
+
+          done
+
+        if [ ! -s /tmp/${LOWAPPL}_infile${IF_FILE[${I}]}${PPID}_${I} ]
+         then
+           if [ ${IF_FILE[${I}]} -eq 2 ]
+            then
+              print "     ERROR ..................... "
+              print "     ${ASSEMBLY[${I}]} NOT FOUND IN THE FOLLOWING FILES :"
+              print ""
+            else 
+              print "     ERROR ..................... " 
+              print "     ${DRAWING[${I}]} NOT FOUND IN THE FOLLOWING FILES :"
+              print ""
+           fi
+           for PARTFILE in `ls ${PARTSDIR}/${RELPREFIX[${I}]}| grep  _file`
+             do
+               print "     ${PARTFILE}"
+             done
+        fi
+        IF_FILE[${I}]=`expr ${IF_FILE[${I}]} - 1`
+       done
+ 
+    # If file /tmp/${LOWAPPL}_infile1${PPID}_${I} does not have any size (empty)
+    # then do not add additional files.
+    
+      if [ -s /tmp/${LOWAPPL}_infile1${PPID}_${I} ]
+        then
+
+    # Copy ${PARTSDIR}/data to ${PARTSDIR}/tmp/data. If /tmp/${LOWAPPL}_infile2
+    # ${PPID}_${I} exists then concatinate /tmp/${LOWAPPL}_infile2${PPID}_${I}
+    # with /tmp/${LOWAPPL}_infile1${PPID}_${I} file and remove 
+    # /tmp/${LOWAPPL}_infile2${PPID}_${I} file and append ${PARTSDIR}/tmp/data
+    # the end of /tmp/${LOWAPPL}_infile1${PPID}_${I}.
+
+         if [ ${DEBUG} = "yes" ]
+           then
+             print "COPING ${PARTSDIR}/${RELPREFIX[${I}]} to ${PARTSDIR}/tmp."
+         fi
+         cp -R ${PARTSDIR}/${RELPREFIX[${I}]} ${PARTSDIR}/tmp
+
+         if [ -f /tmp/${LOWAPPL}_infile2${PPID}_${I} ]
+           then
+             if [ ${DEBUG} = "yes" ]
+               then
+                 print "CONCATINATING /tmp/${LOWAPPL}_infile2${PPID}_${I} to /tmp/${LOWAPPL}_infile1${PPID}_${I}."
+             fi
+             cat /tmp/${LOWAPPL}_infile2${PPID}_${I} >> /tmp/${LOWAPPL}_infile1${PPID}_${I}
+
+             if [ ${DEBUG} = "yes" ]
+               then 
+                 print "REMOVING /tmp/${LOWAPPL}_infile2${PPID}_${I}."
+             fi
+             rm -rf /tmp/${LOWAPPL}_infile2${PPID}_${I}
+         fi
+
+         if [ ${DEBUG} = "yes" ]
+           then
+             print "APPENDING ${PARTSDIR}/tmp/${RELPREFIX[${I}]} TO /tmp/${LOWAPPL}_infile1${PPID}_${I}."
+         fi
+         print "${PARTSDIR}/tmp/${RELPREFIX[${I}]}" >> /tmp/${LOWAPPL}_infile1${PPID}_${I}
+     
+####ELSE
+      fi
+    ;;
+
+  esac
+
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION GENINPUTFILE ENDING."
+  fi
+ }
+
+# This function is used to get user input for varible $ASSEMBLY[${I}].
+
+function GETASSEMBLY
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETASSEMBLY STARTING."
+  fi
+
+  test ${ASSEMBLY[${I}]}
+  while [ $? -eq 1 ]
+    do
+      case  ${LOWAPPL} in
+
+        dazix )
+          print " "
+          print "     Enter the assembly number."
+          print "     Example 91-E00700/1/2-A-A"
+          print "                 or "
+          print "             91-E00700-A-A "
+        ;;
+
+        production_software )
+          print " "
+          print "     Enter the \"IF\" part number releated to ${DRAWING[${I}]}."
+          print "     Example IF-SE0104-F-A"
+
+        ;;
+      esac
+      print -n "     ASSEMBLY${I} > "
+
+      read ASSEMBLY[${I}]
+      if [ ${DEBUG} = "yes" ]
+        then
+          print " "
+          print "ASSEMBLY[${I}] = ${ASSEMBLY[${I}]}"
+      fi
+      test ${ASSEMBLY[${I}]}
+      if [ $? -eq 1 ]
+        then
+          print " "
+          print "     YOU MUST ENTER SOMETHING OR "q" TO QUIT."
+        else 
+          if [ ${ASSEMBLY[${I}]} = "q" -o ${ASSEMBLY[${I}]} = "Q" ]
+            then
+              print " "
+              print "     PROGRAM ABORTED BY USER ....... "
+              print " "
+              if [gencam $DEBUG = "yes" ]
+                then
+                  print " "
+                  print "Exit Status should be 5."
+              fi
+              exit 5
+          fi
+      fi
+      test ${ASSEMBLY[${I}]}
+    done
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETASSEMBLY ENDING."
+  fi
+ }
+
+# This function will find the last file used on the tape.
+
+function GETLASTFILE
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETLASTFILE STARTING."
+  fi
+  print " "
+  print "     SEARCHING FOR LAST FILE USED ON TAPE ${TAPENUMBER}."
+  print " "
+
+  LASTFILE=0
+
+  for FILE in `ls|/usr/bin/grep -v error_file`
+    do
+      FILE=`echo ${FILE}|cut -c5-7`
+      if [ ${FILE} -gt ${LASTFILE} ]
+        then
+          LASTFILE=${FILE} 
+      fi
+      if [ ${DEBUG} = "yes" ]
+        then
+         print "FILE = ${FILE}"
+         print "LASTFILE = ${LASTFILE}"
+         print " "
+      fi
+    done
+
+  if [ ${LASTFILE} -eq 0 ]
+    then
+      print "     No files found for tape${TAPENUMBER}"
+      print "     Starting with file 1. "
+      print " "
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "LASTFILE = ${LASTFILE}"
+          print " "
+      fi
+    else 
+      print "     LAST FILE FOUND ${LASTFILE}."
+      print "     WILL START WITH FILE `expr ${LASTFILE} + 1`. "
+      print " "
+  fi
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETLASTFILE ENDING."
+  fi
+
+ }
+
+# This function will ask for the tape number.
+
+function GETTAPENUMBER
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETTAPENUMBER STARTING."
+  fi
+
+  test ${TAPENUMBER}
+  while [ $? -eq 1 ]
+    do
+      print " "
+      print "     Enter the tape number. "
+      print -n "     TAPENUMBER > "
+      read TAPENUMBER
+      test ${TAPENUMBER}
+    done
+
+  if [ ${LOWAPPL} = "cv_database" -o ${LOWAPPL} = "dazix" ]
+    then
+      if [ ! -d ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE} ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print " "
+              print "TAPETYPE DIRECTORY NOT FOUND."
+              print "MAKING DIRECTORY ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}"
+              print "AND CHANGING MODE TO 755 "
+              print " "
+          fi
+          mkdir ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}
+          chmod 755 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}
+          chmod g+s ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}
+      fi
+      if [ ! -d ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER} ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print " "
+              print "TAPE DIRECTORY NOT FOUND."
+              print "MAKING DIRECTORY ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}"
+              print "AND CHANGING MODE TO 755 "
+              print " "
+          fi
+          mkdir ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}
+          chmod 755 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}
+          chmod g+s ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}
+      fi
+    else
+      if [ ! -d ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER} ]
+        then
+          if [ ${DEBUG} = "yes" ]
+            then
+              print " "
+              print "TAPE DIRECTORY NOT FOUND."
+              print "MAKING DIRECTORY ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}"
+              print "AND CHANGING MODE TO 755 "
+              print " "
+          fi
+          mkdir ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}
+          chmod 755 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}
+          chmod g+s ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}
+      fi
+  fi
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETTAPENUMBER ENDING."
+  fi
+
+ }
+
+# Function that will ask for the tape type. Only accepted answers are "dormant"
+# or "history".
+
+function GETTAPETYPE
+ {
+ if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION GETTAPETYPE STARTING."
+  fi
+  test ${TAPETYPE}
+  while [ $? -eq 1 ]
+    do
+      print "     ENTER THE TYPE OF TAPE \"history\" OR \"dormant\"."
+      print -n "     TAPETYPE > "
+
+      read TAPETYPE
+      if [ ${DEBUG} = "yes" ]
+        then
+          print " "
+          print "TAPETYPE = ${TAPETYPE}"
+      fi
+      test ${TAPETYPE}
+      if [ $? -eq 1 ]
+        then
+          print " "
+          print "    YOU MUST ENTER SOMETHING OR "q" TO QUIT."
+        else 
+          if [ ${TAPETYPE} = "q" -o ${TAPETYPE} = "Q" ]
+            then
+              print " "
+              print "    PROGRAM ABORTED BY USER ....... "
+              print " "
+              if [ $DEBUG = "yes" ]
+                then
+                  print " "
+                  print "Exit Status should be 5."
+              fi
+              exit 5
+            else
+              if [ ${TAPETYPE} != "history" -a ${TAPETYPE} != "dormant" -a ${TAPETYPE} != "d" -a ${TAPETYPE} != "h" ]
+                then
+                  print "     ONLY ACCEPTED ANSWERS ARE \"history\" OR \"dormant\" OR \"h\" OR \"d\"."
+                  TAPETYPE=""
+                else
+                  if [ ${TAPETYPE} = "h" ]
+                    then
+                      TAPETYPE="history"
+                  elif [ ${TAPETYPE} = "d" ]
+                    then
+                      TAPETYPE="dormant"
+                  fi
+                  UPTAPETYPE=`print ${TAPETYPE}|tr a-z A-Z`
+              fi
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print " "
+                  print "TAPETYPE = ${TAPETYPE}."
+                  print "UPTAPETYPE = ${UPTAPETYPE}."
+              fi
+          fi
+      fi
+      test ${TAPETYPE}
+    done
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETTAPETYPE ENDING."
+  fi
+ }
+
+    
+# Function that will ask for user name requesting the archive.
+
+function GETUSERNAME
+ {
+ if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION GETUSERNAME STARTING."
+  fi
+  test ${USERNAME[${I}]}
+  while [ $? -eq 1 ]
+    do
+      print "     ENTER USER NAME FROM THE ARCHIVE FORM. "
+      print -n "     USERNAME${I} > "
+
+      read USERNAME[${I}]
+      if [ ${DEBUG} = "yes" ]
+        then
+          print " "
+          print "USERNAME[${I}] = ${USERNAME[${I}]}"
+      fi
+      test ${USERNAME[${I}]}
+      if [ $? -eq 1 ]
+        then
+          print " "
+          print "    YOU MUST ENTER SOMETHING OR "q" TO QUIT."
+        else 
+          if [ ${USERNAME[${I}]} = "q" -o ${USERNAME[${I}]} = "Q" ]
+            then
+              print " "
+              print "    PROGRAM ABORTED BY USER ....... "
+              print " "
+              if [ $DEBUG = "yes" ]
+                then
+                  print " "
+                  print "Exit Status should be 5."
+              fi
+              exit 5
+          fi
+      fi
+      test ${USERNAME[${I}]}
+    done
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION GETUSERNAME ENDING."
+  fi
+ }
+
+# This function will mail a message to the specified person(s) when the archive
+# has been completed. As of 06/02/93 only the techpbs application has requested
+# a mail message to be sent. The other applications can be added as required. If
+# DEBUG is set to "yes" then ask if the mail message should be send, else send 
+# the mail message.
+
+function MAIL
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION MAIL ENDING."
+  fi
+  
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "     DO YOU WHAT TO SEND THE MAIL MESSAGES ?"
+      print "     ENTER \"y\" TO SEND THE MAIL OR ANYTHING ELSE NOT TO. "
+      print -n "     SENDMAIL > "
+      read SENDMAIL
+      test ${SENDMAIL}
+      if [ $? -eq 1 ]
+        then 
+          SENDMAIL="n"
+      fi
+    else
+      SENDMAIL="y"
+  fi
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "SENDMAIL = ${SENDMAIL}"
+  fi
+
+  if [ ${SENDMAIL} = "y" ]
+    then
+      
+      I=1
+
+      case ${LOWAPPL} in
+
+        techpbs )
+  
+          print "The following files have been archived. " >/tmp/mail${PPID}
+
+          until [ ${I} -gt ${TOTALDRAWINGS} ]
+            do
+              print "  ${DRAWING[${I}]}${TYPE[${I}]} TAPE ${TAPENUMBER} FILE `expr ${I} + ${LASTFILE}` ${DATE}">>/tmp/mail${PPID}
+              I=`expr ${I} + 1`
+            done
+     
+          mail root@alena < /tmp/mail${PPID}
+#          mail shearer < /tmp/mail${PPID}
+        ;;
+
+      esac
+  fi
+ 
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION MAIL ENDING."
+  fi
+ }
+
+# Function that will make the application directory if it doesn't exist and set
+# protections to 755 and set the group sticky bit.
+
+function MKARCHDIR
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "STARTING FUNCTION MKARCHDIR."
+      print ""
+  fi
+  if [ ! -d ${RELEASEDIR}/.archived ]
+    then
+      mkdir ${RELEASEDIR}/.archived
+      chmod 755 ${RELEASEDIR}/.archived
+      chmod g+s ${RELEASEDIR}/.archived
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "MAKING DIRECTORY ${RELEASEDIR}/.archived"
+          print "CHANGING MODE TO 755 ON ${RELEASEDIR}/.archived"
+          print "SETTING THE GROUP STICKY BIT SO THE SAME GROUP GETS COPIED DOWN."          print " "
+      fi
+    else
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "${RELEASEDIR}/.archived DIRECTORY ALREADY EXISTS."
+          print " "
+      fi
+  fi
+  if [ ! -d ${RELEASEDIR}/.archived/${LOWAPPL} ]
+    then
+      mkdir ${RELEASEDIR}/.archived/${LOWAPPL}
+      chmod 755 ${RELEASEDIR}/.archived/${LOWAPPL}
+      chmod g+s ${RELEASEDIR}/.archived/${LOWAPPL}
+      if [ ${DEBUG} = "yes" ]
+        then 
+          print "MAKING DIRECTORY ${RELEASEDIR}/.archived/${LOWAPPL}"
+          print "CHANGING MODE TO 755 ON ${RELEASEDIR}/.archived/${LOWAPPL}"
+          print "SETTING THE GROUP STICKY BIT SO THE SAME GROUP GETS COPIED DOWN."
+          print " "
+      fi
+    else
+      if [ ${DEBUG} = "yes" ] 
+        then
+          print "${RELEASEDIR}/.archived/${LOWAPPL} DIRECTORY ALREADY EXISTS."
+          print " "
+      fi
+  fi
+  
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "ENDING FUNCTION MKARCHDIR."
+      print ""
+  fi
+ }
+
+# This function will ask if the file listings generated this time should be 
+# printed out.
+
+function PRINTFILE
+ {
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION PRINTFILE STARTING."
+  fi
+  print " "
+  print "     DO YOU WANT A PRINTOUT OF THE FILE LISTING GENERATED."
+  print "     ENTER y FOR YES OR ANY OTHER CHARACTOR FOR NO. "
+  print -n "     PRINTFILE > "
+  read PRINTFILE
+  test ${PRINTFILE}
+  if [ $? -eq 0 ]
+    then 
+      if [ ${PRINTFILE} = "y" -o ${PRINTFILE} = "Y" ]
+        then
+          print "     THE LISTING WILL BE PRINTED ON \"rw\" PRINTER. "
+
+          I=1
+
+          until [ ${I} -gt ${TOTALDRAWINGS} ]
+            do
+              if [ ${LOWAPPL} = "dazix" ]
+                then
+                  print " "
+                  print "     PRINTING FILE `expr ${I} + ${LASTFILE}` ON \"rw\" PRINTER."
+                  lpr -Prw1 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+                else
+                  print " " 
+                  print "     PRINTING FILE `expr ${I} + ${LASTFILE}` ON \"rw\" PRINTER."            
+                  lpr -Prw1 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+              fi
+              I=`expr ${I} + 1`
+            done
+      fi
+  fi
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "ENDING FUNCTION PRINTFILE"
+      print ""
+  fi
+
+ }
+
+# This function will ask if the index should be printed out. Only the anwser of
+# y or Y will print the index, anything else will not.
+
+function PRINTINDEX
+ {
+  if [ ${DEBUG} = "yes" ]
+    then 
+      print "FUNCTION PRINTINDEX STARTING."
+  fi
+  print " "
+  print "     DO YOU WANT A PRINTOUT OF THE INDEX."
+  print "     ENTER y FOR YES OR ANY OTHER CHARACTOR FOR NO. "
+  print -n "     PRINTOUT > "
+  read PRINTOUT
+  test ${PRINTOUT}
+  if [ $? -eq 0 ]
+    then
+      if [ ${PRINTOUT} = "y" -o ${PRINTOUT} = "Y" ]
+        then
+          print "     THE INDEX WILL BE PRINTED ON \"rw\" PRINTER. "
+          if [ ${LOWAPPL} = "dazix" ]
+            then
+              print " "
+              #/usr/local/bin_${ARCH}/enscript -Prw1 \
+              /usr/local/bin/enscript -Prw1 \
+              ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+            else
+              print " "
+              lpr -Prw1 ${RELEASEDIR}/.archived/${LOWAPPL}/index
+          fi
+      fi
+  fi
+  if [ ${DEBUG} = "yes" ] 
+    then  
+      print "FUNCTION PRINTINDEX ENDING."
+  fi
+ }
+
+# This function will remove database files after the achiving to tape.
+
+function REMVDBS
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION REMVDBS STARTING."
+  fi
+
+  I=1
+  case ${LOWAPPL} in
+
+    dazix )
+
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+          #DRAWING[${I}]=`print ${DRAWING[${I}]}|/usr/local/bin_${ARCH}/dazix_wtou`".fld"
+          DRAWING[${I}]=`print ${DRAWING[${I}]}|/usr/local/bin/dazix_wtou`".fld"
+          test ${REMVDBS[${I}]}
+          until [ $? -eq 0 ]
+            do
+              print "     DO YOU WANT TO REMOVE ${PARTSDIR}/${DRAWING[${I}]} FOR THE SYSTEM ?"
+              print "     ENTER n TO KEEP OR ANYTHING ELSE TO REMOVE."
+              print -n "     REMVDBS[${I}] >"
+              read REMVDBS[${I}]
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "REMVDBS[${I}]=${REMVDBS[${I}]}"
+              fi
+              test ${REMVDBS[${I}]}
+              if [ $? -eq 1 ]
+                then
+                  REMVDBS[${I}]="y"
+                  break
+              fi
+              test ${REMVDBS[${I}]}
+            done
+          if [ ${REMVDBS[${I}]} != "n" ]
+            then
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "    REMOVING ${PARTSDIR}/${DRAWING[${I}]}"
+                  rm -rif ${DRAWING[${I}]}
+                else
+                  print "    REMOVING ${PARTSDIR}/${DRAWING[${I}]}"
+                  rm -rf ${DRAWING[${I}]}
+              fi
+          fi
+          I=`expr ${I} + 1`
+        done
+     ;;
+    
+    techpbs )
+
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+          test ${REMVDBS[${I}]}
+          until [ $? -eq 0 ]
+            do
+              print "     DO YOU WANT TO REMOVE ${PARTSDIR}/${DRAWING[${I}]}${TYPE[${I}]} FOR THE SYSTEM ?"
+              print "     ENTER n TO KEEP OR ANYTHING ELSE TO REMOVE."
+              print -n "     REMVDBS[${I}] >"
+              read REMVDBS[${I}]
+              test ${REMVDBS[${I}]}
+              if [ $? -eq 1 ]
+                then
+                  REMVDBS[${I}]="y"
+                  break
+              fi
+              test ${REMVDBS[${I}]}
+            done
+          if [ ${REMVDBS[${I}]} != "n" ]
+            then
+              if [ ${DEBUG} = "yes" ]
+                then
+                  case ${LOWAPPL} in
+
+                    techpbs )
+                       print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]}"
+                       rm -if ${DRAWING[${I}]}${TYPE[${I}]}
+                       if [ -f .@${DRAWING[${I}]}${TYPE[${I}]} ]
+                         then
+                           print "    REMOVING .@${DRAWING[${I}]}${TYPE[${I}]}"
+                           rm -if .@${DRAWING[${I}]}${TYPE[${I}]}
+                       fi
+                       if [ -f ${DRAWING[${I}]}${TYPE[${I}]},6 ]
+                         then
+                           print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]},6"
+                           rm -if ${DRAWING[${I}]}${TYPE[${I}]},6
+                       fi
+                    ;;
+
+
+                    * )
+                       print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]}"
+                       rm -rif ${DRAWING[${I}]}${TYPE[${I}]}
+                    ;;
+
+                  esac
+                else
+                  case ${LOWAPPL} in 
+ 
+                    techpbs )
+                       print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]}"
+                       rm -f ${DRAWING[${I}]}${TYPE[${I}]}
+                       if [ -f .@${DRAWING[${I}]}${TYPE[${I}]} ]
+                         then
+                           print "    REMOVING .@${DRAWING[${I}]}${TYPE[${I}]}"
+                           rm -f .@${DRAWING[${I}]}${TYPE[${I}]}
+                       fi
+                       if [ -f ${DRAWING[${I}]}${TYPE[${I}]},6 ]
+                         then
+                           print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]},6"
+                           rm -f ${DRAWING[${I}]}${TYPE[${I}]},6
+                       fi
+                    ;;
+
+ 
+                    * )
+                       print "    REMOVING ${DRAWING[${I}]}${TYPE[${I}]}"
+                       rm -rf ${DRAWING[${I}]}${TYPE[${I}]}
+                    ;;
+
+                  esac
+              fi
+          fi
+          I=`expr ${I} + 1`
+        done
+     ;;
+    
+
+    cv_database )
+     
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+          if [ ${TAPETYPE} = "dormant" ]
+            then
+              REV[${I}]=`print ${DRAWING[${I}]}|awk 'BEGIN{FS="/"}{if (NF=2){print $2}}'`
+              DRAWING[${I}]=`print ${DRAWING[${I}]} | awk 'BEGIN{FS="/"}{if (NF=1){print $1}}'`
+
+
+              if [ ${DEBUG} = "yes" ]
+                then 
+                  print "DRAWING[${I}] = ${DRAWING[${I}]}"
+                  print "REV[${I}] = ${REV[${I}]}"
+                  print "REMVDBS[${I}] = ${REMVDBS[${I}]}"
+                  print "TOTALDRAWINGS = ${TOTALDRAWINGS}"
+                  print "TAPETYPE = ${TAPETYPE}"
+              fi
+              cd ${PARTSDIR}/${RELPREFIX[${I}]}
+       
+              if [ ${DEBUG} = "yes" ]		# If debug = yes then us -i
+						# option for rm command.
+                then
+                  rm -rif ${DRAWING[${I}]}	# Note that DRAWING[${I}]
+						# has been split from rev.
+                else
+                  test ${REMVDBS[${I}]}
+                  until [ $? -eq 0 ]
+                    do
+                      print "     DO YOU WANT TO REMOVE ${DRAWING[${I}]}/${REV[${I}]} FROM THE SYSTEM ?"
+                      print "     ENTER n TO KEEP OR ANYTHING ELSE TO REMOVE."
+                      print -n "     REMVDBS[${I}] >"
+                      read REMVDBS[${I}]
+                      test ${REMVDBS[${I}]}
+                      if [ $? -eq 1 ]
+                        then
+                          REMVDBS[${I}]="y"
+                          break
+                      fi
+                      test ${REMVDBS[${I}]}
+                    done
+                  if [ ${REMVDBS[${I}]} != "n" ]
+                    then
+                      rm -rf ${DRAWING[${I}]}	# Note that DRAWING[${I}]
+		    				# has been split from rev.
+                  fi
+              fi
+            else
+              REV[${I}]=`print ${DRAWING[${I}]} | awk '{printf("%s\n",substr($0,length($0)-4,5))}'`
+              DRAWING[${I}]=`print ${DRAWING[${I}]} | awk '{printf("%s\n",substr($0,1,length($0)-6))}'`
+              if [ ${DEBUG} = "yes" ]
+                then 
+                  print "RELPREFIX[${I}] = ${RELPREFIX[${I}]}"
+                  print "DRAWING[${I}] = ${DRAWING[${I}]}"
+                  print "REV[${I}] = ${REV[${I}]}"
+                  print "REMVDBS[${I}] = ${REMVDBS[${I}]}"
+                  print "TOTALDRAWINGS = ${TOTALDRAWINGS}"
+                  print "TAPETYPE = ${TAPETYPE}"
+              fi
+              cd ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}/${REV[${I}]}
+              if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}/${REV[${I}]}/_nfig ]
+                then
+						# If no _nfig file found
+						# remove everything.
+                  cd ${PARTSDIR}/${RELPREFIX[${I}]} 
+
+                  if [ ${DEBUG} = "yes" ]	# If debug = yes then us -i
+						# option for rm command.
+                    then
+                      print "     Present working directory `pwd`."
+                      rm -rif ${DRAWING[${I}]}	# Note that DRAWING[${I}]
+						# has been split from rev.
+                    else
+                      rm -rf ${DRAWING[${I}]}	# Note that DRAWING[${I}]
+						# has been split from rev.
+                  fi
+                else
+                  cd ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}/${REV[${I}]}
+
+						# This will remove every-
+						# thing except _nfig file.
+                  for REMOVE in `find . -type f -print | /usr/bin/grep -v _nfig`
+                    do
+                      if [ ${DEBUG} = "yes" ]
+                        then
+                          rm -rif ${REMOVE}
+                        else
+                          rm -rf ${REMOVE}
+                      fi
+                    done
+              fi
+          fi
+          I=`expr ${I} + 1`
+        done
+    ;;
+  esac
+ 
+  if [ ${DEBUG} = "yes" ] 
+    then 
+      print "FUNCTION REMVDBS ENDING." 
+  fi
+ }
+
+# This function will cycle for original tape and again for a backup tape and
+# archive all drawings onto the tape before unloading it.
+
+function TAPING
+ {
+  for TAPE in ORIGINAL BACKUP
+    do
+
+# If ${LASTFILE} is not 1 fast forward tape tape to ${LASTFILE} minus 1.
+
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "PPID = ${PPID}"
+      fi
+         
+      if [ ! -f /tmp/tape_error${PPID} ]
+        then
+          touch /tmp/tape_error${PPID}
+      fi
+
+      if [ ${TAPEHOST} != ${HOSTNAME} ]
+        then 
+          rsh ${TAPEHOST} mt -f ${TAPEDEV} rew 2> /tmp/tape_error${PPID}
+						# Rewind tape to start
+						# at the begining of the
+						# tape for remote tape.
+        else 
+          mt -f ${TAPEDEV} rew 2> /tmp/tape_error${PPID}
+ 						# Rewind tape to start
+						# at the begining of the
+						# tape for local tape.
+      fi
+
+      if [ -s /tmp/tape_error${PPID} ]
+        then
+          print -n "     "
+          cat /tmp/tape_error${PPID}
+          print " "
+          print "     PROGRAM ABORTED.... "
+          CLEANUP				# Execute CLEANUP function.
+          exit 6
+      fi
+
+      if [ ${LASTFILE} -ne 0 ]
+        then
+          print " "
+          print "     FAST FORWARDING ${TAPE} TAPE ${TAPENUMBER} TO FILE `expr ${LASTFILE} + 1`."
+          if [ ${TAPEHOST} != ${HOSTNAME} ]
+            then
+              rsh ${TAPEHOST} mt -f ${TAPEDEV} fsf ${LASTFILE}
+            else
+              mt -f ${TAPEDEV} fsf ${LASTFILE}
+          fi
+      fi
+
+      if [ ${DEBUG} = "yes" ]
+        then 
+          print " "
+          rsh ${TAPEHOST} mt -f ${TAPEDEV} status
+          print " "
+      fi
+
+# Reset the index variable back to 1.
+
+      I=1
+
+# At this point the tape should be at the correct location and ready for data
+# to be input to it.
+
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+          if [ ${DEBUG} = "yes" ]
+            then
+              print "DATE = ${DATE}"
+              print "APPLICATION = ${APPLICATION}"
+              print "LOWAPPL = ${LOWAPPL}"
+          fi
+        
+# This is the section that will write the information out to tape and generate
+# a file called ${RELEASEDIR}/.archived/${LOWAPPL}/tape#/file# which will 
+# contain the listing of what went out to tape. Also a file called ${RELEASEDIR}
+# /.archived/${LOWAPPL}/tape#/error_file which will contain any tape errors that
+#  may occurr.
+
+          case ${LOWAPPL} in
+   
+             dazix )
+
+               print " "
+               print "     ${APPLICATION} ARCHIVING ${DRAWING[${I}]}.fld TO ${TAPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`. "
+               print " "
+             ;;
+           
+             techpbs )
+
+               print " "
+               print "     ${APPLICATION} ARCHIVING ${DRAWING[${I}]}${TYPE[${I}]} TO ${TAPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`. "
+               print " "
+             ;;
+
+             production_software )
+
+               print " "
+               print "     ${APPLICATION} ARCHIVING ${DRAWING[${I}]} TO ${TAPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`. "
+
+               test ${ASSEMBLY[${I}]}
+               if [ $? -eq 0 ]
+                then
+                   print "     INCLUDING ${ASSEMBLY[${I}]}."
+               fi
+               print " "
+             ;;
+
+             * )
+
+               print " "
+               print "     ${APPLICATION} ARCHIVING ${DRAWING[${I}]} TO ${TAPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`. "
+               print " "
+             ;;
+          esac
+
+          if [ ${TAPEHOST} != ${HOSTNAME} ]
+            then
+
+              case ${LOWAPPL} in
+       
+                firmware | production_software )		
+
+                 # Firmware and production_software uses a input file 
+		 # /tmp/${LOWAPPL}_infile1${PPID}_${I} instead on a file 
+		 # and/or directory.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    PART NUMBER : ${DRAWING[${I}]}             DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 if [ ${LOWAPPL} = "production_software" ]
+                   then
+                     test ${ASSEMBLY[${I}]}
+                     if [ $? -eq 0 ]
+                      then
+                       print "    INCLUDES ${ASSEMBLY[${I}]} " >>\
+                       ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+                     fi
+                 fi
+
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 tar cvpBf - -I /tmp/${LOWAPPL}_infile1${PPID}_${I} 2>>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                 |rsh ${TAPEHOST} dd of=${TAPEDEV} obs=2048 2>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                 # Check error file for tape errors.
+    
+                 ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+     
+                 if [ ${DEBUG} = "yes" ]
+                   then
+                     print "ERRORS = ${ERRORS}"
+                 fi
+
+                 # If this test as zero that means that an error was generated.
+
+                 test ${ERRORS}
+                 if [ $? -eq 0 ]
+                   then
+                     print "     TAPE ERROR ........................"
+                     cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                     print "     PROGRAM ABORTED ..................."
+                     exit 7
+                 fi
+                ;;
+
+                dazix )
+
+                   # The dazix have 2 types of tapes history or dormant 
+                   # which is in variable ${TAPETYPE}.
+
+                   print "*******************************************************************************" > \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print "    ${APPLICATION} ARCHIVE LISTING FOR ${UPTAPETYPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "    ${DRAWING[${I}]}.fld                       DATE: ${DATE}" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "*******************************************************************************" >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print " " >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 cd ${PARTSDIR}
+
+                 tar cvpBf - ${DRAWING[${I}]}.fld 2>>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                 |rsh ${TAPEHOST} dd of=${TAPEDEV} obs=2048 2>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+
+                 # Check error file for tape errors.
+    
+                 ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file`
+     
+                 if [ ${DEBUG} = "yes" ]
+                   then
+                     print "ERRORS = ${ERRORS}"
+                 fi
+
+                 # If this test as zero that means that an error was generated.
+
+                 test ${ERRORS}
+                 if [ $? -eq 0 ]
+                   then
+                     print "     TAPE ERROR ........................"
+                     cat ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+                     print "     PROGRAM ABORTED ..................."
+                     exit 7
+                 fi
+                ;;
+
+               techpbs )
+
+                 # The tar command here uses the "h" function to follow the links to the actual file(s)
+		 # to be taped off.  An attempt is made to get the ".@" file and any "," files that
+		 # are associated with the top-level Interleaf object being archived.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    ${DRAWING[${I}]}${TYPE[${I}]}                           DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                cd ${PARTSDIR}
+
+                tar cvhpBf - ${DRAWING[${I}]}${TYPE[${I}]}  \
+				${DRAWING[${I}]}${TYPE[${I}]},* \
+				.@${DRAWING[${I}]}${TYPE[${I}]}  2>>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}` \
+                |rsh ${TAPEHOST} dd of=${TAPEDEV} obs=2048 2>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                # Check error file for tape errors.
+
+                ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+                if [ ${DEBUG} = "yes" ]
+                  then
+                    print "ERRORS = ${ERRORS}"
+                    print " "
+                fi
+ 
+                # If this test as zero that means that an error was generated.
+
+                test ${ERRORS}
+                if [ $? -eq 0 ]
+                  then
+                    print "     TAPE ERROR ........................"
+                    cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                    print "     PROGRAM ABORTED ..................."
+                    exit 7    
+                fi
+              ;;
+
+                cv_database )
+
+                   # The cv_databases have 2 types of tapes history or dormant 
+                   # which is in variable ${TAPETYPE}.
+
+                   print "*******************************************************************************" > \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print "    ${APPLICATION} ARCHIVE LISTING FOR ${UPTAPETYPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "    ${DRAWING[${I}]}                           DATE: ${DATE}" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "*******************************************************************************" >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print " " >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 cd ${PARTSDIR}
+
+                 tar cvpBf - ${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} 2>>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                 |rsh ${TAPEHOST} dd of=${TAPEDEV} obs=2048 2>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+
+                 # Check error file for tape errors.
+    
+                 ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file`
+     
+                 if [ ${DEBUG} = "yes" ]
+                   then
+                     print "ERRORS = ${ERRORS}"
+                 fi
+
+                 # If this test as zero that means that an error was generated.
+
+                 test ${ERRORS}
+                 if [ $? -eq 0 ]
+                   then
+                     print "     TAPE ERROR ........................"
+                     cat ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+                     print "     PROGRAM ABORTED ..................."
+                     exit 7
+                 fi
+                ;;
+
+                * )
+
+                 # All other options will use this format.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    ${DRAWING[${I}]}                           DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 tar cvpBf - ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} 2>>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                 |rsh ${TAPEHOST} dd of=${TAPEDEV} obs=2048 2>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                 # Check error file for tape errors.
+    
+                 ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+     
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "ERRORS = ${ERRORS}"
+              fi
+
+              # If this test as zero that means that an error was generated.
+
+              test ${ERRORS}
+              if [ $? -eq 0 ]
+                then
+                  print "     TAPE ERROR ........................"
+                  cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                  print "     PROGRAM ABORTED ..................."
+                  exit 7
+              fi
+                ;;
+              esac
+
+            else
+
+              case ${LOWAPPL} in
+ 
+               firmware | production_software)
+
+                 # Firmware and production_software uses a input file 
+		 # /tmp/${LOWAPPL}_infile1${PPID}_${I} instead on a file 
+		 # and/or directory.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    ${DRAWING[${I}]}                           DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 if [ ${LOWAPPL} = "production_software" ]
+                   then
+                     test ${ASSEMBLY[${I}]}
+                     if [ $? -eq 0 ]
+                      then
+                       print "    INCLUDES ${ASSEMBLY[${I}]} " >>\
+                       ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+                     fi
+                 fi
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                tar cvpBf - -I /tmp/${LOWAPPL}_infile1${PPID}_${I} 2>>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                | dd of=${TAPEDEV} obs=2048 2>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                # Check error file for tape errors.
+
+                ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+                if [ ${DEBUG} = "yes" ]
+                  then
+                    print "ERRORS = ${ERRORS}"
+                    print " "
+                fi
+ 
+                # If this test as zero that means that an error was generated.
+
+                test ${ERRORS}
+                if [ $? -eq 0 ]
+                  then
+                    print "     TAPE ERROR ........................"
+                    cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                    print "     PROGRAM ABORTED ..................."
+                    exit 7    
+                fi
+              ;;
+
+                dazix )
+
+                   # The dazix have 2 types of tapes history or dormant 
+                   # which is in variable ${TAPETYPE}.
+
+                   print "*******************************************************************************" > \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print "    ${APPLICATION} ARCHIVE LISTING FOR ${UPTAPETYPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "    ${DRAWING[${I}]}.fld                       DATE: ${DATE}" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   print "*******************************************************************************" >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print " " >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 cd ${PARTSDIR}
+
+                 tar cvpBf - ${DRAWING[${I}]}.fld 2>>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                 | dd of=${TAPEDEV} obs=2048 2>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+
+                 # Check error file for tape errors.
+    
+                 ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file`
+     
+                 if [ ${DEBUG} = "yes" ]
+                   then
+                     print "ERRORS = ${ERRORS}"
+                 fi
+
+                 # If this test as zero that means that an error was generated.
+
+                 test ${ERRORS}
+                 if [ $? -eq 0 ]
+                   then
+                     print "     TAPE ERROR ........................"
+                     cat ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+                     print "     PROGRAM ABORTED ..................."
+                     exit 7
+                 fi
+                ;;
+
+               techpbs )
+
+                 # The tar command here uses the "h" function to follow the links to the actual file(s)
+                 # to be taped off.  An attempt is made to get the ".@" file and any "," files that
+                 # are associated with the top-level Interleaf object being archived.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    ${DRAWING[${I}]}.${TYPE[${I}]}                           DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                cd ${PARTSDIR}
+
+                tar cvhpBf - ${DRAWING[${I}]}${TYPE[${I}]}  \
+				${DRAWING[${I}]}${TYPE[${I}]},* \
+                                .@${DRAWING[${I}]}${TYPE[${I}]} 2>>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                | dd of=${TAPEDEV} obs=2048 2>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                # Check error file for tape errors.
+
+                ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+                if [ ${DEBUG} = "yes" ]
+                  then
+                    print "ERRORS = ${ERRORS}"
+                    print " "
+                fi
+ 
+                # If this test as zero that means that an error was generated.
+
+                test ${ERRORS}
+                if [ $? -eq 0 ]
+                  then
+                    print "     TAPE ERROR ........................"
+                    cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                    print "     PROGRAM ABORTED ..................."
+                    exit 7    
+                fi
+              ;;
+               cv_database )
+
+                   # The cv_databases have 2 types of tapes history or dormant 
+                   # which is in variable ${TAPETYPE}.
+
+                   print "*******************************************************************************" > \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print "    ${APPLICATION} ARCHIVE LISTING FOR ${UPTAPETYPE} TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                   if [ ${TAPETYPE} = "history" ]
+                     then
+                       print "    ${DRAWING[${I}]}                           DATE: ${DATE}" >>\
+                       ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+                     else
+                       print "    ${RELPREFIX[${I}]}/${DRAWING[${I}]}        DATE: ${DATE}" >>\
+                       ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+                   fi
+
+                   print "*******************************************************************************" >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                   print " " >> \
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                cd ${PARTSDIR}
+
+                tar cvpBf - ${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} 2>>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                | dd of=${TAPEDEV} obs=2048 2>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+
+                # Check error file for tape errors.
+
+                ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file`
+                if [ ${DEBUG} = "yes" ]
+                  then
+                    print "ERRORS = ${ERRORS}"
+                    print " "
+                fi
+ 
+                # If this test as zero that means that an error was generated.
+
+                test ${ERRORS}
+                if [ $? -eq 0 ]
+                  then
+                    print "     TAPE ERROR ........................"
+                    cat ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}/error_file
+                    print "     PROGRAM ABORTED ..................."
+                    exit 7    
+                fi
+
+               ;;
+
+               * )
+
+                 # All other options will use this format.
+
+                 print "*******************************************************************************" > \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print "    ${APPLICATION} ARCHIVE LISTING FOR TAPE ${TAPENUMBER} FILE `expr ${LASTFILE} + ${I}`" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "    ${DRAWING[${I}]}                           DATE: ${DATE}" >>\
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                 print "*******************************************************************************" >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+         
+                 print " " >> \
+                 ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`
+
+                tar cvpBf - ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} 2>>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/file`expr ${LASTFILE} + ${I}`\
+                | dd of=${TAPEDEV} obs=2048 2>\
+                ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+
+                # Check error file for tape errors.
+
+                ERRORS=`/usr/bin/grep dd: ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file`
+                if [ ${DEBUG} = "yes" ]
+                  then
+                    print "ERRORS = ${ERRORS}"
+                    print " "
+                fi
+ 
+                # If this test as zero that means that an error was generated.
+
+                test ${ERRORS}
+                if [ $? -eq 0 ]
+                  then
+                    print "     TAPE ERROR ........................"
+                    cat ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}/error_file
+                    print "     PROGRAM ABORTED ..................."
+                    exit 7    
+                fi
+              ;;
+
+             esac
+
+          fi
+
+# Check to see if the file ${RELEASEDIR}/.archived/${LOWAPPL}/index exists. If
+# it doesn't create it with the 3 line header.
+
+          case ${LOWAPPL} in
+
+            dazix )
+
+              if [ ! -f ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index ]
+                then
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print "     INDEX FILE NOT FOUND. MAKE INDEX FILE."
+                  fi
+                  print "********************************************************************************" >  ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+
+                  print "******                   ${APPLICATION} ARCHIVE INDEX                       ******" >> ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+
+                  print "********************************************************************************" >>  ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+                else
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print "     INDEX FILE FOUND. "
+                  fi
+              fi
+             ;;
+ 
+            *)
+
+              if [ ! -f ${RELEASEDIR}/.archived/${LOWAPPL}/index ]
+                then
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print "     INDEX FILE NOT FOUND. MAKE INDEX FILE."
+                  fi
+                  print "********************************************************************************" >  ${RELEASEDIR}/.archived/${LOWAPPL}/index
+
+                  print "******                   ${APPLICATION} ARCHIVE INDEX                       ******" >> ${RELEASEDIR}/.archived/${LOWAPPL}/index
+
+                  print "********************************************************************************" >>  ${RELEASEDIR}/.archived/${LOWAPPL}/index
+                else
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print "     INDEX FILE FOUND. "
+                  fi
+              fi
+             ;;
+          esac
+
+# Write out information to the file ${RELEASEDIR}/.archived/${LOWAPPL}/index .
+
+          if [ ${TAPE} = "BACKUP" ]
+            then
+              case ${LOWAPPL} in
+               
+               word_perfect )
+
+                   # This will get the drawing prefix from the release directory 
+                   # name. Example 99 from 99/ssd.wp
+
+                   DRAWINGPERFIX[${I}]=`print "${RELPREFIX[${I}]}"|cut -c1-2`
+
+                   if [ ${DEBUG} = "yes" ]
+                     then 
+                       print "DRAWINGPERFIX[${I}] = ${DRAWINGPERFIX[${I}]}"
+                       print " "
+                   fi
+
+                   print "${DRAWINGPERFIX[${I}]}-${DRAWING[${I}]}  Tape ${TAPENUMBER}  File `expr ${LASTFILE} + ${I}`    ${DATE} ">>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/index  
+
+                  ;;
+
+               dazix )
+ 
+                   #DRAWING[${I}]=`print ${DRAWING[${I}]}|awk 'BEGIN{FS="."}{print $1}'|/usr/local/bin_${ARCH}/dazix_utow`
+                   DRAWING[${I}]=`print ${DRAWING[${I}]}|awk 'BEGIN{FS="."}{print $1}'|/usr/local/bin/dazix_utow`
+
+                   if [ ${DEBUG} = "yes" ]
+                     then
+                       print "TRANSLATED DRAWING[${I}] TO WORKSURFACE NAME "
+                       print "DRAWING[${I}] ${DRAWING[${I}]}"
+                       print "ASSEMBLY[${I}] = ${ASSEMBLY[${I}]}"
+                   fi
+                   print "${DRAWING[${I}]}  ${ASSEMBLY[${I}]}  ${DATE}  Tape ${TAPENUMBER}  File `expr ${LASTFILE} + ${I}`  ${USERNAME[${I}]}">>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/index
+
+                  ;;
+
+               techpbs )
+                  
+                   print "${DRAWING[${I}]}${TYPE[${I}]}   Tape ${TAPENUMBER}   File `expr ${LASTFILE} + ${I}`   ${DATE} ">>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/index
+
+                  ;;
+
+               cv_database )
+
+                 if [ ${TAPETYPE} = "history" ]
+                   then
+                     # This will get the drawing part number without the revision
+                     # directory attached. Example 21-104094-0
+
+                     DRAWINGPERFIX[${I}]=`print "${DRAWING[${I}]}"|cut -c1-11|tr a-z A-Z`
+  
+                     # This will get the revision letter without the part number.
+                     # and translate it to upper case.
+
+                     DRAWINGSUFFIX[${I}]=`print "${DRAWING[${I}]}"|awk '{printf("%-s\n",substr($0,(length($0))))}'|tr a-z A-Z `
+
+                     if [ ${DEBUG} = "yes" ]
+                       then 
+                         print "TAPETYPE = ${TAPETYPE}"
+                         print "DRAWINGPERFIX[${I}] = ${DRAWINGPERFIX[${I}]}"
+                         print "DRAWINGSUFFIX[${I}] = ${DRAWINGSUFFIX[${I}]}"
+                         print " "
+                     fi
+
+                     print "${DRAWINGPERFIX[${I}]}-${DRAWINGSUFFIX[${I}]}  ${UPTAPETYPE}   Tape ${TAPENUMBER}  File `expr ${LASTFILE} + ${I}`  ${DATE}  ${USERNAME[${I}]}">>\
+                     ${RELEASEDIR}/.archived/${LOWAPPL}/index  
+
+                   else
+                     DRAWINGPERFIX[${I}]=`print "${RELPREFIX[${I}]}"`
+                     DRAWINGSUFFIX[${I}]=`print "${DRAWING[${I}]}"`
+
+                     if [ ${DEBUG} = "yes" ]
+                       then 
+                         print "TAPETYPE = ${TAPETYPE}"
+                         print "DRAWINGPERFIX[${I}] = ${DRAWINGPERFIX[${I}]}"
+                         print "DRAWINGSUFFIX[${I}] = ${DRAWINGSUFFIX[${I}]}"
+                         print " "
+                     fi
+
+                     print "${DRAWINGPERFIX[${I}]}/${DRAWINGSUFFIX[${I}]}  ${UPTAPETYPE}   Tape ${TAPENUMBER}  File `expr ${LASTFILE} + ${I}`  ${DATE}  ${USERNAME[${I}]}">>\
+                     ${RELEASEDIR}/.archived/${LOWAPPL}/index  
+                 fi
+
+                 ;;
+
+               production_software )
+                  
+                   print "${DRAWING[${I}]}   Tape ${TAPENUMBER}   File `expr ${LASTFILE} + ${I}`  ${USERNAME[${I}]}    ${DATE} ">>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/index
+
+                  ;;
+
+               * )
+                  
+                   print "${DRAWING[${I}]}   Tape ${TAPENUMBER}   File `expr ${LASTFILE} + ${I}`   ${DATE} ">>\
+                   ${RELEASEDIR}/.archived/${LOWAPPL}/index
+
+                  ;;
+
+               esac
+          fi
+
+            
+# Increase index variable.
+
+          I=`expr ${I} + 1`
+
+        done
+      print "     ${TAPE} TAPE FINISHED UNLOADING TAPE."
+      print " "
+      if [ ${TAPEHOST} != ${HOSTNAME} ]
+        then
+          rsh ${TAPEHOST} mt -f ${TAPEDEV} offline
+        else
+      mt -f ${TAPEDEV} offline
+      fi
+      if [ ${I} -gt ${TOTALDRAWINGS} -a ${TAPE} = "BACKUP" ]
+        then
+          print "     ${TAPE} FINISHED. "
+          break
+      fi
+      print "     MOUNT BACKUP TAPE AND PRESS ANY KEY TO CONTINUE."
+      print -n "     CONTINUE > "
+      read JUNK
+      print " "
+      print "     WAITING FOR TAPE TO LOAD AND COME ON LINE."
+      print " "
+      sleep 60
+    done
+ }
+
+# Function that will be used for multiple archive requests of the same type. The
+# maxium number of files is 300 at any given time.
+
+function TOTDRAW
+ {
+  if [ ${DEBUG} = "yes" ]
+    then
+      print "FUNCTION TOTDRAW STARTING."
+  fi
+  test ${TOTALDRAWINGS}
+  while [ $? -eq 1 ]
+    do
+      print "     How many ${LOWAPPL} file(s) do you have to release ?"
+      print "     The number must be between 1 and 300."
+      print -n "     TOTALDRAWINGS > "
+
+      read TOTALDRAWINGS
+      if [ ${DEBUG} = "yes" ]
+        then
+          print " "
+          print "TOTALDRAWINGS = ${TOTALDRAWINGS}"
+      fi
+      test ${TOTALDRAWINGS}
+      if [ $? -eq 1 ]
+        then
+          print " "
+          print "     YOU MUST ENTER A NUMBER BETWEEN 1 AND 300."
+          TOTALDRAWINGS=""
+        else
+         if [ ${TOTALDRAWINGS} -lt 1 -o ${TOTALDRAWINGS} -gt 300 ]
+           then
+             print " "
+             print "     YOU MUST ENTER A NUMBER BETWEEN 1 AND 300."
+             TOTALDRAWINGS=""
+         fi
+      fi
+      test ${TOTALDRAWINGS}
+    done
+
+  if [ ${DEBUG} = "yes" ] 
+    then 
+      print "FUNCTION TOTDRAW ENDING." 
+  fi
+ }
+
+# Function to ask for the the type of interleaf file being released.
+
+function TYPE
+ {
+    test ${TYPE[${I}]}
+    while [ $? -eq 1 ]
+      do
+        if [ ${APPLICATION} = "INTERLEAF" -o ${APPLICATION} = "TECHPBS" ]
+          then
+            print " "
+            print "     Enter type of ${LOWAPPL} file. Example boo or doc."
+            print -n "     TYPE[${I}] > "
+            read TYPE[${I}]
+            if [ ${DEBUG} = "yes" ]
+              then
+                print " "
+                print "TYPE[${I}] = ${TYPE[${I}]}"
+            fi
+          else
+            TYPE[${I}]=" "
+        fi
+        test ${TYPE[${I}]}
+        if [ $? -eq 1 ]
+          then
+            print " "
+            print "     YOU MUST ENTER SOMETHING."
+          else
+            if [ ${TYPE[${I}]} = "doc" ]
+              then
+                TYPE[${I}]=".${TYPE[${I}]}"
+                FILETYPE[${I}]="f"
+              else
+                TYPE[${I}]=".${TYPE[${I}]}"
+                FILETYPE[${I}]="d"
+            fi
+        fi
+        if [ ${DEBUG} = "yes" ]
+          then
+            print " "
+            print "FILETYPE[${I}] = ${FILETYPE[${I}]}"
+        fi
+        test ${TYPE[${I}]}
+      done
+ }
+
+#*******************************************************************************
+# START MAIN PROGRAM
+
+# Clear the screen.
+
+/usr/ucb/clear
+
+# Test for number of command line options. If Less than Zero or greater than 
+# Two exist with Usage message and exit status of 4.
+
+if [ $# -lt 0 -o $# -gt 2 ]
+  then
+    print "
+        Error..........
+        Usage: ${0} hostname debug(optional)
+                 hostname is the host with the tape drive attached to it.
+                 debug will turn on debug messages.
+         "
+     exit 4
+   else 
+     if [ $# -eq 1 ]
+       then
+         if [ ${1} = "debug" ]
+           then
+             DEBUG="yes"
+             print "Debug is turned on."
+             TAPEHOST=`hostname`
+           else
+             TAPEHOST=${1}
+             DEBUG="no"
+         fi
+     fi
+     if [ $# -eq 0 ]
+       then
+         DEBUG="no"
+         TAPEHOST=`hostname`
+     fi
+     if [ $# -eq 2 ]
+       then
+         if [ ${2} = "debug" ]
+           then  
+             DEBUG="yes" 
+             print "Debug is turned on."
+             TAPEHOST=${1} 
+           else
+             DEBUG="no"
+             TAPEHOST=${1} 
+         fi
+     fi
+fi
+
+if [ ${DEBUG} = "yes" ]
+  then
+    print "TAPEHOST = ${TAPEHOST}"
+    print " "
+fi
+
+# Check to see if the TAPEHOST is reachable on the network. If not exit with an
+# exit status of 6.
+
+/usr/etc/ping ${TAPEHOST} >> /dev/null
+
+if [ $? -ne 0 ]
+  then
+    print "     THERE IS A PROBLEM REACHING REMOTE TAPE HOST ${TAPEHOST}."
+    print "     PROGRAM ABORTED ......... "
+    print " "
+    CLEANUP				# Execute CLEANUP function.
+    if [ ${DEBUG} = "yes" ]
+      then 
+        print " Program exiting with status of 6. "
+        print " "
+    fi
+    exit 6
+fi
+
+# Check to see if ${TAPEHOST} is raven. If it is set ${TAPEDEV} to /dev/nrst9
+# which is high density on raven.
+
+if [ ${TAPEHOST} = "raven" ]
+  then
+    TAPEDEV="/dev/nrst9"
+fi
+
+if [ ${DEBUG} = "yes" ]
+  then
+    print "TAPEDEV=${TAPEDEV}"
+    print " "
+fi
+
+# Display a menu of things that can be archived.
+
+print "
+
+	1.)  Interleaf Files
+	2.)  Word Perfect Files
+	3.)  Generic Cam Files
+	4.)  Cam-mod Files
+	5.)  Schematic_pinloc Files
+	6.)  Firmware Files
+	7.)  Photoplot Files
+	8.)  Com Files	
+	9.)  Drill Files
+	10.) Dazix Artworks
+	11.) Tech Pubs Files
+	12.) Test Procedures
+        13.) CV Databases
+	14.) CV AI, Faultfinder, SMT Files
+	15.) Software Production files.
+
+Enter the Number of the option from the above list."
+
+# Test to see if $OPTION is set if not ask for it. If it is set make sure its
+# a number between 1 and 15.
+
+test ${OPTION}
+while [ $? -eq 1 ]
+  do
+    print -n "OPTION > "
+    read OPTION
+    test ${OPTION}
+    if [ $? -eq 0 ]
+      then
+        if [ ${OPTION} -lt 1 -o ${OPTION} -gt 15 ]
+          then
+            print "Illegal option. Use numbers 1 thru 15."
+            OPTION=""
+        fi
+    fi
+    test ${OPTION}
+  done
+
+if [ ${DEBUG} = "yes" ]
+  then 
+    print " "
+    print "OPTION = ${OPTION}"
+fi
+
+# After a legal option has been selected execute commands that pertain to each
+# specific option.
+
+case ${OPTION} in
+
+  1 ) print "
+      INTERLEAF DATABASE ARCHIVE PROGRAM.
+            "
+      APPLICATION="INTERLEAF"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print ${RELEASEDIR}`
+      print " "
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "PARTSDIR= ${PARTSDIR}"
+      fi
+
+      MKARCHDIR			# Execute the function MKARCHDIR.
+      TOTDRAW			# Execute the function TOTDRAW.
+
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+
+          DRAWINGS		# Execute function DRAWINGS
+          FINDRELDIR		# Execute function FINDRELDIR
+          TYPE			# Execute function TYPE
+
+
+          # Check for the existance of the file or directory before continuing 
+          # with the next drawing number. If file or directory not found reset 
+          # variables to the begining.
+
+          if [ ! -${FILETYPE[${I}]} ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]} NOT FOUND."
+              print " "
+
+              CHGTOTALDRAWS	# Function to change ${TOTALDRAWINGS} or quit.
+
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART TO TAPE OUT."
+                  print "${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}${TYPE[${I}]}"
+                  print " "
+              fi
+              I=`expr ${I} + 1`
+          fi
+        done
+     ;;
+
+  2 ) print "
+      WORD_PERFECT DATABASE ARCHIVE PROGRAM.
+            "
+      APPLICATION="WORD_PERFECT"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print ${RELEASEDIR}`
+      print " "
+
+      MKARCHDIR				# Execute function MKARCHDIR
+      TOTDRAW				# Execute the function TOTDRAW.
+ 
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+ 
+          DRAWINGS			# Execute function DRAWINGS
+          FINDRELDIR			# Execute function FINDRELDIR
+ 
+          # Check for the existance of the file or directory before continuing 
+          # with the next drawing number. If file or directory not found reset 
+          # variables to the begining.
+ 
+          if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} NOT FOUND."
+              print " "
+              
+              CHGTOTALDRAWS		# Function to change ${TOTALDRAWINGS} or
+					# quit the program
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART TO TAPE OUT."
+                  print "${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}"
+                  print " "
+              fi
+              I=`expr ${I} + 1`
+          fi
+        done
+
+     ;;
+
+  3 ) print "
+      GENERIC CAM FILE ARCHIVE PROGRAM.
+            "
+      APPLICATION="GENCAM"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print ${RELEASEDIR}`
+      print " "
+ 
+      MKARCHDIR                         # Execute function MKARCHDIR
+      TOTDRAW                           # Execute the function TOTDRAW.
+ 
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+ 
+          DRAWINGS                      # Execute function DRAWINGS
+          FINDRELDIR                    # Execute function FINDRELDIR
+ 
+          # Check for the existance of the file or directory before continuing
+          # with the next drawing number. If file or directory not found reset
+          # variables to the begining.
+ 
+          if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} NOT FOUND."
+              print " "
+              
+              CHGTOTALDRAWS		# Function to change ${TOTALDRAWINGS} or
+					# quit the program
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART TO TAPE OUT."
+                  print "${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}"
+                  print " "
+              fi
+              I=`expr ${I} + 1`
+          fi    
+        done
+
+                 ;;
+
+  4 ) print "
+      CAM-MOD FILE ARCHIVE PROGRAM.
+            "
+      APPLICATION="CAM-MOD"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print ${RELEASEDIR}`
+      print " "
+ 
+      MKARCHDIR                         # Execute function MKARCHDIR
+      TOTDRAW                           # Execute the function TOTDRAW.
+ 
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+ 
+          DRAWINGS                      # Execute function DRAWINGS
+          FINDRELDIR                    # Execute function FINDRELDIR
+ 
+          # Check for the existance of the file or directory before continuing
+          # with the next drawing number. If file or directory not found reset
+          # variables to the begining.
+ 
+          if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} NOT FOUND."
+              print " "
+              
+              CHGTOTALDRAWS		# Function to change ${TOTALDRAWINGS} or
+					# quit the program
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART TO TAPE OUT."
+                  print "${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}"
+                  print " "
+              fi
+              I=`expr ${I} + 1`
+          fi    
+        done
+
+                 ;;
+
+  5 ) print "
+      SCHEMATIC PIN LOCATION FILE ARCHIVE PROGRAM.
+            "
+       print "             OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+
+  6 ) print "
+      FIRMWARE FILE ARCHIVE PROGRAM.
+            "
+      APPLICATION="FIRMWARE"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print ${RELEASEDIR}`
+      print " "
+
+      MKARCHDIR				# Execute function MKARCHDIR
+      TOTDRAW				# Execute the function TOTDRAW.
+ 
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+ 
+          DRAWINGS			# Execute function DRAWINGS
+          FINDRELDIR			# Execute function FINDRELDIR
+ 
+          # Check for the existance of the file or directory before continuing 
+          # with the next drawing number. If file or directory not found reset 
+          # variables and ask for that drawing number again. Firmware must have
+          # at the minium of a .src, .doc, and .obj before archiving it.
+ 
+          if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/src/${DRAWING[${I}]}.src -a \
+               ! -d ${PARTSDIR}/${RELPREFIX[${I}]}/src/${DRAWING[${I}]}.src ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${RELPREFIX[${I}]}/src/${DRAWING[${I}]}.src NOT FOUND."
+              print " "
+              CHGTOTALDRAWS
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PARTS TO TAPE OUT."
+                  print "${PARTSDIR}/${RELPREFIX[${I}]}/src/${DRAWING[${I}]}.src"
+              fi
+              if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/doc/${DRAWING[${I}]}.doc ]
+                then
+                  print " "
+                  print "     ERROR ..................................."
+                  print "     ${PARTSDIR}/${RELPREFIX[${I}]}/doc/${DRAWING[${I}]}.doc NOT FOUND."
+                  print " "
+                  DRAWING[${I}]=""
+                  RELPREFIX[${I}]=""
+                else
+                  if [ ${DEBUG} = "yes" ]
+                    then
+                      print "${PARTSDIR}/${RELPREFIX[${I}]}/doc/${DRAWING[${I}]}.doc"
+                  fi
+                  if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/obj/${DRAWING[${I}]}.obj -a \
+                       ! -d ${PARTSDIR}/${RELPREFIX[${I}]}/obj/${DRAWING[${I}]}.obj ]
+                    then
+                      print " "
+                      print "     ERROR ..................................."
+                      print "     ${PARTSDIR}/${RELPREFIX[${I}]}/obj/${DRAWING[${I}]}.obj NOT FOUND."
+                      print " "
+                      DRAWING[${I}]=""
+                      RELPREFIX[${I}]=""
+                    else
+                      if [ ${DEBUG} = "yes" ]
+                        then
+                          print "${PARTSDIR}/${RELPREFIX[${I}]}/obj/${DRAWING[${I}]}.obj"
+                          print " "
+                      fi
+                      GENINPUTFILE	# This function will generate a input
+                                        # file containing the files to archive.
+                      I=`expr ${I} + 1`
+                  fi
+              fi
+          fi
+        done
+
+    ;;
+
+  7 ) print "
+      PHOTOPLOT FILE ARCHIVE PROGRAM.
+            "
+       print "             OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+  8 ) print "
+      COMPUTER OUTPUT TO MICROFILM FILE ARCHIVE PROGRAM.
+            "
+       print "             OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+  9 ) print "
+      DRILL FILE ARCHIVE PROGRAM.
+            "
+       print "             OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+  10 ) print "
+       DAZIX ARTWORK DATABASE ARCHIVE PROGRAM.
+             "
+       APPLICATION="DAZIX"
+       LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+       PARTSDIR="/parts/unws"
+       print " "
+
+       MKARCHDIR			# Execute function MKARCHDIR
+       TOTDRAW				# Execute the function TOTDRAW.
+ 
+       I=1
+       until [ ${I} -gt ${TOTALDRAWINGS} ]
+         do
+ 
+           DRAWINGS			# Execute function DRAWINGS
+           FINDRELDIR			# Execute function FINDRELDIR
+ 
+           # Check for the existance of the file or directory before continuing 
+           # with the next drawing number. If file or directory not found reset
+           # variables to the begining.
+ 
+           if [ ! -d ${PARTSDIR}/${RELPREFIX[${I}]} ]
+             then
+               print " "
+               print "     ERROR ..................................."
+               print "     ${PARTSDIR}/${RELPREFIX[${I}]} NOT FOUND."
+               print " "
+               CHGTOTALDRAWS
+             else
+               if [ ${DEBUG} = "yes" ]
+                 then
+                   print "PART TO TAPE OUT."
+                   print "${PARTSDIR}/${RELPREFIX[${I}]}"
+                   print " "
+               fi
+
+               GETASSEMBLY			# function to get Assembly number.
+               GETUSERNAME			# Execute function GETUSERNAME
+               I=`expr ${I} + 1`
+           fi
+         done
+
+       GETTAPETYPE		# Execute function GETTAPETYPE 
+                 ;;
+
+  11 ) print "
+       TECH PUBS INTERLEAF FILE ARCHIVE PROGRAM.
+             "
+      APPLICATION="TECHPBS"
+      LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+      PARTSDIR=`print /usr/release/techpbs`
+      print " "
+      if [ ${DEBUG} = "yes" ]
+        then
+          print "PARTSDIR= ${PARTSDIR}"
+      fi
+
+      MKARCHDIR			# Execute the function MKARCHDIR.
+      TOTDRAW			# Execute the function TOTDRAW.
+
+      I=1
+      until [ ${I} -gt ${TOTALDRAWINGS} ]
+        do
+
+          DRAWINGS		# Execute function DRAWINGS
+          FINDRELDIR		# Execute function FINDRELDIR
+          TYPE			# Execute function TYPE
+
+
+          # Check for the existance of the file or directory before continuing 
+          # with the next drawing number. If file or directory not found reset 
+          # variables to the begining.
+
+          if [ ! -${FILETYPE[${I}]} ${PARTSDIR}/${DRAWING[${I}]}${TYPE[${I}]} ]
+            then
+              print " "
+              print "     ERROR ..................................."
+              print "     ${PARTSDIR}/${DRAWING[${I}]}${TYPE[${I}]} NOT FOUND."
+              print " "
+
+              CHGTOTALDRAWS	# Function to change ${TOTALDRAWINGS} or quit.
+
+            else
+              if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART TO TAPE OUT."
+                  print "${PARTSDIR}/${DRAWING[${I}]}${TYPE[${I}]}"
+                  print " "
+              fi
+              I=`expr ${I} + 1`
+          fi
+        done
+                 ;;
+
+  12 ) print "
+       TEST PROCEDURE INTERLEAF FILE ARCHIVE PROGRAM.
+             "
+       print "             OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+  13 ) print "
+       COMPUTERVISION DATABASE ARCHIVE PROGRAM.
+             "
+       APPLICATION="CV_DATABASE"
+       LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+       PARTSDIR="/parts/cv"
+       print " "
+
+       MKARCHDIR			# Execute function MKARCHDIR
+       TOTDRAW				# Execute the function TOTDRAW.
+ 
+       I=1
+       until [ ${I} -gt ${TOTALDRAWINGS} ]
+         do
+ 
+           DRAWINGS			# Execute function DRAWINGS
+           FINDRELDIR			# Execute function FINDRELDIR
+ 
+           # Check for the existance of the file or directory before continuing 
+           # with the next drawing number. If file or directory not found reset
+           # variables to the begining.
+ 
+           if [ ! -d ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} ]
+             then
+               print " "
+               print "     ERROR ..................................."
+               print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]} NOT FOUND."
+               print " "
+               DRAWING[${I}]=""
+               RELPREFIX[${I}]=""
+               CHGTOTALDRAWS		# Execute function CHGTOTALDRAWS
+             else
+               GETUSERNAME		# Get user name requesting the archiving.
+
+               if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}/_pd ]
+                 then
+                   print " "
+                   print "     ERROR ..................................."
+                   print " "
+                   print "     THERE MUST BE AT LEAST A _pd FILE TO ARCHIVE."
+                   print " "
+                   print "     ${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}/_pd MISSING. "
+                   CHGTOTALDRAWS		# Execute function CHGTOTALDRAWS
+               fi
+
+               if [ ${DEBUG} = "yes" ]
+                 then
+                   print "PART TO TAPE OUT."
+                   print "${PARTSDIR}/${RELPREFIX[${I}]}/${DRAWING[${I}]}"
+                   print " "
+               fi
+               I=`expr ${I} + 1`
+           fi
+
+         done
+
+       GETTAPETYPE		# Execute function GETTAPETYPE 
+     ;;
+
+  14 ) print "
+       COMPUTERVISION AI, FAULTFINDER, SMT FILE ARCHIVE PROGRAM.
+             "
+       print "      OPTION NOT AVAILIBLE YET ..... "
+       exit 8
+                 ;;
+
+  15 ) print "
+       PRODUCTION SOFTWARE FILES ARCHIVE PROGRAM.
+             "
+       APPLICATION="PRODUCTION_SOFTWARE"
+       LOWAPPL=`print ${APPLICATION} | tr A-Z a-z`
+       PARTSDIR="/product"
+       print " " 
+ 
+       MKARCHDIR                        # Execute function MKARCHDIR
+       TOTDRAW                          # Execute the function TOTDRAW.
+ 
+       I=1
+       until [ ${I} -gt ${TOTALDRAWINGS} ]
+         do
+ 
+           DRAWINGS			# Execute function DRAWINGS
+           FINDRELDIR			# Execute function FINDRELDIR
+ 
+       # Check for the existance of 3 files which contain part numbers to
+       # file name relationship. Files are "/product/data/part_to_file" ,
+       # "/product/data/cif_file" , and "/product/data/promsets_file".
+
+           for PARTFILE in `ls ${PARTSDIR}/${RELPREFIX[${I}]}| grep  _file`
+             do
+               if [ ${DEBUG} = "yes" ]
+                 then
+                   print "PARTFILE = ${PARTFILE}"
+               fi
+
+               if [ ! -f ${PARTSDIR}/${RELPREFIX[${I}]}/${PARTFILE} ]
+                 then
+                   print "     ERROR .............. "
+                   print "     CAN\`T FIND FILE \"${PARTSDIR}/${RELPREFIX[${I}]}/${PARTFILE}\". "
+                   CLEANUP
+                   exit 10
+               fi
+             done
+           
+       # Use the GETASSEMBLY function to retrieve the "IF" number if 
+       # ${DRAWING[${I}]} begins with "12" else set ${ASSEMBLY[${I}]} to "x".
+       # The IF file contains special files that go to many different part 
+       # numbers.
+           
+           print "${DRAWING[${I}]}" | grep \^12
+           if [ $? -eq 0 ]
+	     then
+               GETASSEMBLY
+           fi
+
+           if [ ${DEBUG} = "yes" ]
+             then
+               print "ASSEMBLY[${I}] = ${ASSEMBLY[${I}]}"
+           fi
+
+           GENINPUTFILE			# This function will generate a input
+					# file containing the files to archive.
+
+       # If /tmp/arch_inputfile1_${I}$$ has no size ( empty ) then check reset
+       # variables to nothing and run CHGTOTALDRAWS function , else run 
+       # GETUSERNAME function.
+    
+           if [ ! -s /tmp/${LOWAPPL}_infile1${PPID}_${I} ]
+             then
+               print " "
+               DRAWING[${I}]=""
+               ASSEMBLY[${I}]=""
+               RELPREFIX[${I}]=""
+               CHGTOTALDRAWS	      # Execute function CHGTOTALDRAWS
+             else
+               GETUSERNAME	      # Get user name requesting the archiving.
+               if [ ${DEBUG} = "yes" ]
+                then
+                  print "PART(S) TO TAPE OUT."
+                  test ${ASSEMBLY[${I}]}
+                  if [ $? -eq 0 ]
+                    then
+                      print "${ASSEMBLY[${I}]}"
+                  fi
+                  print "${DRAWING[${I}]}"
+                  print " "
+               fi
+               I=`expr ${I} + 1`
+           fi
+
+         done
+
+       ;;
+
+esac
+
+# Find the last used file on tape by asking for the number of the tape, then   
+# looking in the directory ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}
+# for the highest file name. If the directory tape${TAPENUMBER} not found make
+# the directory and start at file 1. Each file called fileXX is the listing of 
+# what went on tape.
+
+
+GETTAPENUMBER			# Execute function GETTAPENUMBER.
+
+case ${LOWAPPL} in
+    
+  dazix )
+    cd ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}
+    ;;
+
+  cv_database )
+    cd ${RELEASEDIR}/.archived/${LOWAPPL}/${TAPETYPE}/tape${TAPENUMBER}
+    ;;
+
+  * )
+    cd ${RELEASEDIR}/.archived/${LOWAPPL}/tape${TAPENUMBER}
+    ;;
+
+esac
+
+GETLASTFILE		# Execute function GETLASTFILE.
+
+# Print message to make sure proper tape is loaded and wait for any key stroke
+# to continue.
+
+print " "
+print "     MAKE SURE THAT THE PROPER TAPE IS MOUNTED BEFORE CONTINUING...... "
+print " "
+print "     PRESS ANY CHARACTER TO CONTINUE ........ "
+print -n "     CONTINUE > "
+read JUNK
+
+TAPING			# Function that does the actual tape archiving.
+FORMATINDEX		# Function will format the index for each application. 
+REMVDBS			# Function removes database files after archiving.
+PRINTINDEX		# Function will ask if the index is to be printed.
+PRINTFILE		# Function will ask if the file listing are to be printed.
+MAIL			# Function will mail a message as to part archived for 
+			#  applications requiring it.
+CLEANUP			# Function will remove all files created by the program.
+
+print "     PROGRAM FINISHED. "
+print " "
+exit 0

@@ -1,0 +1,105 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+echo "This tool is an interactive front end to IOSTAT(8)"
+/bin/echo -n "CPU, DISK, or TERMINAL I/O? [CDTA]:"
+read TYPE
+/bin/echo -n "Interval (in seconds) :"
+read INTERVAL
+/bin/echo -n "Number of times to spec (n to continue without end) :"
+read COUNT
+echo $SERVERS
+/bin/echo -n "Server to run on? :"
+read TARGET
+if [ "$TARGET" = "`hostname`" ]
+then
+	PREFIX=""
+else
+	PREFIX="rsh $TARGET"
+fi
+case $TYPE in
+c|C*)	ARGS="$ARGS -c"	;;
+d|D*)	/bin/echo -n "Please choose one of:
+
+	A) For  each  disk,  report  the   number   of   kilobytes
+	   transferred  per  second,  the  number of transfers per
+	   second, and the milliseconds per average seek.
+
+	B) For each disk, report the reads per second, writes  per
+	   second, and percentage disk utilization.
+
+	   -> "
+	   read CPUTYPE
+	   case $CPUTYPE in
+	   A|a*) ARGS="$ARGS -d"	;;
+	   B|b*) ARGS="$ARGS -D"	;;
+	   *) ARGS=""	;;
+	   esac 	;;
+t|T*)	ARGS="$ARGS -t"	;;
+*)	ARGS=""
+esac
+if [ "$CPUTYPE" != "" ]
+then
+	FSNAMES="`$PREFIX /etc/mount | grep "/dev" |awk '{print $1}'|sed 's/\/dev\///'|sed 's/[a-z]$//'|sort|uniq`"
+	echo "The following disks are available on $TARGET"
+	echo $FSNAMES
+	/bin/echo -n "Which disk would you like to spec? (a for all): "
+	read SPECNAMES
+	if [ "$SPECNAMES" != "a" ]
+	then
+		if [ "`echo $FSNAMES|grep $SPECNAMES`" = "" ]
+		then
+			echo "Sorry, this disk name is invalid"
+			exit 1
+		else
+			ARGS="$ARGS $SPECNAMES"
+		fi
+	else
+		SPECNAMES=""
+	fi
+fi
+if [ $INTERVAL -gt 0 ]
+then
+	if [ $INTERVAL -gt 120 ]
+	then
+		echo "Interval reset to 5 seconds, $INTERVAL too long."
+		INTERVAL=5
+	fi
+fi
+ARGS="$ARGS $INTERVAL"
+if [ "$COUNT" != "n" ] && [ $COUNT -gt 0 ]
+then
+	if [ $COUNT -gt 1000000 ]
+	then
+		echo "Count reset to 25, $COUNT too long."
+		COUNT=25
+	fi
+elif [ "$COUNT" = "n" ]
+then
+	COUNT=""
+fi
+ARGS="$ARGS $COUNT"
+$PREFIX iostat $ARGS

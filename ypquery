@@ -1,0 +1,16 @@
+#!/bin/ksh
+if [ $# -ne 2 ]
+then
+	echo "USAGE: $0 param mapname"
+	echo "This script will query the NIS maps
+from the other NIS master servers.
+"
+	exit 1
+fi
+PARAM=$1
+MAP=$2
+for SERVER in raven phantom
+do
+	echo "Querying $SERVER..."
+	rsh $SERVER "ypcat $MAP | grep $PARAM "
+done

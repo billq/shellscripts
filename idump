@@ -1,0 +1,28 @@
+#!/bin/ksh
+ANS=Y
+while [ "$ANS" = "Y" ]
+do
+	df|grep dev
+	/bin/echo -n "
+Remember to specify the raw device (i.e. /dev/rsd0a)
+
+Filesystem name? -> "
+	read FS
+	/bin/echo -n "
+Dumphost name? -> "
+	read DUMPHOST
+	DUMPHOST="$DUMPHOST:"
+	/bin/echo -n "
+Remember to specify the non-rewinding device (i.e. /dev/nrst8)
+
+Tape drive name? -> "
+	read TD
+	dump 0ubdsf 126 54000 12000 ${DUMPHOST}${TD} ${FS}
+	/bin/echo -n "
+Another? -> "
+	read ANS
+	case $ANS in
+	y*|Y*)	ANS=Y	;;
+	*)	ANS=N	;;
+	esac
+done

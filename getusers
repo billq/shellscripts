@@ -1,0 +1,19 @@
+#!/bin/ksh
+#
+# getusers - gets the info for the (machine,user,) netgroup
+#
+>/tmp/getusers.out
+>/tmp/getusers2
+for i in $SUNS
+do
+  ping $i 2 >> /tmp/getusers.out 2>&1
+done
+cat /tmp/getusers.out|grep alive|sed 's/ is alive//'>/tmp/uphosts
+for j in `cat /tmp/uphosts`
+do
+  echo $j >> /tmp/getusers2
+  rsh $j "/usr/etc/ac -p"|sed 's/  */:/g'|sort -nr -t: +1|sed '/total/d'|head -1|cut -f1 -d: >> /tmp/getusers2
+done
+cat /tmp/getusers2|sed 's/^	//'>/tmp/getusers
+rm /tmp/getusers2 /tmp/uphosts /tmp/getusers.2 /tmp/getusers.out
+vi /tmp/getusers

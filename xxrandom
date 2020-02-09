@@ -1,0 +1,15 @@
+#!/bin/ksh
+typeset -i SEED MAX
+SEED=`date +%S`
+ls /usr/gif>~/.imagexlist
+MAX=`cat ~/.imagexlist | wc -l`
+while [ SEED -ge MAX ]
+do
+	SEED=SEED/2
+done
+ed ~/.imagexlist >/dev/null 2>&1 << EOF
+${SEED}w .xcurrentimage
+q
+EOF
+cat .xcurrentimage|sed 's/^/\/usr\/gif\//'
+rm .xcurrentimage

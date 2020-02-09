@@ -1,0 +1,14 @@
+#!/bin/ksh
+#		
+#
+typeset -i NUM
+for SUBNET in 117 119
+do
+	for NUM in `ypcat hosts|grep Sun|grep "\.${SUBNET}\."|grep "3/80"|sed 's/\./ /g'|awk '{print $4}'`
+	do
+		echo 131 |nawk '{printf ("%x",$1)}'
+		echo 198 |nawk '{printf ("%x",$1)}'
+		echo ${SUBNET} |nawk '{printf ("%x",$1)}'
+		echo ${NUM} |nawk '{printf ("%x\n",$1)}'
+	done
+done

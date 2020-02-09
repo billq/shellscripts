@@ -1,0 +1,14 @@
+#!/bin/ksh
+ypcat passwd|sed 's/:/	/g'|awk '{printf("%s\t%s\t%s\n",$1,$3,$5)}' > /tmp/passwd.nogroup
+typeset -i NUM
+for i in `cat /tmp/passwd.nogroup|awk '{print $2}'|sort -u`
+do
+	NUM=`cat /tmp/passwd.nogroup|grep "	$i	"|wc -l`
+	if [ $NUM -gt 1 ]
+	then
+		echo "Checking UID $i, $NUM matches found..."
+		cat /tmp/passwd.nogroup|grep "	$i	"
+		/bin/echo -n "Bang return ->"
+		read go
+	fi
+done

@@ -1,0 +1,9 @@
+#!/bin/ksh
+ypcat hosts|sort -n|nawk '{print $2,$1}'|sed 's/\.[0-9]$/\.0&/'|sed 's/\.0\./\.0/' > /tmp/thosts
+cat /tmp/thosts|sed 's/\./ /g'|nawk '{printf "%x%x%x%x\t%s\n",$2,$3,$4,$5,$1}'|tr [a-z] [A-Z] >/tftpboot/hexhosts
+cd /tftpboot
+for i in `ls 8*`
+do
+	grep $i hexhosts >> /tmp/toc
+done
+sort -u /tmp/toc > toc

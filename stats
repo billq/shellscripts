@@ -1,0 +1,6 @@
+#!/bin/ksh
+for HOST in hercules raven yooper trooper chaos solaris2 
+do
+	rsh ${HOST} "~qroot/bin.script/llm" >>${LOGDIR}/performance/llm.out.${HOST} 2>&1 &
+	rsh ${HOST} "~qroot/bin.script/nvm" >>${LOGDIR}/performance/nvm.out.${HOST} 2>&1 &
+done

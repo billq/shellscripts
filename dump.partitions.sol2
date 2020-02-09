@@ -1,0 +1,7 @@
+for c in 0 1 2
+do
+  for t in 0 1 2 3 4
+  do
+    prtvtoc /dev/rdsk/c${c}t${t}d0s0 2>/dev/null |grep -v "^       2"|grep -v "^\*$"|grep -v "[A-Z]"|grep -v "^\*  .*"
+  done
+done

@@ -1,0 +1,148 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+
+GETTAPE () {
+# Make a function here to query a database of hostname <-> tapedevice
+echo "This don't work yet!!"
+TAPE=/dev/nrst0
+TAPE=/dev/nrst1
+TAPE=/dev/nrst8
+TAPE=/dev/nrsmt0
+exit
+}
+
+LOCALHOST="`hostname`"
+
+/bin/echo -n "This utility writes a COMPLETE table of contents
+of a tape.
+
+The file will be called /tmp/toc.$$
+
+Do you want to continue [Y|n] -> "
+read GOFORIT
+GOFORIT=${GOFORIT:-y}
+
+case $GOFORIT in
+y|Y)	/bin/echo -n "Which host is the drive on?
+
+	[$LOCALHOST] -> "
+	read TAPEHOST
+	TAPEHOST=${TAPEHOST:-$LOCALHOST}
+
+	case $TAPEHOST in
+	$LOCALHOST)	REMOTE=""
+		;;
+	ih4*)	REMOTE="rsh $TAPEHOST"
+		;;
+	*)	echo "Sorry, unsupported host, $TAPEHOST"
+		exit 1
+		;;
+	esac
+
+	/bin/echo -n "Which drive?
+
+	1) 1/4 (QIC cartridge)
+	2) 1/2 (reel)
+	3) 8mm (video)
+
+	[3] -> "
+	read TTYPE
+	TTYPE=${TTYPE:-3}
+	GETTAPE $TAPEHOST $TTYPE
+	LOG=/tmp/toc.$$
+	LOG2=/tmp/tapeno.$$
+	END=0
+	typeset -i FILENO TAPENO
+	FILENO=0
+
+	if [ ! -f $LOG2 ]
+	then
+		echo "1" > $LOG2
+		TAPENO=`cat $LOG2`
+	else
+		TAPENO=`cat $LOG2`
+	fi
+
+	/bin/echo -n "Rewind tape? 
+
+	[Y|n] -> "
+	read BOT
+	BOT=${BOT:-y}
+
+	case $BOT in
+	Y*|y*)
+		echo "Tape rewinding..."
+		mt -f $TAPE rew
+		;;
+	*)
+		echo "No rewind..."
+		;;
+	esac
+
+	echo "Table of Contents Tape $TAPENO">>$LOG
+	$REMOTE restore -tvf $TAPE > /dev/null 
+	DUMP=$?
+
+	while [ "$END" = "0" ]
+	do
+
+		if [ "$DUMP" != "0" ]
+		then
+			#tar format
+			$REMOTE mt rew
+			$REMOTE mt fsf $FILENO
+			echo "reading file number $FILENO on tape $TAPENO"
+			echo "tar format">>$LOG
+			$REMOTE tar -tvf $TAPE >> $LOG
+			$REMOTE mt fsf > /dev/null 2>&1
+			END=$?
+			$REMOTE tar -tvf $TAPE > /dev/null 2>&1
+			DUMP=$?
+			END=$DUMP
+		else
+			#dump format
+			$REMOTE mt rew
+			$REMOTE mt fsf $FILENO
+			echo "reading file number $FILENO on tape $TAPENO"
+			echo "dump format" >> $LOG
+			$REMOTE restore -tvf $TAPE >> $LOG
+			$REMOTE mt fsf > /dev/null 2>&1
+			END=$?
+			$REMOTE restore -tvf $TAPE > /dev/null 2>&1
+			DUMP=$?
+			END=$DUMP
+		fi
+		FILENO="FILENO + 1"
+	done
+	OTAPENO=$TAPENO
+	TAPENO="TAPENO + 1"
+	echo $TAPENO>$LOG2
+	$REMOTE mt rewoffl
+	echo "tape $OTAPENO complete and offline"
+	;;
+*)	exit 1	;;
+esac

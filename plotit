@@ -1,0 +1,9 @@
+set title "Switch le-c01 Temperature Plot for 05/13/03"
+set data style linespoints
+set xlabel "HOUR"
+set ylabel "Temperature (F)"
+set notime
+set nolabel
+set output "test.gif"
+plot "dfile.1001" using 1:3,"dfile.1002" using 1:3,"dfile.1003" using 1:3,"dfile.1004" using 1:3
+

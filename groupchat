@@ -1,0 +1,13 @@
+for i in eulogy \
+cygnus \
+sioux \
+java \
+caffeine \
+opus \
+satan \
+rocky \
+cartman
+do
+	rsh -n $i -l root /home/bquayle/bin/speaker &
+done
+mike eulogy -Pcygnus -Psioux -Pjava -Pcaffeine -Popus -Psata -Procky -Pcartman

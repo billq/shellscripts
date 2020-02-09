@@ -1,0 +1,19 @@
+res=$(xrandr|awk '$1 ~ /[0-9][0-9]x[0-9][0-9]/ && $0 ~ /+/ {print $1}')
+for Res in $res
+do
+  echo -n "$Res ? "
+  read yorn
+  case $yorn in
+  ""|Y*|y*)
+    y=$(echo $Res|cut -f2 -dx)
+    x=$(echo $Res|cut -f1 -dx)
+    Y=$((y - 60))
+    res=${x}x${Y}
+    break
+  ;;
+  *)
+    echo ok
+  ;;
+  esac
+done
+rdesktop -z -g $res -r clipboard:PRIMARYCLIPBOARD -u wquayle dx-chwquayle01 &

@@ -1,0 +1,78 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+# To use, add this to your crontab file:
+#	0,30 * * * * /usr/add-on/adm/bin/cuckoo.clock >/dev/null 2>&1
+rdate ih4ehz > /dev/null 2>&1
+PATH=/usr/bin:/usr/demo/bin:.
+SOUNDDIR=/usr/demo/SOUND/sounds
+CHIME=${1:-$SOUNDDIR/drip.au}
+if [ ! -f $CHIME ]
+then
+	if [ ! -f $SOUNDDIR/$CHIME ]
+	then
+		echo "$0: Cannot open '$CHIME'"
+		exit 1
+	fi
+	CHIME=$SOUNDDIR/$CHIME
+fi
+
+# Get hours and minutes all at once to avoid boundary conditions
+#
+DATE=`date +%H:%M`
+HOUR=`echo $DATE | sed -e 's/:.*//'`
+MINUTE=`echo $DATE | sed -e 's/.*://'`
+
+# Correct for near misses
+if [ $MINUTE -gt 55 ]
+then
+	HOUR=`expr $HOUR + 1`
+	MINUTE="0"
+fi
+
+# If the audio device is busy, the play program will exit immediately.
+# Otherwise, the volume will be temporarily reduced, and the chimes sounded.
+#
+if [ $MINUTE -lt 15 ]
+then
+	if [ $HOUR -eq 12 ] || [ $HOUR -eq 17 ] && [ -f $SOUNDDIR/train.au ]
+	then
+		CNT=1
+		CHIME=$SOUNDDIR/whistle.au
+		CHIMES=$CHIME
+	else
+		CNT=`expr \( $HOUR % 12 + 11 \) % 12`
+		CHIMES=$CHIME
+		while [ $CNT != 0 ]; do
+			CHIMES="$CHIMES `echo $CHIME`"
+			CNT=`expr $CNT - 1`
+		done
+	fi
+	play -v 10 -i $CHIMES
+else
+	play -v 10 -i $CHIME
+fi
+exit 0

@@ -1,0 +1,117 @@
+# This script allows a safe method of editing files using the vi editor
+# It backs up the last five revisions of the file 
+# Ensures that no other user is editing the requested file
+# Writes appropriate messages and exits
+
+
+EDITOR=${EDITOR:-vi}
+#
+# bkup is a function that makes the backup copy of the file
+# prior to editing, for disaster recovery.
+#
+bkup ()
+        {
+MFILE=$1
+typeset -i NUM NNUM
+for NUM in 4 3 2 1
+do
+        NNUM="NUM + 1"
+        if [ ${NNUM} -eq 5 ] && [ -f ${MFILE}.${NNUM} ]
+        then
+                mv ${MFILE}.${NNUM} /tmp/${MFILE}.${NNUM}
+        fi
+        if [ -f ${MFILE}.${NUM} ]
+        then
+                mv ${MFILE}.${NUM} ${MFILE}.${NNUM}
+        fi
+done
+cp ${MFILE} ${MFILE}.1
+        }
+  
+#
+# rstr is a function that restores the file(s) to original order
+# if no changes were made.
+#
+rstr ()
+        {
+MFILE=$1
+typeset -i NUM NNUM
+for NUM in 1 2 3 4
+do
+        NNUM="NUM + 1"
+        if [ -f ${MFILE}.${NNUM} ]
+        then
+                mv ${MFILE}.${NNUM} ${MFILE}.${NUM}
+        fi
+        if [ ${NNUM} -eq 5 ] && [ -f /tmp/${MFILE}.${NNUM} ]
+        then
+                mv /tmp/${MFILE}.${NNUM} ${MFILE}.${NUM}
+        fi
+done
+        }
+
+# did we tell safedit which file to edit?
+if [ $# -lt 1 ]
+then 
+  echo "USAGE:  $0 path/filename 
+        Assumes current directory if none is specified"
+  exit 1 
+else
+  MAPS=$*
+fi 
+
+# finds user
+MY_TTY=`tty`
+for NE_USER in `ps -aux|grep $MY_TTY|awk '{print $1}'|grep -v root`
+do
+        I_AM=`ypmatch $NE_USER passwd|cut -f5 -d:|grep -v nogecos`
+done
+if [ "X${I_AM}" = "X" ]
+then
+        I_AM=`ypmatch $LOGNAME passwd|cut -f5 -d:`
+fi
+
+
+# main
+for FILE in $MAPS 
+do 
+  if [ ! -f "$FILE" ]
+  then
+    echo "$FILE not found!"
+    continue
+  fi
+
+  if [ ! -w "$FILE" ] 
+  then
+    echo "$FILE: Permission denied"
+    continue
+  fi
+
+  if [ -f ${FILE}.lck ]
+  then
+    echo "ERROR: $FILE is currently being edited by `cat ${FILE}.lck`."
+    exit 1
+
+
+  else 
+    echo "Locking out $FILE..."
+    echo $I_AM > ${FILE}.lck
+    echo "Backing up $FILE..."
+    bkup $FILE
+
+
+    echo "Editing..."
+    $EDITOR ${FILE}
+
+    diff ${FILE} ${MFILE}.1 1>/dev/null
+    if [ $? -eq 0 ]
+    then
+        echo "No changes to $FILE, reverting backup copies..."
+        rstr $FILE
+    else
+        touch ${FILE}
+    fi
+    echo "Removing lock ..."
+    rm ${FILE}.lck
+  fi
+done          

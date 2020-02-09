@@ -1,0 +1,17 @@
+#!/bin/ksh
+# grab peak load
+#
+while true
+do
+	uptime|rev|cut -f1-3 -d" "|rev|sed 's/,//g' | awk '
+	{ NR == 1 {
+		(pla = $1)
+		(plb = $2)
+		(plc = $3) }
+		}
+	  if ($1 >= pla) {printf ("hi load 1 minute:\t%12s\c", $1) }
+	  if ($2 >= plb) {printf ("hi load 5 minute:\t%12s\c", $2) }
+	  if ($3 >= plc) {printf ("hi load 15 minute:\t%12s\c", $3) }
+	}'
+	sleep 60
+done

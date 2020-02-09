@@ -1,0 +1,345 @@
+#!/bin/ksh
+#
+# @(#) This script was written to read a tar tape to disk and then output it  
+# @(#) onto a new tape. It will ask you some questions about the tape being 
+# @(#) copied. This script will work on 1/2 inch tapes written at 1600 or 6250 
+# @(#) bpi and 8mm tapes written in block size 2048.
+#
+# History
+#
+# 08-19-93  ss ; Created
+#
+
+# Variables used within the program.
+
+DEBUG="no"				# Default setting for debug turned off.
+DENSITY=2048				# Default tape density.
+HOSTNAME=`/usr/bin/hostname`		# Local hostname variable.
+STARTFILE=0				# Default starting file on tape.
+STOPFILE=1				# Default stopping file on tape.
+TAPENUM=0				# Tape number.
+TAPETYPE=""				# Type of tape history or dormant.
+TAPESIZE=""				# Tape size used to queue density for
+					# 1/2 inch tape drive.
+TDRIVE="/dev/nrst1"			# Default tape drive.
+
+USER=`who am i|awk '{print $1}'|awk 'BEGIN{FS="!"}{print $2}'`
+                                        # User name running the program.
+
+USERHOMEDIR=`ypcat passwd|grep ${USER}|awk 'BEGIN{FS=":"}{print $6}'`
+                                        # Finds the home directory of the user
+					# running the program.
+
+if [ ${1} = "debug" ]
+  then
+    DEBUG="yes"
+    print "Debug is turned on."
+fi
+ 
+/usr/ucb/clear
+
+print " "
+print " "
+print "  This program was designed to copy a 1\/2 inch low or high density,"
+print "1\/4 inch, or 8mm tape to a like tape. The program will change to the"
+print "users home directory and make the following directories."
+print " "
+print " "
+
+
+print "What type of tape you are coping. ie: history or dormant."
+print -n "Enter h or d. :"
+read TAPETYPE
+
+while [ ${TAPETYPE} != d -a ${TAPETYPE} != h ]
+ do
+  print ""
+  print "What type of tape you are coping. ie: history or dormant."
+  print -n "Enter h or d. :"
+  read TAPETYPE
+ done
+
+if [ ${TAPETYPE} = d ]
+ then
+  TAPETYPE=dormant
+elif [ ${TAPETYPE} = h ]
+ then
+  TAPETYPE=history
+fi
+
+print ""
+print -n "Enter the tape number of this tape. :"
+read TAPENUM
+
+print ""
+print "Enter the file number in which to start on this tape."
+print -n "Enter 0 for the beginning of the tape. : "
+read STARTFILE
+
+print ""
+print -n "Enter the file number in which to stop on this tape. :"
+read STOPFILE
+
+print ""
+print  "Type of tape your coping:"
+print  " A. 1/2   B. 1/4  C. 8mm "
+print -n "Tape type:"
+read TAPESIZE
+TAPESIZE=`print ${TAPESIZE} |tr a-z A-Z`
+
+while [ ${TAPESIZE} != A -a ${TAPESIZE} != B -a ${TAPESIZE} != C ]
+ do
+  /usr/ucb/clear
+  print ""
+  print  "   Type of tape your coping:"
+  print  "    A. 1/2   B. 1/4  C. 8mm "
+  print -n "   Tape type:" 
+  read TAPESIZE
+ done
+	
+if [ ${TAPESIZE} != C ]
+ then
+  print ""
+  print "  Enter the density of the tape to be written at."
+  print -n "  Enter 1600 or 6250 :"
+  read DENSITY
+fi
+
+if [ ${DENSITY} -eq 6250 ]
+ then 
+  TDRIVE=/dev/nrmt8
+ else
+  if [ ${DENSITY} -eq 1600 ]
+    then
+      TDRIVE=/dev/nrmt0
+    else
+      if [ ${HOSTNAME} != raven ]
+        then 
+          TDRIVE=/dev/nrst1
+        else
+          TDRIVE=/dev/nrst9
+      fi
+  fi
+fi
+
+if [ ${DEBUG} = "yes" ]
+  then
+    print ""
+    print "DENSITY=${DENSITY}"
+    print "HOSTNAME=${HOSTNAME}"
+    print "STARTFILE=${STARTFILE}"
+    print "STOPFILE=${STOPFILE}"
+    print "TAPENUM=${TAPENUM}"
+    print "TAPETYPE=${TAPETYPE}"
+    print "TAPESIZE=${TAPESIZE}"
+    print "TDRIVE=${TDRIVE}"
+    print "USER=${USER}"
+    print "USERHOMEDIR=${USERHOMEDIR}"
+fi
+
+if [ ! -d ${USERHOMEDIR} ]
+  then
+     print ""
+     print "NO HOME DIRECTORY FOUND FOR ${USER}."
+     print "     PROGRAM ABORTED                "
+     exit 10
+  else
+     cd ${USERHOMEDIR}
+     if [ ${DEBUG} = "yes" ]
+       then
+         print ""
+         print "CHANGED TO `pwd` DIRECTORY."
+     fi
+fi
+
+if [ ! -d tapecopy ]
+  then
+    mkdir tapecopy
+    if [ ${DEBUG} = "yes" ]
+      then
+        print ""
+        print "MAKING DIRECTORY tapecopy in the direcotry ${USERHOMEDIR}."
+    fi
+  else
+    if [ ${DEBUG} = "yes" ]
+      then
+        print ""
+        print "DIRECTORY tapecopy already exists in the direcotry ${USERHOMEDIR}."
+    fi
+fi
+
+cd tapecopy
+if [ ${DEBUG} = "yes" ]
+  then
+    print ""
+    print "CHANGING TO DIRECTORY ${USERHOMEDIR}/tapecopy ."
+fi
+
+if [ ! -d tape${TAPENUM} ]
+  then 
+    mkdir tape${TAPENUM}
+    if [ ${DEBUG} = "yes" ]
+      then
+        print ""
+        print -n "MAKING DIRECTORY tape${TAPENUM} in the direcotry "
+        print "${USERHOMEDIR}/tapecopy ."
+    fi   
+  elif [ ${DEBUG} = "yes" ]
+    then
+      print ""
+      print "DIRECTORY tapecopy already exists in the direcotry ${USERHOMEDIR}." 
+fi
+
+cd tape${TAPENUM}
+if [ ${DEBUG} = "yes" ]
+  then 
+    print ""
+    print "CHANGING TO DIRECTORY ${USERHOMEDIR}/tapecopy/tape${TAPENUM} ." 
+fi
+
+I=`print ${STARTFILE}`
+if [ ${DEBUG} = "yes" ]
+  then
+    print "I=${I}"
+    print ""
+fi
+
+mt -f ${TDRIVE} rew
+
+while [ $? -ne 0 ]
+  do
+    print " TAPE DRIVE NOT ON LINE YET. WAITING ....... "
+    sleep 10
+    mt -f ${TDRIVE} rew
+  done
+
+if [ ${DEBUG} = "yes" ]
+  then
+    print ""
+    print "Rewinding tape."
+fi
+
+if [ ${I} -ne 0 ]
+  then
+    print ""
+    print "Positioning tape to file ${STARTFILE}."
+    mt -f /dev/nrst1 fsf `expr ${STARTFILE} - 1`
+  else
+    print ""
+    print "Copy will start with file 1."
+fi
+
+# This section for copying in the tape.
+
+while [ ${I} -le ${STOPFILE} ]
+ do
+
+  if [ ${I} -eq 0 ]
+   then 
+    I=`expr ${I} + 1`
+   elif [ ${I} -ne ${STARTFILE} ]
+      then
+        mt -f ${TDRIVE} fsf 1
+  fi
+
+  if [ ! -d file${I} ]
+   then
+    mkdir file${I}
+  fi
+
+  cd file${I}
+  print ""
+  print "Reading tape file ${I}."
+
+  if [ ${DEBUG} = "yes" ]
+    then
+      tar -xvpbf ${DENSITY} ${TDRIVE}
+    else
+      tar -xpbf ${DENSITY} ${TDRIVE} > /dev/null
+  fi
+
+  if [ $? -ne 0 ]
+   then
+    /usr/ucb/clear
+    print ""
+    print " A tape ERROR has occurred on file $I check the tape and try again."
+    exit 1
+   else
+    I=`expr $I + 1`
+  fi
+  cd ..
+ done
+
+mt -f ${TDRIVE} offline
+if [ ${DEBUG} = "yes" ]
+  then
+    print ""
+    print "Unmount original tape."
+fi
+
+# This section will copy files back out to tape.
+
+print ""
+print "Mount new tape and enter a return."
+read newtape
+
+print ""
+mt -f ${TDRIVE} rew >/dev/null
+while [ $? -ne 0 ]
+  do
+   print "WAITING FOR TAPE DRIVE TO COME ON LINE."
+   sleep 10
+   mt -f ${TDRIVE} rew >/dev/null
+  done
+
+I=`print ${STARTFILE}`
+
+if [ ${I} -ne 0 ]
+  then
+    print "Positioning tape to file ${STARTFILE}."
+  else
+    print "Copy will start with file 1."
+fi
+
+while [ ${I} -le ${STOPFILE} ] 
+ do
+  if [ ${I} -eq 0 ]
+   then 
+    I=`expr ${I} + 1`
+   elif [ ${I} -eq ${STARTFILE} ]
+     then
+       mt -f ${TDRIVE} fsf `expr ${STARTFILE} - 1`
+  fi
+  cd file${I}
+  print "Writing file ${I}."
+  if [ ${TDRIVE} != "/dev/nrst1" -a ${TDRIVE} != "/dev/nrst9" ]
+    then
+      if [ ${DEBUG} = "yes" ]
+        then
+          tar -cvp *
+        else
+          tar -cp * > /dev/null
+      fi
+    elif [ ${DEBUG} = "yes" ]
+      then
+        mt -f ${TDRIVE} status
+        tar -cvpbf ${DENSITY} ${TDRIVE} *
+      else
+        tar -cpbf ${DENSITY} ${TDRIVE} * > /dev/null
+  fi
+  if [ $? -ne 0 ]
+   then
+    print ""
+    print " A tape ERROR has occurred on file $I check the tape and try again."
+    exit 1
+  fi
+  cd ..
+  I=`expr ${I} + 1`
+ done
+
+print "Unloading new tape."
+mt -f /dev/nrst1 offline
+
+print "Removing files created by this program."
+cd ${USERHOMEDIR}
+rm -rf tapecopy

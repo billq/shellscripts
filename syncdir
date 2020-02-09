@@ -1,0 +1,29 @@
+unalias rm >/dev/null 2>&1
+unalias cp >/dev/null 2>&1
+unalias mv >/dev/null 2>&1
+cd $HOME
+echo -n "Source dir to sync from, relative to $HOME: "
+read src
+echo -n "Target dir to sync to, relative to $HOME: "
+read target
+if [ ! -d ./$src ] || [ ! -d ./$target ]
+then
+  echo "no dir $target or $src"
+  exit 1
+else
+  for i in `ls ./$src`
+  do
+    if [ -f "./$target/$i" ]
+    then
+      diff ./$src/$i ./$target/$i > /dev/null 2>&1
+      if [ $? -eq 0 ]
+      then
+        rm ./$src/$i
+      else
+        diff ./$src/$i ./$target/$i | more
+      fi
+    else
+      mv ./$src/$i ./$target/$i
+    fi
+  done
+fi

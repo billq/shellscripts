@@ -1,0 +1,80 @@
+#!/bin/ksh
+#
+# iacp in an interactive - selective remote copy shell
+#
+USAGE="USAGE:`basename $0` [-s source_dir] [-t target_dir] [-h remote_host]"
+LETTERS="a b c d e f g h i j k l m n o p q r s t u v w x y z"
+while getopts s:t:h: i 2>/dev/null
+do
+	case $i in
+	s)     SRC_DIR="$OPTARG"   ;;
+	t)     TGT_DIR="$OPTARG"   ;;
+	h)     TGT_HST="$OPTARG"   ;;
+	\?)    echo "$USAGE"    
+	exit 2          ;;
+	esac
+done
+
+shift `expr $OPTIND - 1`
+
+if [ ! "$SRC_DIR" ]
+then
+	/bin/echo -n "
+Source directory? [full path] "
+	read SRC_DIR
+fi
+if [ ! "$TGT_HST" ]
+then
+	/bin/echo -n "
+Target machine? [hostname] "
+	read TGT_HST
+fi
+if [ ! "$TGT_DIR" ]
+then
+	/bin/echo -n "
+Target directory? [full path] "
+	read TGT_DIR
+fi
+if [ ! -d "$SRC_DIR" ]
+then
+	echo "ERROR: $SRC_DIR does not exist!"
+	exit 1
+else
+	cd $SRC_DIR
+fi
+remote $TGT_HST
+if [ $? -ne 0 ]
+then
+	echo "ERROR: $TGT_HST is not accessible!"
+	exit 1
+else
+	#
+	# This is wierdness, rsh $TGT_HST "test -d $TGT_DIR;echo $?"
+	# should work, but doesn't!!
+	#
+	#STAT=`rsh $TGT_HST "if [ -d $TGT_DIR ] ;then echo 1; else echo 0; fi"`
+	rsh $TGT_HST "ls $TGT_DIR >/dev/null 2>&1"
+	STAT=`rsh $TGT_HST "test -d $TGT_DIR;echo $?"`
+	case $STAT in
+	0)	
+		for LETTER in $LETTERS
+		do
+			ls -FC ${LETTER}*
+			/bin/echo -n "
+Which file? [Blank to end] -> "
+			read FILE
+			while [ "X$FILE" != "X" ]
+			do
+				rcp ${FILE} ${TGT_HST}:${TGT_DIR}/${FILE}
+				rsh ${TGT_HST} "chmod ugo+x ${TGT_DIR}/${FILE}"
+ 			/bin/echo -n "
+Which file? [Blank to end] -> "
+			read FILE
+			done
+		done
+	;;
+	1)	echo "ERROR: $TGT_DIR does not exist on $TGT_HST"
+	exit 1
+	;;
+	esac
+fi

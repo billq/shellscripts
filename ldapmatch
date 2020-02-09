@@ -1,0 +1,197 @@
+#!/bin/bash
+#
+# ldapmatch - make ldap look like ypmatch
+#
+#set -x 
+
+if [ "$USER" = "" ] ;then
+  USER=$(whoami)
+fi
+
+if [ "$USER" = "root" ] ;then
+  echo "$(basename $0) should not be run as root!"
+  exit 1
+fi
+
+USAGE () {
+ echo "USAGE:
+$(basename $0) [-k] key mapname
+  where mapname is one of:
+    passwd, hosts, group, netgroup, services, aliases, auto.home
+  and key is an appropriate string for mapname.
+  i.e.
+    $(basename $0) billq passwd
+    $(basename $0) yooper hosts
+    $(basename $0) -k billq auto.home
+    $(basename $0) unix group"
+ exit 1
+}
+
+BASE=$(awk '$1 == "BASE" {print $2}' /etc/ldap/ldap.conf
+URI=$(awk '$1 == "URI" {print $2}' /etc/ldap/ldap.conf
+
+if [ $1 = "-k" ]; then
+  shift
+  PF=1
+else
+  PF=0
+fi
+
+if [ $# -ne 2 ]; then
+  USAGE
+fi
+
+LDAPSEARCH="ldapsearch -x -W -H $URI -D $BASE"
+
+case $2 in
+passwd)
+  OUT=$($LDAPSEARCH -b ou=people,$BASE cn=$1|gawk -F= '
+$1 ~ /loginShell/ {shell = $2}
+$1 ~ /homeDirectory/ {homedir = $2}
+$1 ~ /gecos/ {gecos = $2}
+$1 ~ /gidNumber/ {gid = $2}
+$1 ~ /userPassword/ {
+  split($2,a,"}")
+  passwd = a[2]}
+$1 ~ /cn/ {cn = $2}
+$1 ~ /uidNumber/ {uid = $2}
+END {
+  printf("%s:%s:%s:%s:%s:%s:%s\n",cn,passwd,uid,gid,gecos,homedir,shell)
+  }')
+;;
+
+hosts)
+  OUT=$($LDAPSEARCH -b ou=hosts,$BASE cn=$1|gawk -F= '
+  BEGIN {
+    i=1
+    }
+  $1 ~ /ipHostNumber/ {ip = $2}
+  $1 ~ /cn/ && $2 !~ /+/ {hostname[i++] = $2}
+  
+  END {
+    i--;
+    printf("%s ",ip);
+    for (x = 1; x <= i; x++) {
+      if (x in hostname) {
+        if (x == i)
+          printf("%s\n",hostname[x])
+        else
+          printf("%s ",hostname[x])
+        }
+      }
+    }')
+;;
+
+aliases)
+  OUT=$($LDAPSEARCH -b ou=aliases,$BASE mail=$1|gawk -F= '
+  BEGIN {
+    i=1
+    }
+  $1 ~ /mail/ && $2 !~ /,/ {alias = $2}
+  $1 ~ /mgrpRFC822MailMember/ {member[i++] = $2}
+  
+  END {
+    i--;
+    for (x = 1; x <= i; x++) {
+      if (x in member) {
+        if (x == i)
+          printf("%s\n",member[x])
+        else
+          printf("%s,",member[x])
+        }
+      }
+    }')
+;;
+
+group)
+  OUT=$($LDAPSEARCH -b ou=group,$BASE cn=$1|gawk -F= '
+BEGIN {
+    i=1
+    }
+
+$1 ~ /memberUid/ {member[i++] = $2}
+$1 ~ /cn/ {group = $2}
+$1 ~ /gid/ {gid = $2}
+
+END {
+  i--;
+  printf("%s::%s:",group,gid);
+  for (x = 1; x <= i; x++) {
+    if (x in member) {
+      if (x == i)
+        printf("%s\n",member[x])
+      else
+        printf("%s,",member[x])
+      }
+    }
+  }')
+;;
+
+netgroup)
+  OUT=$($LDAPSEARCH -b ou=netgroup,$BASE cn=$1|gawk -F= '
+  BEGIN {
+    i=1
+    }
+  $1 ~ /cn/ && $2 !~ /,/ {netgroup = $2}
+  $1 ~ /nisNetgroupTriple/ {member[i++] = $2}
+  $1 ~ /memberNisNetgroup/ {member[i++] = $2}
+  
+  END {
+    i--;
+    for (x = 1; x <= i; x++) {
+      if (x in member) {
+        if (x == i)
+          printf("%s\n",member[x])
+        else
+          printf("%s ",member[x])
+        }
+      }
+    }')
+;;
+
+services)
+  ipServicePort=$(echo $1|cut -f1 -d/)
+  ipServiceProtocol=$(echo $1|cut -f2 -d/)
+  OUT=$($LDAPSEARCH -b ou=services,$BASE ipServicePort=$ipServicePort,ipServiceProtocol=$ipServiceProtocol |gawk -F= '
+  BEGIN {
+    i=1
+    }
+  $1 ~ /cn/ && $2 !~ /+/ {service[i++] = $2}
+  $1 ~ /ipServicePort/ {port = $2}
+  $1 ~ /ipServiceProtocol/ {proto = $2}
+  $1 ~ /description/ {comment = $2}
+  
+  END {
+    i--;
+    for (x = 1; x <= i; x++) {
+      if (x in service) {
+        if (x == 1) {
+          printf("%s %s/%s ",service[1],port,proto)
+          }
+        else {
+          if (x == i)
+            printf("%s # %s\n ",service[x],comment)
+          else
+            printf("%s ",service[x])
+          }
+        }
+      }
+    }')
+;;
+
+auto.home)
+  OUT=$($LDAPSEARCH -b automountmapname=auto_home,$BASE automountKey=$1|gawk -F- '
+  $1 ~ /nisMapEntry/ {printf("-%s\n",$2)}
+  ')
+;;
+
+*)
+  USAGE
+;;
+esac
+
+if (( $PF )); then
+  echo $1 $OUT
+else
+  echo $OUT
+fi

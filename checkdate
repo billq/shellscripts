@@ -1,0 +1,18 @@
+for i in `cat ~bquayle/etc/admin-net|awk '{print $1}'`
+do
+ping $i 2
+if [ $? -eq 0 ]
+then
+	YUP="`rsh $i sun ;echo $? 2>/dev/null`"
+	if [ "$YUP" = "0" ]
+	then
+		THEIRDATE=`rsh $i date +%H%M%S`
+		MYDATE=`date +%H%M%S`
+		if [ "$THEIRDATE" != "$MYDATE" ]
+		then
+			rsh $i rdate python-bk
+		fi
+	fi
+
+fi
+done

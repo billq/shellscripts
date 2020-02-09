@@ -1,0 +1,9 @@
+#!/bin/ksh -f
+
+while test -f /tmp/mail_boms_bld_file
+do
+
+	cat /tmp/mail_boms_bld_file > /dev/null
+	sleep 30
+
+done

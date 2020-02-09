@@ -1,0 +1,199 @@
+#!/bin/ksh
+# This script attempts to sanitize a directory heirarchy managled by Windows
+# scourge on lack of file naming conventions.  It deletes nasty characters
+# from file/directory names, and replaces the space ( ) with an underscore (_).
+# The following characters are removed:
+#    !"#$&'()*/;<>@[]{}^`|
+# Octal values for these are:
+#    \015	\r
+#    \041	!
+#    \042	"
+#    \043	#
+#    \044	$
+#    \046	&
+#    \047	'
+#    \050	(
+#    \051	)
+#    \052	*
+#    \073	;
+#    \074	<
+#    \076	>
+#    \100	@
+#    \133	[
+#    \135	]
+#    \173	{
+#    \175	}
+#    \136	^
+#    \140	`
+#    \174	|
+
+# man ascii
+
+spinner () {
+  N=${N:-0}
+  case $N in
+  0) print "\r| \c"
+     N=1		;;
+  1) print "\r/ \c"
+     N=2		;;
+  2) print "\r- \c"
+     N=3		;;
+  3) print "\r\\ \c"
+     N=0		;;
+  esac
+}
+
+
+#case `uname -s`
+#in
+# Linux)
+# ;;
+# SunOS)
+# ;;
+# *)
+# ;;
+#esac
+
+MYTMP=/tmp/space2_.$$
+mkdir $MYTMP 2>/dev/null
+if [ $? -ne 0 ]
+then
+  print "
+Can't creat tmp dir ${MYTMP}.  This could be for two reasons:
+
+  1. Someone else is using `basename $0` on `hostname`.
+  2. A previous run of `basename $0` was aborted and not cleaned up.
+
+Take the appropriate action, and retry.
+"
+  exit 1
+fi
+
+USAGE="`basename $0` [-i] [-d starting_directory]"
+
+if [ $# -ne 0 ]
+then
+ while getopts id: i 2>/dev/null
+  do
+   case $i in
+   i) INTERACTIVE="1"
+   ;;
+   d) CDIR="$OPTARG"   
+      if [ -d $CDIR ]
+      then
+        DIR=$CDIR
+      fi
+   ;;
+   \?)print "USAGE: $USAGE"
+      exit 2
+   ;;
+   esac
+  done
+  shift `expr $OPTIND - 1`
+else
+  print "Interactive repair? [Y|n] \c"
+  read I
+  case $I in
+  N*|n*)
+    INTERACTIVE=0
+  ;;
+  *)
+    INTERACTIVE=1
+  ;;
+  esac
+fi
+
+if [ -z $DIR ]
+then
+  DIR=/etc/hosts
+  while [ ! -d $DIR ]
+  do
+    print "Starting dir? [$PWD] \c"
+    read SDIR
+    DIR=${SDIR:-$PWD}
+  done
+fi
+
+cd $DIR
+if [ $? -ne 0 ]
+then
+  print "cd to $DIR failed.  Bailing out"
+  exit 1
+fi
+
+RESET=1
+while [ "$RESET" = "1" ]
+do
+  print "Generating directory heirarchy..."
+  find $DIR -type d > $MYTMP/dtoc
+
+  print "done."
+  print "Fixing directory names..."
+  sort $MYTMP/dtoc|while read I
+  do
+    TD=`print "$I"|sed 's,'$DIR',,'`
+    if [ "$TD" != "" ]
+    then
+      BD=`dirname "$TD"`
+      if [ "$BD" = "/" ]
+      then
+        TDIR="$I"
+        #print "TOP DIR is $TDIR"
+        NTDIR=`print "$TDIR"|tr '\040' '_'|tr -d '\015 \173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \100 \046 \052 \136'`
+        if [ "$TDIR" != "$NTDIR" ]
+        then
+          spinner
+          mv "$TDIR" "$NTDIR"
+          if [ $? -ne 0 ]
+          then
+            print "Move of $TDIR to $NTDIR bombed. Restarting."
+            RESET=1
+          fi
+        fi
+      else
+        #print "Sub dir is $I"
+        NSD=`print $I|tr '\040' '_'|tr -d '\015 \173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \100 \046 \052 \136'`
+        if [ "$I" != "$NSD" ]
+        then
+          spinner
+          mv "$I" $NSD
+          if [ $? -ne 0 ]
+          then
+            print "Move of $TDIR to $NTDIR bombed. Restarting."
+            RESET=1
+          fi
+        fi
+      fi
+    fi
+  done
+  RESET=0
+done
+
+
+print "Done with directory cleanup."
+
+print "Generating file working list ...\c"
+find $DIR -type f > $MYTMP/ftoc
+print "done."
+
+print "Fixing file names..."
+sort $MYTMP/ftoc|while read I
+do
+  NEW=`print "${I}"|tr '\040' '_'|tr -d '\015 \173 \175 \076 \074 \140 \042 \047 \050 \051 \133 \135 \041 \043 \073 \174 \044 \100 \046 \052 \136'`
+  
+  if [ "$NEW" != "$I" ]
+  then
+    mv "${I}" ${NEW} 2>/dev/null
+    if [ $? -ne 0 ]
+    then
+      print "The move of $I to $NEW failed.  Bailing out"
+      exit 1
+    fi
+    spinner
+  fi
+
+done
+print "Done with file cleanup."
+
+print "Your $DIR has been cleaned."
+rm -fr $MYTMP

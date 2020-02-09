@@ -1,0 +1,387 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                       billq@technologist.com                                 #
+#                                                                              #
+#  My current employer neither endorses nor declares any responsibility        #
+#  whatsoever in the use or contents of this code.                             #
+#                                                                              #
+#                                                                              #
+#                                                                              #
+################################################################################
+#
+# netedit is a System Admin utility.  A team of admins won't stomp on each other
+# when editing the NIS system files.  Does version archives and generates the
+# DNS db's from the NIS hosts file.  Hack at will.  Many changes need to
+# be made in the variables below.  Also see the dodns procedure for info
+# on supporting files needed for DNS generation.
+#
+
+EDITOR=${EDITOR:-vi}
+NIS_MASTER=yooper
+LOGDIR=/var/adm/log/nislog
+LIBDIR=/var/adm/lib
+DIR=/etc/security
+NAMED_DIR=/var/named
+NET='127.0.'
+SUBNETS='98 116 117'
+DNS_DOMAIN='foo.bar.com'
+NISFILES='bootparams ethers group hosts netgroup networks netmasks aliases auto.apps auto.master auto.db auto.tools auto.direct auto.home auto.project'
+SPEC='passwd'
+#
+# bkup is a function that makes the backup copy of the file
+# prior to editing, for disaster recovery.
+#
+bkup ()
+	{
+MFILE=$1
+typeset -i NUM NNUM
+for NUM in 4 3 2 1
+do
+	NNUM="NUM + 1"
+	if [ ${NNUM} -eq 5 ] && [ -f ${LOGDIR}/${MFILE}.${NNUM} ]
+	then
+		mv ${LOGDIR}/${MFILE}.${NNUM} /tmp/${MFILE}.${NNUM}
+	fi
+	if [ -f ${LOGDIR}/${MFILE}.${NUM} ]
+	then
+		mv ${LOGDIR}/${MFILE}.${NUM} ${LOGDIR}/${MFILE}.${NNUM}
+	fi
+done
+cp ${DIR}/${MFILE} ${LOGDIR}/${MFILE}.1
+	}
+#
+# rstr is a function that restores the file(s) to original order
+# if no changes were made.
+#
+rstr ()
+	{
+MFILE=$1
+typeset -i NUM NNUM
+for NUM in 1 2 3 4
+do
+	NNUM="NUM + 1"
+	if [ -f ${LOGDIR}/${MFILE}.${NNUM} ]
+	then
+		mv ${LOGDIR}/${MFILE}.${NNUM} ${LOGDIR}/${MFILE}.${NUM}
+	fi
+	if [ ${NNUM} -eq 5 ] && [ -f /tmp/${MFILE}.${NNUM} ]
+	then
+		mv /tmp/${MFILE}.${NNUM} ${LOGDIR}/${MFILE}.${NUM}
+	fi
+done
+	}
+#
+# mapupdate is the function responsible for distributing the
+# NIS map to other domains. Use with CAUTION!!
+#
+#mapupdate ()
+#	{
+#MFILE=$1
+#for SERVER in raven
+#do
+#	echo "Updating $SERVER with $MFILE..."
+#	rcp $DIR/$MFILE $SERVER:/etc/$MFILE
+#	rsh $SERVER "cd /var/yp;make"
+#done
+#	}
+#
+
+# dodns is the function responsible for updating the DNS
+#  Requires 3 files present in $LIBDIR/dns
+#   1) named.txt.top - the "top" portion of your named.db file
+#   2) top.rev - the top portion of your reverse db file
+#   3) named.local - your local file in entirety
+#
+# Mine look like:
+#
+# named.txt.top:
+#  <-----snip-----> (but kill the leading # below!
+#; /etc/named.txt
+#;
+#@               IN      SOA     yooper.foo.bar.com. sysadmin.yooper.foo.bar.com. (
+#                                SERIAL_NUMBER     ;serial
+#                                10800          ;refresh
+#                                3600           ;retry
+#                                604800         ;expire
+#                                86400 )        ;minimum
+#		IN	NS	yooper.foo.bar.com.
+#		IN	NS	trooper.foo.bar.com.
+#		IN	NS	racerx.foo.bar.com.
+#		IN	MX	10	yooper.foo.bar.com.
+#localhost	IN	A	127.0.0.1
+#mailhost	IN	CNAME	yooper.foo.bar.com.
+#www		IN	CNAME	order.foo.bar.com.
+#www-dvl		IN	CNAME	control.foo.bar.com.
+#ftp		IN	CNAME	yooper.foo.bar.com.
+#  <-----snip-----> (but kill the leading # above!
+#
+# top.rev:
+#  <-----snip-----> (but kill the leading # below!
+#@	IN      SOA     yooper.foo.bar.com. sysadmin.yooper.foo.bar.com. (
+#                                SERIAL_NUMBER		;serial
+#                                10800            ;refresh
+#                                3600             ;retry
+#                                604800         ;expire
+#                                86400 )        ;minimum
+#                IN      NS      yooper.foo.bar.com.
+#                IN      NS      trooper.foo.bar.com.
+#                IN      NS      racerx.foo.bar.com.
+#  <-----snip-----> (but kill the leading # above!
+#
+# named.local:
+#  <-----snip-----> (but kill the leading # below!
+#;
+#;	Address to hostname mappings
+#;
+#@	IN	SOA	yooper.foo.bar.com.	quayle.yooper.foo.bar.com. ( 
+#			SERIAL_NUMBER     ; Serial
+#			10800    ; Refresh
+#			3600     ; Retry
+#			604800 ; Expire
+#			86400 )  ; Minimum
+#	IN	NS	yooper.foo.bar.com.
+#	IN	NS	trooper.foo.bar.com.
+#        IN      NS      racerx.foo.bar.com.
+#1	IN	PTR	localhost.
+#  <-----snip-----> (but kill the leading # above!
+#
+#
+dodns ()
+	{
+if [ "$DO_DNS" = "0" ]
+then
+  /bin/echo -n "Rebuild the DNS maps? [Y/n] "
+  read MAKEDNS
+  case $MAKEDNS in
+  Y*|y*|"")
+    echo "Generating new DNS files...stand by"
+    if [ -z "$LIBDIR" ]
+    then
+      echo "Sorry, your environment is not set properly"
+      exit 1
+    fi
+    if [ ! -d "${LIBDIR}/dns" ]
+    then
+      echo "Sorry, ${LIBDIR}/dns seems to be missing, bummer."
+      exit 1
+    fi
+    typeset -i NEXT
+    #
+    # get the next serial number
+    # (sure wish sysV date +%Y worked...)
+    #
+    DATE="19`date +%y%m%d`"
+    TODAY=`cat ${LIBDIR}/dns/today`
+    if [ "$DATE" != "$TODAY" ]
+    then
+	TODAY=$DATE
+	echo $TODAY > ${LIBDIR}/dns/today
+    	NEXT=1
+    else
+    	NEXT=`cat ${LIBDIR}/dns/next_serial`
+    fi
+    if [ $NEXT -le 9 ]
+    then
+        INC="0${NEXT}"
+    fi
+    #
+    # now gen the full number
+    #
+    SERIAL="${TODAY}${INC}"
+    #
+    # now fix up SERIAL_NUMBER for next time
+    #
+    NEXT="NEXT + 1"
+    echo $NEXT > ${LIBDIR}/dns/next_serial
+    #
+    #
+    # clear out the tmp.txt file
+    #
+    >${LIBDIR}/dns/tmp.txt
+    #
+    # now, for each subnet...
+    #
+    for SUBNET in $SUBNETS
+    do
+      /usr/5bin/echo "Subnet $SUBNET     \r\c"
+      #
+      # get the lines out of the hosts file
+      #
+      ypcat hosts|grep "$NET\.$SUBNET\." > ${LIBDIR}/dns/hosts.$SUBNET
+      #
+      # make the header for the rev file
+      #
+      cat ${LIBDIR}/dns/top.rev| sed s/SUBNET/$SUBNET/ | sed s/SERIAL_NUMBER/$SERIAL/ > ${LIBDIR}/dns/$SUBNET.rev
+      #
+      # then tack the hosts onto it
+      #
+      cat ${LIBDIR}/dns/hosts.$SUBNET|sed 's/\./ /g'|awk '{printf "%s\tIN\tPTR\t%s.$DNS_DOMAIN.\n", $4,$5}'|sort -n >> /${LIBDIR}/dns/${SUBNET}.rev
+      #
+      # install the new .rev file in $NAMED_DIR
+      #
+      cp ${LIBDIR}/dns/${SUBNET}.rev $NAMED_DIR
+      #
+      # pop the proper portion into a holding area for the .txt file
+      #
+      cat ${LIBDIR}/dns/hosts.$SUBNET|awk '{printf "%s\t\tIN\tA\t%s\n", $2,$1}'|sort >> /${LIBDIR}/dns/tmp.txt
+      #
+      # now get rid of what we don't need
+      #
+      rm ${LIBDIR}/dns/${SUBNET}.rev ${LIBDIR}/dns/hosts.$SUBNET
+    done
+    /usr/5bin/echo "Rev files built for all subnets"
+    /usr/5bin/echo "Doing the txt file...\c"
+    #
+    # make the header for the txt file
+    #
+    cat ${LIBDIR}/dns/named.txt.top|sed s/SERIAL_NUMBER/$SERIAL/ > ${LIBDIR}/dns/named.txt
+    #
+    # now make the sorted .txt file
+    #
+    cat ${LIBDIR}/dns/tmp.txt | sort >> ${LIBDIR}/dns/named.txt
+    #
+    # and install it
+    #
+    cp ${LIBDIR}/dns/named.txt $NAMED_DIR/named.txt
+    /usr/5bin/echo "done."
+    #
+    # update the SERIAL on the local file
+    #
+    /usr/5bin/echo "Updating the local file...\c"
+    cat ${LIBDIR}/dns/named.local|sed s/SERIAL_NUMBER/$SERIAL/ > ${NAMED_DIR}/named.local
+    /usr/5bin/echo "done."
+    #
+    # now get rid of what we don't need
+    #
+    rm ${LIBDIR}/dns/named.txt ${LIBDIR}/dns/tmp.txt
+    #
+    # reinitialize in.named
+    #
+    NPID=`ps -aux|grep in.named|sed '/grep/d'|awk '{print $2}`
+    kill -1 $NPID
+    echo "Restarted in.named"
+  ;;
+  *)  echo "No DNS update done..."
+  ;;
+  esac
+fi
+	}
+#
+# Start of Main
+#
+
+#
+# Are we on the master NIS server?
+#
+if [ "`hostname`" != "$NIS_MASTER" ]
+then
+  echo "$0 must be run on $NIS_MASTER!"
+  exit 1
+fi
+
+#
+#-are we root?
+#
+touch /.touchfile >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+  echo "$0 must be run as root!"
+  exit 1
+else
+  rm /.touchfile
+fi
+
+#
+#-did we tell netedit which files we want to edit?
+#
+if [ $# -lt 1 ]
+then
+  echo "USAGE: $0 filename (filename...)
+   Where filename is the name of an existing NIS master file."
+  exit 1
+else
+  MAPS=$*
+fi
+MY_TTY=`tty`
+for NE_USER in `ps -aux|grep $MY_TTY|awk '{print $1}'|grep -v root`
+do
+	I_AM=`ypmatch $NE_USER passwd|cut -f5 -d:|grep -v nogecos`
+done
+if [ "X${I_AM}" = "X" ]
+then
+	I_AM=`ypmatch $LOGNAME passwd|cut -f5 -d:`
+fi
+for FILE in $MAPS
+do
+  if [ "$FILE" = "hosts" ]
+  then
+    DO_DNS=0
+  fi
+  if [ ! -f ${DIR}/${FILE} ] && [ ! -f ${DIR}/${FILE}.lck ]
+  then
+    echo "ERROR: $FILE is not an existing NIS master file."
+    MAPS=`echo $MAPS|sed s/${FILE}//`
+    continue
+  elif [ -f ${DIR}/${FILE}.lck ]
+  then
+    echo "ERROR: $FILE is currently being edited by `cat ${DIR}/${FILE}.lck`."
+    exit 1
+  else  
+    echo "Locking out $FILE..."
+    echo $I_AM > ${DIR}/${FILE}.lck
+    echo "Backing up $FILE..."
+    bkup $FILE
+    echo "Editing..."
+    $EDITOR ${DIR}/${FILE}
+    diff ${DIR}/${FILE} ${LOGDIR}/${MFILE}.1 1>/dev/null
+    if [ $? -eq 0 ]
+    then
+	CHG_FLAG=0
+	echo "No changes to $FILE, reverting to backup copies..."
+	rstr $FILE
+    else
+	CHG_FLAG=1
+	touch ${DIR}/${FILE}
+    fi
+    echo "Removing lock ..."
+    rm ${DIR}/${FILE}.lck
+  fi
+done
+
+if [ "$CHG_FLAG" = "1" ]
+then
+	/bin/echo -n "Do the make on the NIS map(s)? [Y/n] "
+	read MAKEYP
+	case $MAKEYP in
+	Y*|y*|"")
+  		cd /var/yp
+  		make
+		dodns
+	;;
+	*)
+  		echo "No NIS make done..."
+	;;
+	esac
+fi
+exit 0

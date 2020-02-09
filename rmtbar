@@ -1,0 +1,481 @@
+#!/bin/ksh
+#
+
+ME=`/bin/hostname`
+TAPE_MASTER=$ME
+LIB=/usr/add-on/rtools/lib/floppies
+	
+if [ $# != 0 ]
+then
+	echo "
+------------------------------------------------------------------
+	rmtbar is an interactive script for reading and
+	writting bar tapes (or floppies) over the network.
+
+	No options required, thank you.
+"
+fi
+
+HAVEATIT="NO"
+
+while [ "$HAVEATIT" = "NO" ]
+do
+	echo "
+
+------------------------------------------------------------------
+  RMTBAR writes or reads a bar tape or floppy mounted on a remote host.
+
+	NOTE: The media is on the \"remote\" host.  You should
+	      rlogin to wherever the files are pysically located.
+
+  Usage is interactive.  All defaults are in square brackets.
+------------------------------------------------------------------
+
+"
+	PROCEED="NO"
+
+	while [ "$PROCEED" = "NO" ]
+	do
+		/bin/echo -n "
+------------------------------------------------------------------
+Do you want to Read, Write, see the Table of contents, or Quit?
+
+(r/w/t/q) -> "
+		read OPERATION
+
+		case $OPERATION in
+		r*|R*)	OPERATION="read"
+			PROCEED="YES"
+		;;
+		w*|W*)	OPERATION="write"
+			PROCEED="YES"
+		;;
+		t*|T*)	OPERATION="contents"
+			PROCEED="YES"
+		;;
+		q*|Q*)	echo "Bye!"
+			exit 1
+		;;
+		*)	PROCEED="NO"
+			echo "Operation not understood"
+		;;
+		esac
+
+	done
+
+	PROCEED="NO"
+
+	while [ "$PROCEED" = "NO" ]
+	do
+		/bin/echo -n "
+------------------------------------------------------------------
+Which machine is the remote host? 
+
+[$TAPE_MASTER]  -> "
+		read RMTHOST
+
+		if [ "$RMTHOST" = "" ]
+		then
+			RMTHOST=$TAPE_MASTER
+		fi
+
+		ping $RMTHOST 2 >/dev/null
+
+		if [ $? = 0 ]
+		then
+			PROCEED=YES
+		else
+			PROCEED=NO
+			echo "remote host unsupported, or does not respond"
+		fi
+
+	done
+
+	if [ "$ME" = "$RMTHOST" ]
+	then
+		PREFIX=""
+	else
+		PREFIX="rsh $RMTHOST"
+	fi
+
+	$PREFIX /bin/true >/dev/null 2>&1
+	CANT_REACH=$?
+
+	if [ "$CANT_REACH" != "0" ]
+	then
+		echo "ERROR:$0:Remote execution denied on $RMTHOST"
+		echo "Please make sure you have a .rhosts file in your"
+		echo "home directory.  For an example of a .rhosts file,"
+		echo "see ~rtools/lib/examples/sample.rhosts"
+		exit 1
+	fi
+
+	TAPETYPE=`cat $LIB|grep "$RMTHOST	"|cut -f3 -d'	'`
+	typeset NUM
+	NUM=`echo $TAPETYPE|wc -w`
+
+	if [ $NUM -gt 1 ]
+	then
+
+		if [ "`echo $TAPETYPE|grep REEL`" != "" ]
+		then
+
+			SPEWLINE="
+        c: 1/4 inch Data Cartridge
+        v: 2.2 Gbyte 8mm Video Cartridge
+        m: 1/2 inch Mag Tape Reel"
+
+		else
+
+			SPEWLINE="
+        c: 1/4 inch Data Cartridge
+        v: 2.2 Gbyte 8mm Video Cartridge"
+
+		fi
+
+		GOFORIT="NO"
+
+		while [ "$GOFORIT" = "NO" ]
+		do
+			/bin/echo -n "
+------------------------------------------------------------------
+$RMTHOST supports the following devices:
+$SPEWLINE
+
+Which device will you be using?
+	
+		-> "
+			read CHOICE
+
+			case $CHOICE in
+			c)	TAPEDRIVE=`cat $LIB|grep "$RMTHOST	"|grep $CART|cut -f2 -d"	"`
+				GOFORIT=YES
+			;;
+			v)	TAPEDRIVE=`cat $LIB|grep "$RMTHOST	"|grep $8mm|cut -f2 -d"	"`
+				GOFORIT=YES
+			;;
+			m)	TAPEDRIVE=`cat $LIB|grep "$RMTHOST	"|grep $REEL|cut -f2 -d"	"`
+				GOFORIT=YES
+			;;
+			esac
+
+		done
+	else
+
+		CHOICE=f
+		TAPEDRIVE=rfd0
+
+	fi
+	
+	if [ "$OPERATION" = "write" ] 
+	then
+
+	PROCEED="NO"
+
+		while [ "$PROCEED" = "NO" ]
+		do
+			/bin/echo -n "
+------------------------------------------------------------------
+What is the blocking factor?
+
+	* The \"blocking factor\" is based on 512 byte blocks.
+	* If the tape is destined for System V environment, specify
+	* 20 (the maximum), if it's going to/coming from a Sun or
+	* BSD environment, specify 126 (the optimum).
+
+	[126] -> "
+			read BLKING
+
+			case $BLKING in
+			""|126) BLKING="126"
+				PROCEED="YES"
+			;;
+			*)	BLKING=$BLKING
+				PROCEED="YES"
+			;;
+			esac
+
+		done
+
+	fi
+
+	if [ "$OPERATION" = "read" ] 
+	then
+		/bin/echo -n "
+------------------------------------------------------------------
+What is the destination directory? (full or relative path)
+
+	[.]  -> "
+		read DESTINATION
+
+		case $DESTINATION in
+		""|".") DESTINATION="."
+		;;
+		*)	DESTINATION="$DESTINATION"
+		;;
+		esac
+
+	elif [ "$OPERATION" = "contents" ]
+	then
+		CONFLICT=yes
+
+		while [ "$CONFLICT" = "yes" ]
+		do
+			/bin/echo -n "
+------------------------------------------------------------------
+Please give the table of contents file a home...full path and include
+what the file should be named.
+
+	ex: /b2/foobar/rje/toc.tape1
+
+	-> "
+			read DESTINATION
+			DESTDIR=`dirname $DESTINATION`
+			DESTFILE=`basename $DESTINATION`
+
+			if [ -f "$DESTINATION" ] || [ ! -d "$DESTDIR" ]
+			then
+				CONFLICT=yes
+				echo "
+!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
+OOPS!  Either $DESTDIR doesn't exist, or you've already got a file by
+the name of $DESTFILE living there... Reconsider, and ...
+!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-"
+			else
+				CONFLICT=nope
+			fi
+
+		done
+
+	else
+
+		/bin/echo -n "
+------------------------------------------------------------------
+What is the file or directory to write? 
+
+[*]
+	     -> "
+		read SOURCE
+		SOURCE="${SOURCE:-*}"
+		cd `dirname $SOURCE`
+
+		if [ "$1" = "-d" ]
+		then
+			echo `pwd`
+			echo `dirname $SOURCE` "= dirname $SOURCE"
+			echo `basename $SOURCE` "= basename $SOURCE"
+			SOURCE=`echo $SOURCE|sed 's/\/$//'`
+			echo $SOURCE
+			SOURCE=`basename $SOURCE`
+			echo $SOURCE
+		fi
+
+		if [ "`basename $SOURCE`" = "" ]
+		then
+			SOURCE=`echo $SOURCE|sed 's/\/$//'`
+			SOURCE=`basename $SOURCE`
+		elif [ "$SOURCE" != "*" ]
+		then
+			SOURCE=`basename $SOURCE`
+		fi
+
+		PROCEED=NO
+
+		while [ "$PROCEED" = "NO" ]
+		do
+			/bin/echo -n "
+------------------------------------------------------------------
+Shall we follow symbolic links? (y/n)
+
+	   [y]  -> "
+			read LINK
+
+			case $LINK in
+			""|y*) 	OPTIONS=chvfb
+				PROCEED=YES
+			;;
+			n*)	OPTIONS=cvfb
+				PROCEED=YES
+			;;
+			esac
+
+		done
+
+		PROCEED=NO
+
+		while [ "$PROCEED" = "NO" ]
+		do
+			/bin/echo -n "
+------------------------------------------------------------------
+Shall we exclude core, *.o, SCCS, errs, and a.out? (y/n)
+
+	   [y]  -> "
+			read EXCLUDE
+
+			case $EXCLUDE in
+			""|y*) 	OPTIONS=${OPTIONS}FF
+				PROCEED=YES
+			;;
+			n*)	OPTIONS=$OPTIONS
+				PROCEED=YES
+			;;
+			esac
+
+		done
+
+	fi
+
+if [ "$CHOICE" != "f" ]
+then
+	FREE=no
+
+	while [ "$FREE" = "no" ]
+	do
+		echo "
+------------------------------------------------------------------
+Testing availability of the drive...
+"
+		$PREFIX mt -f /dev/${TAPEDRIVE} status 2>/dev/null
+		echo "
+------------------------------------------------------------------
+If the above status line indicates the drive is currently in use,
+please type n at the following prompt.  You may pause at this point
+to wait for the current user to finish using the tape drive.
+"
+		/bin/echo -n "
+------------------------------------------------------------------
+Is the drive available?
+	   [y]  -> "
+		read FREE
+
+		case $FREE in
+		n*)	FREE=no
+		;;
+		""|y*)	FREE=yes
+		;;
+		*)	echo "Reply not understood"
+			FREE=no
+		;;
+		esac
+	done
+elif [ "$OPERATION" = "write" ]
+then
+	/bin/echo -n "
+------------------------------------------------------------------
+Is the target floppy formatted? (y/n)
+	  [n] -> "
+	read FORMAT
+	case $FORMAT in
+	""|n*)	echo "Formatting floppy"
+		$PREFIX /usr/add-on/rtools/bin/fdmount -bh
+	;;
+	*)	echo "Floppy assumed formatted."
+	;;
+	esac
+fi
+	echo "
+------------------------------------------------------------------
+O.K. to execute the following? 
+	      "
+
+	case $OPERATION in
+	r*) CMD="cd $DESTINATION;$PREFIX dd if=/dev/${TAPEDRIVE}  | bar -xpvBf - "
+		echo $CMD
+	;;
+	w*) CMD="bar -$OPTIONS - $BLKING "$SOURCE" | $PREFIX dd of=/dev/${TAPEDRIVE} obs=${BLKING}b"
+		echo $CMD
+	;;
+	c*) CMD="cd $DESTDIR;$PREFIX dd if=/dev/${TAPEDRIVE} | bar -tvf - >>$DESTFILE"
+		echo $CMD
+	;;
+	esac
+
+	/bin/echo -n "
+	[Yes!] -> "
+	read GOFORIT
+
+	case $GOFORIT in
+	""|y*) 	echo "executing..."
+		echo $CMD |/bin/sh
+		echo "done."
+
+		if [ "$?" != "0" ]
+		then
+			echo "This seems to have failed...we'll try again..."
+			HAVEATIT="NO"
+		else
+
+			if [ "$CHOICE" != "f" ]
+			then
+
+			case $OPERATION in
+			write)	/bin/echo -n "
+------------------------------------------------------------------
+Do you have more files to write to the same tape? (y/n)
+				-> "
+				read MOREFILES
+
+				case $MOREFILES in
+				y*)	HAVEATIT="NO"
+				;;
+				n*)	HAVEATIT="YES"
+					/bin/echo -n "Tape rewinding, stand by ..."
+					$PREFIX mt -f /dev/${TAPEDRIVE} rew
+					echo "done. 
+
+Thanks for using rmtbar.  Report bugs to ihlpm!billq"
+				;;
+				*)	HAVEATIT="YES"
+					echo "Reply not understood. Exiting."
+					/bin/echo -n "Tape rewinding, stand by ..."
+					$PREFIX mt -f /dev/${TAPEDRIVE} rew
+					echo "done. 
+
+Thanks for using rmtbar.  Report bugs to ihlpa!billq"
+				;;
+				esac
+
+			;;
+			read)
+				/bin/echo -n "
+Do you have more files to read from the same tape? (y/n)
+				-> "
+				read MOREFILES
+
+				case $MOREFILES in
+				y*)	HAVEATIT="NO"
+					/bin/echo -n "Forwarding the tape to the next file,
+stand by ..."
+					$PREFIX mt -f /dev/${TAPEDRIVE} fsf 1
+					echo "done."
+				;;
+				n*)	HAVEATIT="YES"
+					/bin/echo -n "Tape rewinding, stand by ..."
+					$PREFIX mt -f /dev/${TAPEDRIVE} rew
+					echo "done. 
+
+Thanks for using rmtbar.  Report bugs to ihlpm!billq"
+				;;
+				*)	HAVEATIT="YES"
+					echo "Reply not understood. Exiting."
+					/bin/echo -n "Tape rewinding, stand by ..."
+					$PREFIX mt -f /dev/${TAPEDRIVE} rew
+					echo "done. 
+
+Thanks for using rmtbar.  Report bugs to ihlpm!billq"
+				;;
+				esac
+
+			;;
+			esac
+
+			fi
+
+		fi
+
+	;;
+	*)	echo "Restarting..."
+		HAVEATIT="NO"
+	;;
+	esac
+done

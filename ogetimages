@@ -1,0 +1,69 @@
+#!/bin/csh -f
+#  A shell script to make connection with the gif site, and transfer all 
+#  pictures for the current day, then convert them to the fast type
+#  xloadimage files, and merge them with a outline of the states.
+#  Original code written in 2 C programs, rewritten as a shell
+#  script by James Jegers 7/29/92
+
+# set this to some display that is B&W, color'd ones mess it up.
+# ARE WE KIDDING>!>!>!>
+# setenv DISPLAY e774-xt3:0
+
+set mapsdir = "/usr/people/billq/lib/X11/xweath/maps"
+set convertdir = $mapsdir/converts
+set usaoutline = $mapsdir/usaoutline
+set midwestoutline = $mapsdir/midwestoutline
+set usaslides = "usaslides"
+set midwestslides  = "midwestslides"
+set xli = /usr/people/billq/bin.SunOS/xli
+set noglob
+
+#  We actually want the -u option which gets the GMT time files.
+#  Since that is how they are stored there. 
+
+set date = `date -u +%m%d`
+#set date = `date +%m%d`
+set get = "*v$date*.gif"
+
+echo Getting $get
+cd $mapsdir
+
+ftp -n vmd.cso.uiuc.edu << EOF
+user anonymous
+cd wx
+binary
+prompt
+case
+mget $get
+quit
+EOF
+
+noftp:
+unset noglob
+foreach file ($get)
+	echo Converting file $file
+
+	#$xli -quiet -dither -savebin $file $convertdir/$file{.usa}
+  $xli -quiet -dither -clip 250,0,200,200 -zoom 300 -savebin \
+	     $file $convertdir/$file{.midwest}
+
+echo Done converting
+# Merge an outline of the states
+ 	#xmerge $convertdir/$file{.usa} $usaoutline
+  	#xmerge $convertdir/$file{.midwest} $midwestoutline
+end
+
+#  remove all the old pictures
+noconvert:
+echo Cleaning up
+unset noglob
+cd $mapsdir
+find . -name 'cv*.gif' -mtime +1 -exec rm -f {} \;
+
+cd $convertdir
+find . -name 'cv*.gif*' -mtime +1 -exec rm -f {} \;
+
+cd $convertdir
+ls -1 *.usa > $usaslides
+ls -1 *.midwest > $midwestslides
+

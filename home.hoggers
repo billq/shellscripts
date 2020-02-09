@@ -1,0 +1,33 @@
+#!/bin/ksh
+if [ `hostname` != "chaos" ]
+then
+	exit 1
+fi
+/bin/echo -n "
+
+------------------------------------------------------------------------------
+			CHAOS home disk report
+
+This report is generated every Sunday at 2:00 AM via the home.hoggers
+cronjob on chaos.
+------------------------------------------------------------------------------
+
+This report is current as of " > /tmp/home.hoggers
+date >> /tmp/home.hoggers
+for i in 1 2 3 4 5 6 7 8 9
+do
+echo "
+-----------------------------------------
+Filesystem /export/home/c${i}
+Top 10 disk usage
+-----------------------------------------
+" >> /tmp/home.hoggers
+cd /export/home/c${i}
+du -s *|sort -n|tail -10 >> /tmp/home.hoggers
+echo "
+-----------------------------------------
+" >> /tmp/home.hoggers
+done
+mail -s "Home directory hog report" root < /tmp/home.hoggers
+rm /tmp/home.hoggers
+

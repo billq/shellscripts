@@ -1,0 +1,55 @@
+#!/bin/ksh
+# This shell polls the list of $SUNS and checks for stale NFS mounts.
+# Then unmounts them and remounts to free the STALE condition.
+# A message is mailed to root and an announcement is made to MASTER machine
+# via /dev/audio if it exists.
+# This script is dependant on proper audio files installed in ~troot/lib/sounds.
+# This script should be run once per day.  Something like:
+# 0 9 * * * /usr/add-on/adm/bin/findstalenfs >/dev/null 2>&1
+PATH=/bin:/usr/lbin:/usr/add-on/local/bin:/usr/add-on/rtools/bin:/usr/etc:$PATH
+HOSTNAME=`hostname`
+DATE=`date +%h%d%y`
+LOG=`logdir troot`/log/stalenfs
+RECORD=${LOG}/stalenfslog
+SOUNDIR=`logdir troot`/lib/sounds
+HZ="`ypmatch hz_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+HW="`ypmatch hw_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+PD="`ypmatch epd_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+SH="`ypmatch sh_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+ELAB="`ypmatch elab_net netgroup|sed 's/(//'|sed 's/,,) (/ /g'|sed 's/,,)/ /'`"
+SUNS="$HZ $HW $PD $SH $ELAB"
+
+if [ ! -d $LOG ]
+then
+  mkdir $LOG
+  if [ $? -ne 0 ]
+  then
+    Mail -s "Can't creat log for $0" root < /dev/null
+    exit 1
+  fi
+fi
+for i in $SUNS
+do
+  ping $i 2
+  if [ $? = 0 ]
+  then
+    STALE="`rsh -n $i df 2>&1 | grep Stale|cut -f1 -d:`"
+    if [ "$STALE" != "" ]
+    then
+      FLAG=1
+      echo "${STALE} is stale on ${i}.  Unmounting..." >> $RECORD
+      rsh $i "/usr/etc/umount -v $STALE" >> $RECORD 2>&1
+      echo "Remounting ${STALE} on ${i}..." >> $RECORD
+      rsh $i "/usr/etc/mount -v $STALE" >> $RECORD 2>&1
+    fi
+  fi
+done
+if [ "$FLAG" = "1" ]
+then
+  if [ -c /dev/audio ]
+  then
+    cat ${SOUNDIR}/stale.au > /dev/audio
+  fi
+  Mail -s "STALE NFS filehandles found on $DATE" root < $RECORD
+  rm $RECORD
+fi

@@ -1,0 +1,159 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+PATH=/usr/5bin:$PATH
+WELCOME ()
+{
+echo "
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++		      unsqueeze                         +
+---------------------------------------------------------
++ unsqueeze can be used interactively, or with command- +
++ line options.  Interactively, you will be prompted    +
++ for a source and a target.  The source should be a    +
++ file that has been created with the squeeze command   +
++ The target can be any legal UNIX directory or a C/R   +
++ to extract the file to the current working directory. +
++ If a directory name is given, it is assumed to be in  +
++ in the current working directory.  If it doesn't ex-  +
++ ist, the directory will be made.  If it does exist,   +
++ I'll make sure that's really where you want to put    +
++ things.                                               +
++ To use unsqueeze with command line options, type in:  +
++                                                       +
++    unsqueeze -ssource [-ttarget]                      +
++                                                       +
++ where source and target are as explained above.       +
++                                                       +
++ comments on unsqueeze should be forwarded to:		+
++		W. R. Quayle				+
++		ihlpm!billq				+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+       HIT C/R TO CONTINUE INTERACTIVELY"
+read JUNK
+}
+
+GETNAMES ()
+{
+source=BOGUS.PLACE.HOLDER
+if [ -f *.Z ]
+then
+	echo "The following are possibly the files generated with squeeze in
+the pwd:
+"
+	ls -FC *.Z
+fi
+until [ -f $source ]
+do
+	/bin/echo -n "
+	What is the name of the squeezed file to be extracted? "
+	read source
+	if [ ! -f $source ]
+	then
+		echo "$source? I can't find $source...try again."
+	fi
+done
+echo
+/bin/echo -n "What is the name of the target directory? [C/R for pwd]"
+echo
+read target
+target=${target:-.}
+if [ -d "$target" ]
+then
+	echo "$target already exists.
+	Did you really want to possibly overwrite the contents of $target? [Y|n]\c"
+	read GOFORIT
+	case $GOFORIT in
+	n*|N*) 	echo "No extraction done, exiting..."
+		RERUN=0
+		exit 1
+		;;
+	*)
+		;;
+	esac
+else
+	mkdir $target
+	mv $source $target/
+fi
+echo "Your output will be in $target  This will be a untarred/uncompressed
+version of whatever $source now is."
+}
+
+RERUN=1
+if [ $# = 0 ]
+then
+WELCOME
+GETNAMES
+else
+	set -- `getopt s:t: $*`
+	if [ $? != 0 ]
+	then
+		echo $WELCOME
+		GETNAMES
+	fi
+	for i in $*
+	do
+		case $i in 
+		-s)	source=$2; shift; shift;
+			;;
+		-t)	target=$2; shift; shift;
+			;;
+		--)	shift; break
+			;;
+		esac
+	done
+fi
+while [ "$RERUN" != "0" ]
+do
+	echo "Working ..."
+	cd $target
+	cat $source|uncompress|tar -xvf -
+	echo "
+		Done.
+"
+	/bin/echo -n "Can we now remove $source? [Y|n]"
+	read REMOVE
+	case $REMOVE in
+		""|y*|Y*)	rm -fr $source
+				echo "$source removed."
+			;;
+		*)	echo "O.K., $source remains, but please remove it
+or write it to tape, to save disk space."
+			;;
+	esac
+	cd ..
+	RERUN=1
+	/bin/echo -n "Shall we uncompress some more? [Y/n]"
+	read RERUN
+	case $RERUN in
+		""|y*|Y*)	clear
+			RERUN=1
+			GETNAMES
+			;;
+		*)	RERUN=0
+			;;
+	esac
+done

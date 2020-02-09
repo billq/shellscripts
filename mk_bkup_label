@@ -1,0 +1,99 @@
+#! /bin/ksh
+
+label_dir="/usr/local/lib/postscript"
+label_name="8mm_label.ps"
+tmp_dir="/tmp"
+dump_list_info="${tmp_dir}/sys_dump_lists"
+date_info=`/usr/bin/date '+%y-%m-%d'`
+bkup_exclude="/etc/dump_excludes"
+
+typeset -i max_rec=59
+typeset -i week=`/usr/local/bin/date '+%U'`
+typeset -RZ2 day=`/usr/bin/date '+%w'`
+typeset -RZ2 cnt=0
+
+hostname=`/usr/bin/hostname`
+
+case ${hostname} in
+	cetus)
+		sys_list="cetus bootes"
+		printer="np1"
+	;;
+	blkbird)
+		sys_list="blkbird"
+		printer="np0"
+	;;
+esac
+
+if (( day >= 1 ))
+then
+	let day=day-1
+fi
+
+if (( week%2 != 1 ))
+then
+	let day=day+5
+fi
+
+rm -rf ${dump_list_info}
+
+for sys in ${sys_list}
+do
+rsh ${sys} df \
+	| grep '^/dev/' \
+	| colrm 1 5 \
+	| sort -d \
+	| awk '{printf("'${sys}' %s %s '${date_info}'\n", $1,$6)}' \
+	>> ${dump_list_info}
+if test -f "${bkup_exclude}.${sys}"
+then
+	for exclude in `cat ${bkup_exclude}.${sys}`
+	do
+		egrep -v ${exclude} ${dump_list_info} > ${dump_list_info}.tmp
+		mv ${dump_list_info}.tmp ${dump_list_info}
+	done
+fi
+done
+
+cp ${label_dir}/${label_name} ${tmp_dir}
+chmod 666 ${tmp_dir}/${label_name}
+
+exec 3< ${dump_list_info}
+
+cat ${tmp_dir}/${label_name} \
+	| sed 's/LINE1/Daily backup - Day '${day}' - Level 0/' \
+	> ${tmp_dir}/put1
+cat ${tmp_dir}/put1 \
+	| sed 's/LINE2/System(s) '"${sys_list}"'/' \
+	> ${tmp_dir}/put2
+cat ${tmp_dir}/put2 \
+	| sed 's/LINE3//' \
+	> ${tmp_dir}/${label_name}
+
+while (( cnt <= max_rec ))
+do
+	line=""
+	read -ur3 line
+	if test -n "${line}"
+	then
+		set ${line}
+	else
+		set " " " " " " " "
+	fi
+	cat ${tmp_dir}/${label_name} \
+		| sed 's+SYS'"${cnt}"'+'"$1"'+' \
+		> ${tmp_dir}/put1
+	cat ${tmp_dir}/put1 \
+		| sed 's+REC'"${cnt}"'+'"${cnt}"' - '"$2"' - '"$3"'+' \
+		> ${tmp_dir}/put2
+	cat ${tmp_dir}/put2 \
+		| sed 's+DATE'"${cnt}"'+'"$4"'+' \
+		> ${tmp_dir}/${label_name}
+	
+	let cnt=cnt+1
+done
+
+lpr -P${printer} ${tmp_dir}/${label_name}
+
+rm -rf ${tmp_dir}/put1 ${tmp_dir}/put2 ${tmp_dir}/${label_name} \
+	${dump_list_info}

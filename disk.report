@@ -1,0 +1,33 @@
+#!/bin/ksh
+rm -f /tmp/df.rept
+if [ -f /vmunix ]
+then
+	ECHO=/usr/5bin/echo
+else
+	ECHO=/usr/bin/echo
+fi
+for HOST in yooper racerx cetus bootes samson hercules raven trooper tbsun2 order chaos control
+do
+	$ECHO "----------------------------------------------------------------" >> /tmp/df.rept
+	$ECHO "Disk usage report for $HOST for \c" >> /tmp/df.rept
+	$ECHO `date` >> /tmp/df.rept
+	$ECHO "----------------------------------------------------------------" >> /tmp/df.rept
+	if [ "`rsh $HOST '[ -f /vmunix ];echo \$?' 2> /dev/null`" = "0" ]
+	then
+		DF=/usr/bin/df
+	else
+		DF=/usr/ucb/df
+	fi
+	$ECHO "Size Used Avail Capacity Partition"|\
+	awk '{printf("%12s\t%12s\t%12s\t%8s\t%s\n",$1,$2,$3,$4,$5)}'>> /tmp/df.rept
+	$ECHO  >> /tmp/df.rept
+	rsh $HOST $DF|grep dev|\
+	awk ' {
+		printf("%12s\t%12s\t%12s\t%8s\t%s\n",$2,$3,$4,$5,$6)
+		tdisk += $4
+		}
+		END {printf("Total free disk: %s\n",tdisk)}
+	' >> /tmp/df.rept
+done
+lpr -Pnp0 /tmp/df.rept
+/usr/ucb/mail -s "Disk usage report" root < /tmp/df.rept

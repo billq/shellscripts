@@ -1,0 +1,219 @@
+#!/usr/bin/perl
+# Filename:	burstAnim
+# Author:	David Ljung Madison <DaveSource.com>
+# See License:	http://MarginalHacks.com/License/
+# Description:	Take a multi-burst image from a digital camera
+# 		(which is a grid of photos) and convert to an animated gif.
+use strict;
+
+##################################################
+# Setup the variables
+##################################################
+my $PROGNAME = $0; $PROGNAME =~ s|.*/||;
+my ($BASENAME,$PROGNAME) = ($0 =~ m|(.*)/(.+)|) ? ($1?$1:'/',$2) : ('.',$0);
+
+my $DEFAULTS = {
+	rows	=> 4,
+	columns => 4,
+	delay	=> 2,	# The default on my camera is 1/30th of a second
+	skip	=> [],
+
+	# Executables/paths
+	convert	=> 'convert',
+	jhead	=> 'jhead',
+	dev_null	=> '/dev/null',
+
+	# Tmp image
+	tmp		=> "/tmp/burst.$$.%d.jpg",
+};
+
+##################################################
+# Interrupts
+##################################################
+my @TMPFILES;
+sub cleanup() { unlink(@TMPFILES); exit; }
+$SIG{'INT'}=\&cleanup;
+$SIG{'TERM'}=\&cleanup;
+$SIG{'HUP'}=\&cleanup;
+$SIG{'SUSP'}=\&cleanup; 
+$SIG{'QUIT'}=\&cleanup;
+$SIG{'DONE'}=\&cleanup;
+
+##################################################
+# Usage
+##################################################
+sub fatal {
+	foreach my $msg (@_) { print STDERR "\n[$PROGNAME] ERROR:  $msg\n"; }
+	exit(-1);
+}
+
+sub usage {
+	foreach my $msg (@_) { print STDERR "\nERROR:  $msg\n"; }
+	print STDERR <<USAGE;
+
+Usage:\t$PROGNAME [-d] <image>
+  Convert a multi-burst image from a digital camera to an animated gif
+
+  -d           Set debug mode
+  -rows        Set number of rows [$DEFAULTS->{rows}]
+  -columns     Set number of columns [$DEFAULTS->{columns}]
+  -delay       Set delay between frames (1/100ths of sec) [$DEFAULTS->{delay}]
+  --skip       List of frames to skip.  Either '-skip 1-3' or '--skip 1 5-9 --'
+
+  -convert     Path to 'convert' executable [$DEFAULTS->{convert}]
+  -dev_null    Path for null output [$DEFAULTS->{dev_null}]
+  -tmp         Temp image name (must include '%d') [$DEFAULTS->{tmp}]
+
+USAGE
+	exit -1;
+}
+
+sub expand {
+	my ($str) = @_;
+	return $str unless $str =~ /^(\d+)-(\d+)$/;
+	return ($1..$2);
+}
+
+sub parse_args {
+	my $opt = $DEFAULTS;
+	my @files;
+	while (my $arg=shift(@ARGV)) {
+		if ($arg =~ /^-h$/) { usage(); }
+		if ($arg =~ /^-d$/) { $MAIN::DEBUG=1; next; }
+		if ($arg =~ /^--(.*)$/ && $DEFAULTS->{$1}) {
+			$arg = $1;
+			my $val;
+			push(@{$opt->{$1}}, expand($val))
+				while (($val=shift(@ARGV)) && $val ne "--");
+			next;
+		}
+		if ($arg =~ /^-(.*)$/ && $DEFAULTS->{$1}) {
+			$arg = $1;
+			if (ref($DEFAULTS->{$arg}) eq "ARRAY") {
+				push(@{$opt->{$arg}}, expand(shift @ARGV));
+			} else {
+				$opt->{$arg} = shift @ARGV;
+			}
+			next;
+		}
+		if ($arg =~ /^-/ && !-f $arg) { usage("Unknown option: $arg"); }
+		push(@files,$arg);
+	}
+	usage("No images defined") unless @files;
+	
+	($opt,@files);
+}
+
+sub debug {
+	return unless $MAIN::DEBUG;
+	foreach my $msg (@_) { print STDERR "[$PROGNAME] $msg\n"; }
+}
+
+sub mySystem {
+	my ($opt, @cmd) = @_;
+	debug("Run: @cmd\n");
+	system(@cmd);
+	fatal("Error running: [@cmd]:\n  $?: $!") if $?;
+}
+
+##################################################
+# Image processing
+##################################################
+sub file_quote {
+	my ($opt, $file) = @_;
+	"\Q$file\E";
+}
+
+sub get_size {
+	my ($opt,$img) = @_;
+
+	return (0,0) unless (-f $img);
+
+	my $qimg = file_quote($opt,$img);
+
+	# Try jhead if we have it.
+	if ($opt->{jhead} && $img=~/.jpe?g$/) {
+		return ($1,$2) if (qx/$opt->{jhead} -c $qimg 2>$opt->{dev_null}/=~/\s(\d+)x(\d+)(\s)/);
+		undef $opt->{jhead};  # jhead didn't work, don't keep trying...
+	}
+
+	open(SIZE,"$opt->{convert} -verbose $qimg $opt->{dev_null} 2>&1 |")
+		|| fatal("Couldn't run convert!  [$opt->{convert}]\n");
+	while(<SIZE>) {
+		print STDERR "get_xy(): $_" if $opt->{d};
+		if(/\s(\d+)x(\d+)(\s|\+|\-)/) {
+			close SIZE;
+			return ($1,$2);
+		}
+	}
+	close SIZE;
+	fatal("Can't get [$img] size from 'convert -verbose' output")
+}
+
+##################################################
+# Image processing
+##################################################
+sub splitImage {
+	my ($opt, $img) = @_;
+
+	my @ret;
+
+	my ($X,$Y) = get_size($opt,$img);
+	my ($x,$y) = ($X/$opt->{columns},$Y/$opt->{rows});
+	my $num = $opt->{columns}*$opt->{rows};
+
+	print STDERR "Splitting [$img] into $num frames:     /$num";
+	my $back = length($num)+4;
+	my $cnt = 0;
+	for (my $sy=0; $sy<$Y; $sy+=$y) {
+		for (my $sx=0; $sx<$X; $sx+=$x) {
+			$cnt++;
+            next if (grep($_ eq $cnt, @{$opt->{skip}}));
+			my $tmp = $opt->{tmp};
+			fatal("Need '%d' somewhere in -tmp setting")
+				unless $tmp =~ s/%d/$cnt/g;
+			push(@TMPFILES,$tmp);
+			push(@ret,$tmp);
+			print STDERR ""x$back;
+			printf STDERR "%3d/$num", $cnt;
+			#print "convert -crop ${x}x${y}+$sx+$sy $img $tmp\n";
+			mySystem($opt,"convert","-crop","${x}x${y}+$sx+$sy",$img,$tmp);
+		}
+	}
+	print STDERR "\n";
+
+	usage("No frames left after skipping [@{$opt->{skip}}]") unless @ret;
+	@ret;
+}
+
+sub animate {
+	my ($opt, $file, @split) = @_;
+
+	my $anim = $file;
+	$anim =~ s/(\.[^\.]*)?$/.anim.gif/;
+
+	print STDERR "Animating..";
+
+	mySystem($opt,"convert","-delay",$opt->{delay},@split,$anim);
+
+	print "ed: $anim\n";
+
+	$anim;
+}
+
+##################################################
+# Main code
+##################################################
+sub main {
+	my ($opt,@files) = parse_args();
+
+	foreach my $file ( @files ) {
+		my @split = splitImage($opt, $file);
+		my $animate = animate($opt, $file, @split);
+	}
+
+	cleanup;
+}
+main();
+
+#; vim: ts=4

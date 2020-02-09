@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# Netscape (TM) with Acrobat 4.0 integration.
+
+osname=`uname -s`
+osrelease=`uname -r`
+args="$@"
+
+adir=/usr/local/acrobat4
+ndir=/usr/local/netscape
+pconfig=sparcsolaris 
+
+# Point Netscape to its Keysym Database.  This is recommended practice.
+
+XKEYSYMDB=${ndir}/XKeysymDB
+export XKEYSYMDB
+
+
+# This points Netscape to the Acrobat viewer plug-in so that PDF's
+# may be viewed inside of the Netscape window.
+
+NPX_PLUGIN_PATH=${adir}/Browsers/$pconfig
+export NPX_PLUGIN_PATH
+
+PATH=${adir}/bin:$PATH
+export PATH
+
+XENVIRONMENT=${ndir}/Netscape.ad
+export XENVIRONMENT
+
+if [ -x "${ndir}/netscape" ]
+then
+  exec ${ndir}/netscape $args
+fi

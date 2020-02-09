@@ -1,0 +1,50 @@
+#!/bin/bash
+if [ $# -lt 1 ] || [ $# -gt 3 ]
+then
+  echo "USAGE: $(basename $0) source_dir target_dir [suffix]"
+  exit 1
+else
+  source=$1
+  target=$2
+  touch ${target}/SomErAnD0Mfyle.$$
+  if [ $? -ne 0 ]
+  then
+    echo "cant touch target"
+    exit 1
+  else
+    rm ${target}/SomErAnD0Mfyle.$$
+  fi
+  cd $source_dir
+  if [ $? -ne 0 ]
+  then
+    echo "Can't cd to $source_dir"
+    exit 1
+  else
+    if [ "x$3" != "x" ]
+    then
+      suffix=$3
+      files=$(ls *$suffix)
+    else
+      suffix=""
+      files=$(ls)
+    fi
+  fi
+fi
+
+num=0
+
+for i in $files
+do
+  I=$(echo $i|sed 's/'$suffix'//')
+  while [ -f ${target}/${i} ]
+  do
+    i=${I}_${num}${suffix}
+    num=$((num + 1))
+  done
+  cp $i ${target}/${i}
+  if [ $? -ne 0 ]
+  then
+    echo "cp failed!"
+    exit 1
+  fi
+done

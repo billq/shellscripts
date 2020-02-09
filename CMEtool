@@ -1,0 +1,186 @@
+#!/bin/ksh
+# Little monitor thing.
+#
+EXIT=no
+while [ "$EXIT" != "yes" ]
+do
+xmessage -geometry -0+0 -fn 8x13 -bg blue -fg yellow -n CMEtool -buttons "Handheld:0,Cubs:1,Web:2,Globex Interface:3,Bypass:4,ORAPI:5,gdprdb1:6,Backups:7,Globex SLC:8,Globex SLE:9,Globex XDF:10,Exit:11" Pick an environment to monitor.
+case $? in
+0)
+	ENV=LHH
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in hhprap3 hhprap4 hhprap5 hhprap6 hhprdb3
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg darkmagenta -fg yellow -ms yellow -g 80x13+0+260 -l -lf -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg darkmagenta -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+1)
+	ENV=CUBS2
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in c2prap1 c2prap3 c2prap4 c2prap5 c2prap6 c2prap7 c2prap8 c2prcl1-db1 c2prcl1-db2 c2prcl2-db1 c2prcl2-db2
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg blue -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg blue -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+2)
+	ENV=WEB
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in c2prweb gfxprweb opsprweb
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg brown -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg brown -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+3)
+	ENV=GI
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in giprap1 giprdb3
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg green -fg black -ms black -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg green -fg black -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+4)
+	ENV=FIX
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in byprap1 byprap2 #fxprnfs1
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg orange -fg black -ms black -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg orange -fg black -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+5)
+	ENV=ORAPI
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in moby orca orprap1
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg grey -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+6)
+	ENV=gdprdb1
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in gdprdb1
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg grey -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+7)
+	ENV=BACKUPS
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in nbmpr1 nbspr1
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		xterm -l -lf $VM_LOGFILE -bg grey -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+8)
+	ENV=GB2_SLC
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in `ypcat hosts|grep "slc[n,s][p,b]"|awk '{print $2}'|sort -u`
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		#xterm -l -lf $VM_LOGFILE -bg blue -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+9)
+	ENV=GB2_SLE
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in `ypcat hosts|grep "sle[n,s][p,b]"|awk '{print $2}'|sort -u`
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		#xterm -l -lf $VM_LOGFILE -bg blue -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+10)
+	ENV=GB2_XDF
+	LOGDIR=${HOME}/log/${ENV}
+	if [ ! -d "$HOME/log/${ENV}" ]
+	then
+		mkdir -p ${HOME}/log/${ENV}
+	fi
+	for HOST in `ypcat hosts|grep "xdf[n,s][p,b]"|awk '{print $2}'|sort -u`
+	do
+		VM_LOGFILE=${LOGDIR}/${HOST}_VM.log
+		PM_LOGFILE=${LOGDIR}/${HOST}_PM.log
+		#xterm -l -lf $VM_LOGFILE -bg blue -fg yellow -ms yellow -g 80x13+0+260 -sb -sl 50000 -ls -T $HOST -n $HOST -e rsh $HOST -l root vmstat 60 &
+		perfmeter -bg grey -fg yellow -geometry 1142x96 -g -s 5 -h 60 -m 10 -n $PM_LOGFILE -t cpu -t load -C cpu 50 -C load 5 -H -S -Wn $HOST &
+	done
+;;
+11)
+	xmessage -geometry -0+0 -fn 8x13 -bg blue -fg yellow -n Goodbye -buttons Exit:0 Thanks for using CMEtool. Bye.
+	EXIT=yes
+;;
+*)
+	xmessage -geometry -0+0 -fn 8x13 -bg red -fg yellow -n ERROR -buttons Exit:0,Continue:1 Sorry, that environment is not yet configured.
+	case $? in
+	0)	EXIT=yes	;;
+	1)	:		;;
+	esac
+;;
+esac
+done &

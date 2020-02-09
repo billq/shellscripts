@@ -1,0 +1,856 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#! /bin/sh
+#set -x
+# One universal print command
+# Submit any file to any SUN destination printer.
+#
+#
+# Standard Definitions
+. /fcs/bin/pathinit			# initialize the path variables
+PATH=$T_SYS5PATH
+
+PROG="printit"
+USAGE="usage: ${PROG} [-x] [-n] [-mm|-ms|-man|-men|-mil|-mscm] [-cpp] [-so] \n \
+      [-ps] [-Iincl-dir] [-tbl] [-pic] [-eqn] [-Pprinter | -view | -st] [-h] \n \
+      [-H\"header\"] [-c#-of-copies] [-inum] [-r] [-pagem-n] [-wrapxx] \n \
+      [-l] [-m] [-wnum] [-Cclass] [-Jjobname] [-Ttitle] file ..."
+
+ULOCBIN="/usr/local/bin"
+DITROFF="${ULOCBIN}/ditroff"
+PSDIT="${ULOCBIN}/psdit"
+PSREV="${ULOCBIN}/psrev"
+SUNPS="${ULOCBIN}/sunPS"
+SUNPSOPTS="-c A4 -"
+XE="${ULOCBIN}/xe"
+STDOPTS="-Tpsc -t"
+LPR="/usr/ucb/lpr"
+PIC="${ULOCBIN}/pic"
+CPP="/lib/cpp -P -C"
+CAT="/usr/bin/cat"
+TBL="/usr/bin/tbl"
+EQN="/usr/bin/eqn"
+PR="/usr/5bin/pr -e"
+EXPAND="/usr/ucb/expand"
+SOELIM="/usr/ucb/soelim"
+WRAP="/usr/ucb/fold"
+LINES="-l66"
+EXCLMAC="/usr/local/lib/macros/excl_macros"
+SOSTR="^\.so[   ]*"                     # A space and a \t in the []
+INCLSTR="^#[    ]*include[      ]*"     # A space and a \t in the []
+STDOUTOPT=""               		# -st option -- send output to stdout
+OUTPIPE="|"
+
+# Special options
+
+EXCLFLG=""              # set if file includes excl-macros anywhere
+FILTER=""		# set if any filters are (or have been) run
+CPPOPT=""		# -cpp option
+SO_OPT=""		# -so option
+PICOPT=""		# -pic option
+MANOPT=""		# -man option
+MENOPT=""		# -men option (G3KE macro package)
+EQNOPT=""		# -eqn option
+MMOPT=""		# -mm option
+MSOPT=""		# -ms option
+MIOPT=""		# -mil option
+MSCMOPT=""		# -mscm option
+TBLOPT=""		# -tbl option
+INCOPT=""		# -I option to 'cpp'
+DOPT=""			# -D option to 'cpp'
+PGOPT=""		# -o option to 'ditroff'
+XOPT=""			# -x option (debug mode)
+EOPT=""			# any misc. 'eqn' options (just appended)
+NOPT=""			# -n option to 'pr'
+XEOPT="-P"		# landscape or portrait mode to 'xe'
+VOPT=""			# -view option (sun stations only)
+NONPOPT=""              # Output not bound for printer
+PS_OPT=""		# postscript file option
+LANDOPT=""		# landscape (-L) or portrait mode to 'psdit'
+XEPIPE=""		# 'xe' pipeline component
+COPT=""			# -# option to 'lpr'
+POPT=""			# -P option to 'lpr'
+CCOPT=""		# -C option to 'lpr'
+TOPT=""			# -T option to 'lpr'
+JOPT=""			# -J option to 'lpr'
+HOPT=""			# -h option to 'lpr'
+IOPT=""			# -i option to 'lpr'
+WOPT=""			# -w option to 'lpr'
+MAILOPT=""		# -m option to 'lpr'
+REMOPT=""		# -r option to 'lpr'
+HDROPT=""		# -h option to 'pr' (here it's known as '-H')
+NEWOPTS=""		# any misc. options (just appended)
+LPROPTS=""		# any misc. 'lpr' options (just appended)
+WROPT=""		# -wrap option (expand | fold)
+FILE=""			# list of file names to be processed
+CURFILE=""		# current file being processed
+
+CMDLINE=""		# final command to be executed
+
+# This trap is not needed, since psrev is no longer needed, however,
+# it is only commented out since psrev may be needed in the future.
+#trap '' 7		# ignore emulator trap delivered by psrev (cwh)
+
+while [ $# -gt 0 ]
+do
+	i=$1
+	case $i in
+		-wrap*)	WROPT="1"; WRCOL=`echo $i | sed 's/wrap//'`; shift;;
+		-P*)	POPT="$i"; shift;;
+		-C*)	CCOPT="$i"; shift;;
+		-J*)	JOPT="$i"; shift;;
+		-T*)	TOPT="$i"; shift;;
+		-H*)	HDROPT="$i"; shift;;
+		-I*)	INCOPT="${INCOPT} $i"; shift;;
+		-D*)	DOPT="${DOPT} $i"; shift;;
+		-w*)	WOPT="$i"; shift;;
+		-i*)	IOPT="$i"; shift;;
+		-l)	XEOPT="-L"; LANDOPT="-L"; shift;;
+		-m)	MAILOPT="$i"; shift;;
+		-r)	REMOPT="$i"; shift;;
+		-h)	HOPT="$i"; shift;;
+		-cpp)	CPPOPT="1"; shift;;
+		-ps)	PS_OPT="1"; FILTER="1"; shift;;
+		-view)	VOPT="1"; shift;;
+		-st)	STDOUTOPT="1"; shift;;
+		-so)	SO_OPT="1"; FILTER="1"; shift;;
+		-c*)	COPT=`echo $i | sed 's/c/#/'`; shift;;
+		-page*)	PGOPT=`echo $i | sed 's/page/o/'`; shift;;
+		-eqn)	EQNOPT="1"; FILTER="1"; shift;;
+		-pic)	PICOPT="1"; FILTER="1"; shift;;
+		-tbl)	TBLOPT="1"; FILTER="1"; shift;;
+		-man)	MANOPT="-man"; FILTER="1"; shift;;
+		-men)	MENOPT="-men"; FILTER="1"; shift;;
+		-mm)	MMOPT="-mm"; FILTER="1"; shift;;
+		-mil)	MIOPT="-mil"; FILTER="1"; shift;;
+		-mscm)	MSCMOPT="-mscm"; FILTER="1"; shift;;
+		-ms)	MSOPT="-ms"; FILTER="1"; shift;;
+		-n)	NOPT="-n"; shift;;
+		-d*)	EOPT="${EOPT} $i"; shift;;
+		-p*)	EOPT="${EOPT} $i"; shift;;
+		-s*)	EOPT="${EOPT} $i"; shift;;
+		-f*)	EOPT="${EOPT} $i"; shift;;
+		-x)	XOPT="1"; shift;;
+		-help)	echo "${USAGE}"; exit 1;;
+		-\?)	echo "${USAGE}"; exit 1;;
+		-*)	NEWOPTS="${NEWOPTS} $i"; shift;;
+		*)	FILE="${FILE} $i"; shift;;
+	esac
+done
+
+HOSTNAM=`/usr/bin/hostname`
+HOSTID=`/usr/bin/hostid`
+if [ $HOSTID = "41000d89" -o $HOSTNAM = "camelot" ]
+then
+	echo "printit: Not allowed to run printit on camelot."
+	echo "         Please use orion or utopia instead."
+	exit 1
+fi
+
+# Check view option and compatabilities
+
+if [ -n "${VOPT}" ]; then
+	if [ -n "${POPT}" ]; then
+		echo "${PROG}: -view and ${POPT} options are incompatible"
+		echo "${USAGE}"
+		exit 1
+	fi
+	if [ -n "${STDOUTOPT}" ]; then
+		echo "${PROG}: -view and -st options are incompatible"
+		echo "${USAGE}"
+		exit 1
+	fi
+	if [ "${TERM}" != "sun" -a "${TERM}" != "sun-cmd" ]; then
+		echo "${PROG}: must be on a sun terminal to use -view option"
+		exit 1
+	fi
+	NONPOPT="1";  # Show that the output is not to the line printer
+fi
+
+# Check standard output option and compatibilities
+if [ -n "${STDOUTOPT}" ]; then
+	if [ -n "${POPT}" ]; then
+		echo "${PROG}: -st and ${POPT} options are incompatible"
+		echo "${USAGE}"
+		exit 1
+	fi
+	NONPOPT="1";  # Show that the output is not to the line printer
+	OUTPIPE=""
+	SUNPS=""
+	SUNPSOPTS=""
+fi
+
+# Set printer default to PRINTER env variable if not using view or st options
+
+if [ -z "${NONPOPT}" -a -z "${POPT}" ] ; then
+	POPT="-P${PRINTER}"
+fi
+
+# If using post-script software, must use appropriate printer
+
+if [ -n "${FILTER}" ] ; then
+	if [ "${POPT}" = "-Pxe" -o "${POPT}" = "-Phlp" ] ; then
+		echo "${PROG}: ${POPT} is not post-script compatible"
+		echo "         use -Pbgl1p, -Plw, -Pti, or -Pim instead"
+		echo "${PROG}: no jobs submitted"
+		exit 1
+	fi
+fi
+
+# If no argument to -wrap, default is 72
+
+if [ -n "${WROPT}" -a "${WRCOL}" = "-" ] ; then
+	WRCOL="-72"
+fi
+
+
+# Convert argument
+
+if [ -n "${HDROPT}" ] ; then
+	HDROPT="`echo ${HDROPT} | sed 's/-H/-H /g'`"
+	ARG="`echo ${HDROPT} | sed 's/-H//g'`"
+	ARG=`echo $ARG | sed "s/^.*/\"&\"/"`
+	HDROPT="-h ${ARG}"
+fi
+
+
+# Incompatible macros
+
+if [ -n "${MMOPT}" -a -n "${MANOPT}" ] ; then
+	if [ -n "${MIOPT}" ] ; then
+		echo "${PROG}: ${MMOPT} and ${MANOPT} and ${MIOPT} macros are incompatible together"
+	else
+		echo "${PROG}: ${MMOPT} and ${MANOPT} macros are incompatible together"
+	fi
+	echo "${USAGE}"
+	exit 1
+fi
+if [ -n "${MIOPT}" -a -n "${MANOPT}" ] ; then
+	echo "${PROG}: ${MIOPT} and ${MANOPT} macros are incompatible together"
+	echo "${USAGE}"
+	exit 1
+fi
+if [ -n "${MIOPT}" -a -n "${MMOPT}" ] ; then
+	echo "${PROG}: ${MIOPT} and ${MMOPT} macros are incompatible together"
+	echo "${USAGE}"
+	exit 1
+fi
+if [ -n "${MSCMOPT}" -a -n "${MMOPT}" ] ; then
+	echo "${PROG}: ${MSCMOPT} and ${MMOPT} macros are incompatible together"
+	echo "${USAGE}"
+	exit 1
+fi
+
+PSDIT="${PSDIT} ${LANDOPT}"
+
+# Check to see if $FILE is null string
+# If so, input is from standard input, but then the
+# for-loop won't get executed.
+# So, dummy out $FILE with the blank-character (escaped with '\')
+# to enter the for-loop, and then re-zero it out again
+
+if [ -z "${FILE}" ] ; then
+	FILE="\ "
+fi
+
+for CURFILE in ${FILE} ; do
+	EXCLFLG=""
+	if [ "${CURFILE}" = "\\" ] ; then
+		CURFILE=""
+	else
+		echo "${CURFILE}:" >&2
+	fi
+
+	# If postscript file, then just send to lpr.
+	if [ -n "${PS_OPT}" ] ; then
+		if [ -z "${NONPOPT}" ]; then
+			if [ -z "${POPT}" ] ; then
+				POPT="-Pbgl1p"
+			fi
+
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+			CMDLINE="${LPR} ${LPROPTS} ${CURFILE}"
+		
+			if [ -n "${XOPT}" ] ; then
+				echo "${CMDLINE}"
+				echo "${PROG}: debug mode: no jobs submitted"
+			else
+				eval "${LPR} ${LPROPTS} ${CURFILE}"
+			fi
+		else
+			CMDLINE="cat ${CURFILE} ${OUTPIPE} ${SUNPS} ${SUNPSOPTS}"
+			if [ -n "${XOPT}" ] ; then
+				echo "${CMDLINE}"
+				echo "${PROG}: debug mode: no jobs submitted"
+			else
+				eval "${CMDLINE}"
+			fi
+		fi
+		exit 0
+	fi
+
+	if [ -n "${CURFILE}" ] ; then
+		# Search for ".so /usr/local/lib/macros/excl_macros"
+		# and "#include /usr/local/lib/macros/excl_macros"
+
+		grep "${SOSTR}${EXCLMAC}" ${CURFILE} >/dev/null 2>&1
+		if [ $? = 0 ] ; then
+			EXCLFLG="1"
+		else
+           		grep "${INCLSTR}[<\"]*${EXCLMAC}[>\"]*" ${CURFILE} \
+           		>/dev/null 2>&1
+           		if [ $? = 0 ] ; then
+                   		EXCLFLG="1"
+           		fi
+   		fi
+   	fi
+   
+	if [ -n "${PICOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${TBLOPT}" ] ; then
+			TBLPIPE=""
+		else
+			TBLPIPE="${TBL} ${MSOPT} |"
+		fi
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} |"
+		fi
+	
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${PIC} ${STDOPTS} ${CURFILE} | ${TBLPIPE} ${EQNPIPE}\
+			${DITROFF} ${MMOPT} ${MIOPT} ${MSCMOPT} ${MANOPT} ${PGOPT} ${STDOPTS} ${NEWOPTS} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${PIC} ${STDOPTS} \
+			${CURFILE} | ${TBLPIPE} ${EQNPIPE} \
+			${DITROFF} ${MMOPT} ${MIOPT} ${MSCMOPT} ${MANOPT} ${PGOPT} ${STDOPTS} ${NEWOPTS} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${TBLOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} |"
+		fi
+	
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${TBL} ${MSOPT} ${NEWOPTS} ${CURFILE} | ${EQNPIPE} \
+			${DITROFF} ${MMOPT} ${MIOPT} ${MSCMOPT} ${MANOPT} ${PGOPT} ${STDOPTS} ${NEWOPTS} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${TBL} ${MSOPT} ${NEWOPTS} \
+			${CURFILE} | ${EQNPIPE} \
+			${DITROFF} ${MMOPT} ${MIOPT} ${MANOPT} ${PGOPT} ${STDOPTS} ${NEWOPTS} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${MENOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} ${CURFILE} |"
+			CURFILE=""
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQNPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} ${MENOPT} ${MSOPT} \
+		${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQNPIPE} ${DITROFF} ${MSOPT} \
+			${PGOPT} ${STDOPTS} ${MENOPT} ${NEWOPTS} ${CURFILE} \
+			|  ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${MANOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} ${CURFILE} |"
+			CURFILE=""
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQNPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} ${MANOPT} \
+		${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQNPIPE} ${DITROFF} \
+			${PGOPT} ${STDOPTS} ${MANOPT} ${NEWOPTS} ${CURFILE} \
+			| ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${EXCLFLG}" ] ; then
+		if [ -n "${MMOPT}" ] ; then
+			echo "$PROG: Don't specify -mm, excl_macros loads -mm"
+			echo "$PROG: no jobs submitted"
+			exit 1
+		fi
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+	
+		if [ "${POPT}" = "-Pxe" -o "${POPT}" = "-Phlp" ] ; then
+			echo "${PROG}: ${POPT} is not post-script compatible"
+			echo "         use -Pbgl1p, -Plw, -Pti, or -Pim instead"
+			echo "${PROG}: no jobs submitted"
+			exit 1
+		fi
+
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${DITROFF} ${PGOPT} ${STDOPTS} ${NEWOPTS} ${CURFILE} \
+		         | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} \
+			${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} \
+			${LPR} ${LPROPTS}"
+		fi
+
+	elif [ -n "${MMOPT}" ] || [ -n "${MSOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} ${CURFILE} |"
+			CURFILE=""
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQNPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} ${MMOPT} ${MSOPT} \
+		${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQNPIPE} ${DITROFF} \
+			${PGOPT} ${STDOPTS} ${MMOPT} ${MSOPT} ${NEWOPTS} ${CURFILE} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+
+	elif [ -n "${MIOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} ${CURFILE} |"
+			CURFILE=""
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQNPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} ${MIOPT} \
+		${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQNPIPE} ${DITROFF} \
+			${PGOPT} ${STDOPTS} ${MIOPT} ${NEWOPTS} ${CURFILE} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${MSCMOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -z "${EQNOPT}" ] ; then
+			EQNPIPE=""
+		else
+			EQNPIPE="${EQN} ${EOPT} ${CURFILE} |"
+			CURFILE=""
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQNPIPE} ${DITROFF} ${PGOPT} ${STDOPTS} ${MSCMOPT} \
+		${NEWOPTS} ${CURFILE} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQNPIPE} ${DITROFF} \
+			${PGOPT} ${STDOPTS} ${MSCMOPT} ${NEWOPTS} ${CURFILE} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	elif [ -n "${EQNOPT}" ] ; then
+		if [ -z "${POPT}" ] ; then
+			POPT="-Pbgl1p"
+		fi
+	
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+		fi
+	
+		if [ -n "${NONPOPT}" ]; then
+			LPR="${SUNPS}"
+			LPROPTS="${SUNPSOPTS}"
+		else
+			LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+			LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		fi
+
+		CMDLINE="${EQN} ${EOPT} ${NEWOPTS} ${CURFILE} | \
+			${DITROFF} ${PGOPT} ${STDOPTS} ${NEWOPTS} | \
+			${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${EQN} ${EOPT} ${NEWOPTS} \
+			${CURFILE} | ${DITROFF} ${PGOPT} ${STDOPTS} \
+			${NEWOPTS} | ${PSDIT} ${OUTPIPE} ${LPR} ${LPROPTS}"
+		fi
+	
+	else
+		if [ -n "${NONPOPT}" ]; then
+			CMDLINE="${CAT} ${CURFILE} | ${SUNPS} ${SUNPSOPTS}"
+			if [ -n "${XOPT}" ] ; then
+				echo "${CMDLINE}"
+				echo "${PROG}: debug mode: no jobs submitted"
+			elif [ -n "${VOPT" ]; then
+				echo "-view option chosen, assuming postscript format!"
+				eval "${CMDLINE}"
+			fi
+			exit 0
+		fi
+
+		if [ -z "${POPT}" ] ; then
+			POPT="-Phlp"
+		fi
+	
+		if [ "${POPT}" = "-Pxe" ] ; then
+			if [ "${XEOPT}" = "-P" ]; then
+				LINES="-l57 -f"
+			fi
+			XEPIPE="${XE} ${XEOPT} |"
+		fi
+	
+		if [ "${POPT}" = "-Phlp" -a "${XEOPT}" = "-L" ]; then
+			echo "${PROG}: -l: ignored"
+			echo "${PROG} can't print landscape to -Phlp"
+		fi
+	
+		if [ -z "${SO_OPT}" ] ; then
+			SOPIPE=""
+		else
+			SOFILE="${CURFILE}"
+			CURFILE=""
+			SOPIPE="${SOELIM} ${SOFILE} |"
+		fi
+
+		if [ -z "${CPPOPT}" ] ; then
+			CPPIPE=""
+			if [ -z "${WROPT}" ] ; then
+				WRPIPE=""
+			else
+				WRPIPE="${EXPAND} ${CURFILE}|${WRAP} ${WRCOL}|"
+				CURFILE=""
+			fi
+		else
+			CPFILE="${CURFILE}"
+			CURFILE=""
+			CPPIPE="${CPP} ${DOPT} ${INCOPT} ${CPFILE} |"
+			if [ -z "${WROPT}" ] ; then
+				WRPIPE=""
+			else
+				WRPIPE="${EXPAND} | ${WRAP} ${WRCOL}|"
+			fi
+		fi
+	
+		LPROPTS="${POPT} ${COPT} ${JOPT} ${TOPT} ${CCOPT} ${HOPT}"
+		LPROPTS="${LPROPTS} ${IOPT} ${WOPT} ${REMOPT} ${MAILOPT}"
+		CMDLINE="${WRPIPE} ${PR} ${LINES} ${HDROPT} ${NOPT} ${NEWOPTS} \
+		${CURFILE} | ${XEPIPE} ${LPR} ${LPROPTS}"
+	
+		CMDLINE="${SOPIPE} ${CPPIPE} ${CMDLINE}"
+	
+		if [ -n "${XOPT}" ] ; then
+			echo "${CMDLINE}"
+			echo "${PROG}: debug mode: no jobs submitted"
+		else
+			eval "${SOPIPE} ${CPPIPE} ${WRPIPE} ${PR} \
+			${LINES} ${HDROPT} ${NOPT} ${NEWOPTS} ${CURFILE} | \
+			${XEPIPE} ${LPR} ${LPROPTS}"
+		fi
+	fi
+	
+done
+exit 0

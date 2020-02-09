@@ -1,0 +1,58 @@
+#!/bin/ksh
+MASTER="yooper"
+MASTER_PASSWD_FILE="/etc/security/passwd"
+ERR="ERROR:`basename $0`:"
+UNAME=`/bin/hostname`
+OPER=`/usr/ucb/whoami`
+LIBDIR=/home/admin/adm/lib
+if [ "$UNAME" != "$MASTER" ] || [ "$OPER" != "root" ]
+then
+	echo $ERR"Not logged in as root to $MASTER"
+	exit 1
+fi
+passwd -l -F /etc/passwd root
+ROOT_LINE="`grep '^root' /etc/passwd`"
+ypcat hosts|grep Sun|cut -f3 -d.|sort -u |grep -v 123|grep -v 110 > $LIBDIR/nets
+for net in `cat $LIBDIR/nets`
+do
+	ypcat hosts|grep \.${net}\.|grep "Sun"|grep -v xhost|grep -v xterm|grep -v "pubs"|grep -v -e "-"|awk '{print $2}'|grep -v "[0-9]"> $LIBDIR/hosts.${net}
+	for i in `cat $LIBDIR/hosts.${net}`
+	do
+		/bin/echo -n "$i ..."
+		ping $i 2 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			spray -c 1 -l 86 $i > /dev/null 2>&1
+			if [ $? = 0 ]
+			then
+				STAT=`rsh $i 'sun;echo $?'`
+				case $STAT in
+				0)	rsh $i "echo ${ROOT_LINE}>/tmp/pw.hold;cat /etc/passwd|sed '1d'>>/tmp/pw.hold;mv /tmp/pw.hold /etc/passwd;chmod 444 /etc/passwd"
+					echo "passwd updated."
+				;;
+				1)	echo "refuses rsh."
+					echo ${i} >> $LIBDIR/chpw.fail
+					continue
+				;;
+				esac
+			else
+				echo ${i} >> $LIBDIR/chpw.fail
+				echo "is not a workstation (probably an Xterminal."
+			fi
+		else
+			echo "is dead."
+			echo ${i} >> $LIBDIR/chpw.fail
+			continue
+		fi
+	done
+done
+if [ -f "$LIBDIR/chpw.fail" ]
+then
+	echo "
+The following machines failed to have their password updated.
+Examine this list, and take appropriate action...
+----------------------------------------------------------------
+"
+	cat $LIBDIR/chpw.fail
+	rm $LIBDIR/chpw.fail
+fi

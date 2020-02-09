@@ -1,0 +1,21 @@
+CD recording module - internal software results:
+Execute result: 0.
+Produce disc result: 0.
+Write consecutive tracks result: 0.
+Write track result: 0.
+Write track data result: 0.
+Read image result: 0.
+CD recording device driver results:
+  Open driver results: 0, 0.
+  Test unit results: 0, 0.
+  Start disc writing results: 0, 0.
+  Start track writing results: 0, 0.
+  Write data results: 0, 0.
+  End track writing results: 0, 0.
+  Finish disc results: 0, 0.
+  Check unit results: 0, 0.
+  Unit control results: 0, 0.
+  Get disc info results: 0, 0.
+  Read data results: 0, 0.
+  Set read format results: 0, 0.
+  Close driver results: 0, 0.

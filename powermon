@@ -1,0 +1,11 @@
+#!/bin/ksh
+typeset -i MIN
+while true
+do
+  MIN=`apm -m |sed 's/.*(//'|sed 's/ min.*//'`
+  [[ $MIN -le 10 ]] && {
+    echo "$MIN minutes left on the battery... shut it down!!!"
+    xmessage "Shut it down, now!!!"
+    }
+sleep 10
+done

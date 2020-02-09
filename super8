@@ -1,0 +1,137 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+GETTAPE () {
+for TAPE in rst0 rst1 rmt0 rmt8
+do
+	$RMTCMD mt -f /dev/$TAPE stat >/dev/null 2>&1
+	if [ $? = 0 ]
+	then
+		LIST="$TAPE $LIST"
+	fi
+done
+return $LIST
+}
+where mts >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	HASMTS=1
+	IT_FITS=2200000
+else
+	HASMTS=0
+fi
+RHOST=""
+GETTAPE
+if [ "$LIST" = "" ]
+then
+	/bin/echo -n "Hmmm, can't seem to find a tape online.  Remote drive?
+	[Y|n] -> "
+	read REMOTE
+	case $REMOTE in
+	""|Y*|y*)  /bin/echo -n "Remote host name?
+	-> "
+		read RHOST
+		RMTCMD="rsh $RHOST"
+		GETTAPE
+		if [ "$LIST" = "" ]
+		then
+			echo "Hmmm, still can't find a drive.  I give up."
+			exit 1
+		fi
+		RHOST=${RHOST}:
+		;;
+	*)	echo "Can't write a tape without a tape or a drive!!"
+		exit 1
+		;;
+	esac
+fi
+/bin/echo -n "Which tape? $LIST
+	-> "
+read TAPE
+case $TAPE in
+	r*)		TAPE=/dev/n$TAPE
+			;;
+	/dev/r*)	TAPE=`echo $TAPE | sed 's/\/dev\///'`
+			TAPE=/dev/r$TAPE
+			;;
+	/dev/nr*)	TAPE=$TAPE
+			;;
+	
+	*)		echo "${TAPE}?....huh?"
+			exit 1
+			;;
+esac
+TAPE=${RHOST}${TAPE}
+EXIT=n
+while [ "$EXIT" != "y" ]
+do
+	df | grep dev
+	/bin/echo -n "Which FS? [q to quit, or something like...xy0a]
+
+	-> "
+	read FS
+	case $FS in
+		q|Q)			exit 1
+					;;
+		x*|s*|i*)		FS=/dev/r$FS
+					;;
+		/dev/x*|/dev/s*)	FS=`echo $FS | sed 's/\/dev\///'`
+					FS=/dev/r$FS
+					;;
+		/dev/r*)		FS=$FS
+					;;
+		r*)			FS=/dev/$FS
+					;;
+		*)			echo "${FS}? .... be reasonable!"
+					exit 1
+					;;
+	esac
+	echo $FS
+	case $HASMTS in
+	0)
+		WHATS_LEFT=`mts -r`
+	;;
+	1)
+		WHATS_LEFT="IT_FITS"
+	;;
+	esac
+	DISK_USED="`df|grep $FS|awk '{print $3}'`"
+	typeset -i WHATS_LEFT DISK_USED
+	IT_FITS="WHATS_LEFT - DISK_USED"
+	typeset -i IT_FITS
+	if [ $IT_FITS -lt 0 ]
+	then
+		echo "It ain\'t gonna fit..."
+	else
+		/etc/dump 0bfsu 126 $TAPE 165000 $FS
+	fi
+	/bin/echo -n "All done? [y|n] "
+	read EXIT
+	EXIT=${EXIT:-n}
+done
+/bin/echo -n "Rewinding ${TAPE}..."
+mt -f $TAPE rewoffl
+echo "done."

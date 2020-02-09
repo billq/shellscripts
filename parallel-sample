@@ -1,0 +1,5 @@
+ls|time parallel gzip -l
+
+ls|time parallel gunzip
+
+

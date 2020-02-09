@@ -1,0 +1,1 @@
+xterm -bg black -fg yellow -ms yellow -sb -sl 50000 -fn 6x10 -aw -b 0 -bw 0 -cm -dc -ls -sb -si -sk

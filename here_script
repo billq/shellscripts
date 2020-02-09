@@ -1,0 +1,8 @@
+#!/bin/ksh
+while read LINE
+do
+  if echo $LINE|grep "^root"
+  then
+    echo "got root!"
+  fi
+done

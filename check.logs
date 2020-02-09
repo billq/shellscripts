@@ -1,0 +1,67 @@
+#!/bin/sh
+#
+# Program name : /var/adm/bin/sna/check.log
+#
+# @(#) This script will check the size of the SNA gateway logs and mail to
+# @(#) the system administrator when it reaches 1 megabyte then will copy 
+# @(#) the file to the /var/tmp directory. It will then restart the sna 
+# @(#) gateway.
+#
+# History :
+#
+# 07-07-94 markos  ; made SNA_ADMIN for mail.
+# 05-13-91 shearer ; Fixed problem with finding the size. Changed the cut 
+#		   ; command from 34 to 37.
+# 04-23-91 shearer ; Created
+#
+#****************************************************************************
+# This section will check the directory /etc/sunlink/sna3270 for a file called
+# snalog.[gateway name]. Then for each gateway log file it will check the size
+# and after it reaches 1 megabyte or larger the system administrator will be
+# a message tell him/her that the file was copied to /var/tmp/snalog.[gateway
+# name] and then stop and restart the sna gateway.
+#################################################
+
+SNA_ADMIN="markos"
+
+restart=no
+cd /etc/sunlink/sna3270
+
+for gatename in `ls |grep snalog|cut -c8-25`
+ do
+
+  size=`ls -lsg snalog.$gatename | cut -c37-45`		# Find logfile size.
+
+  if [ $size -ge 1000000 ]				# If size over 1 mega.
+   then
+    restart=yes						# Set variable to re-
+  fi
+							# start all sna gateways
+  if [ $restart = yes ]
+   then
+
+    /usr/sunlink/sna3270/stopsna			# Stop sna processes.
+	
+    cp snalog.$gatename /var/tmp			# Copy all gateway
+							# logs to /var/tmp
+  fi
+ done
+
+if [ $restart = yes ]					# If restart = yes
+ then							# restart all gateways.
+
+  for gatename in `ls |grep snalog|cut -c8-25`
+   do
+    /usr/sunlink/sna3270/startsna $gatename
+   done
+
+  echo "						
+     An SNA gateway log file has reached 1 megabyte. All gateway logfiles have
+     been copied to /var/tmp/snalog.[ gateway name ] and then all sna gateways
+     were restarted.
+       " >/var/tmp/snalog.message			# create mail message.
+
+  /usr/ucb/Mail -s "SNA gateway log size" $SNA_ADMIN  < /var/tmp/snalog.message
+
+  rm -rf /var/tmp/snalog.message
+fi

@@ -1,0 +1,72 @@
+#!/bin/ksh
+#
+# This is a first-cut script at automating the addition and configuration
+# of X terms.
+#
+
+rm -f /tmp/thostlist
+echo "Running hexhosts...please stand by."
+/home/admin/adm/bin.script/hexhosts
+case $1 in
+"")
+	echo "
+Enter a list of machines you want bootable as X terms.
+End with a return on a blank line, i.e.
+
+falcon <CR>
+alpha <CR>
+delta <CR>
+<CR>
+
+If you want to bail out at any time hit interrupt.  Good luck.
+
+	"
+	cd /tftpboot
+	while :
+	do
+		/bin/echo -n "newX -> "
+		read HOST
+		case $HOST in
+		"")
+                	break
+                	;;
+        	*)
+                	echo $HOST >> /tmp/thostlist
+                	;;
+        	esac
+	done
+;;
+*)
+	if [ -f $1 ]
+	then
+		echo "Using $1 as list of hosts to add."
+		cp $1 /tmp/thostlist
+	fi
+;;
+esac
+/bin/echo -n "
+*************************READ THIS*************************
+   Machines should already be in the hosts, bootparams,
+   netgroup, and ethers files on yooper.
+*************************READ THIS*************************
+If the machines you are about to add are not in the files
+mentioned above, open a window on yooper and do a netedit
+to add the appropriate information to the files.
+
+Hit a return to continue -> "
+read GOFORIT
+for NEWX in `cat /tmp/thostlist`
+do
+	TARG=`grep "	${NEWX}$" hexhosts|cut -f1`
+	SUN3X="`ypcat hosts|grep $NEWX |sed 's/ /_/g'|awk '{print $2, $NF}'|grep '3/80'"
+	if [ "$SUN3X" = "" ]
+	then
+		XARCH=sun3
+	else
+		XARCH=sun3x
+		TARG=${TARG}.SUN3X
+	fi
+	echo "Adding $NEWX as an Xterm..."
+	echo "ln -s /tftpboot/boot.${XARCH}.sunos.4.1.1 $TARG"
+	ln -s /tftpboot/boot.${XARCH}.sunos.4.1.1 $TARG
+done

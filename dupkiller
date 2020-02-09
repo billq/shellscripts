@@ -1,0 +1,35 @@
+#!/bin/bash
+tmpDir=/tmp/DK
+tmpFile=$tmpDir/md5sums.$$
+echo -n "Top of tree? -> "
+read treeTop
+cd $treeTop || exit 1
+mkdir $tmpDir  || exit 1
+echo "Generating md5sums of $treeTop.  This may take a bit."
+find . -type f -exec md5sum {} \; > $tmpFile
+echo "Whew!"
+cd $tmpDir
+sort $tmpFile|uniq -d -c -w32 > udups.$$
+echo "Found..."
+wc -l udups.$$|awk '{print $1}'
+echo "duplicate files"
+for msum in $(awk '{print $2}' udups.$$)
+do
+  nfiles=$(awk -v msum=$msum '$2 ~ msum {print $1}' udups.$$)
+  nrm=$((nfiles - 1))
+  while (($nrm > 0))
+  do
+    rmThisOne=$(grep $msum $tmpFile|tail -$nrm|head -1|sed 's/^.*\.\///')
+    echo "rm \"${treeTop}/${rmThisOne}\""
+    rm ${treeTop}/${rmThisOne}
+    if [ $? -eq 0 ]
+    then
+      nrm=$((nrm - 1))
+    else
+      echo "Something has gone terribly wrong."
+      echo "Exiting without a cleanup so you can pick it apart."
+      exit 2
+    fi
+  done
+done
+rm -fr $tmpDir

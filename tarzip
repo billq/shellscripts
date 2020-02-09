@@ -1,0 +1,25 @@
+#!/bin/ksh
+FILE=$1
+if [ -z ${FILE} ]
+then
+  echo "USAGE:$0 [filename|directory_name]"
+  echo "$0 will tar and gzip a file/directory, then remove the source"
+  exit 1
+fi
+if [ -s ${FILE} ]
+then
+  tar -cvf ${FILE}.tar $FILE
+  if [ $? -eq 0 ]
+  then
+    echo "Done tarring $FILE, now zipping it up...."
+    gzip ${FILE}.tar
+    if [ $? -eq 0 ]
+    then
+      echo "Done zipping $FILE, now blow away the source."
+      rm -fr ${FILE}
+    fi
+  fi
+else
+  echo "ERROR:can't grok $0"
+  exit 2
+fi

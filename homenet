@@ -1,0 +1,4 @@
+cp /etc/resolv.interaccess /etc/resolv.conf
+ifconfig eth0 192.168.1.105
+route add default gw 192.168.1.1
+ping -c 1 192.168.1.1

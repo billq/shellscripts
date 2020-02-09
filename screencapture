@@ -1,0 +1,281 @@
+#!/bin/ksh
+if [ "$WINDOW_ME" = "" -a "$DISPLAY" = "" ]
+then
+	echo "Please run this tool from a native Sunview or Open Windows screen."
+	exit 1
+fi
+ANOTHER=y
+PRINTERS="`cat /etc/printcap|grep "\|"|sed 's/\|/ /g'|sed 's/:\\\//'`"
+typeset -i NUM
+NUM=0
+echo "
+screencapture will allow you to swipe out a section of the screen
+with your mouse, and dump the result to either a printer or a file.
+
+Usage is interactive.  For help with any of the prompts, type in a '?'
+All defaults are shown in CAPS."
+
+while [ "$ANOTHER" = "y" ]
+do
+  FLAG=n
+
+  while [ "$FLAG" = "n" ]
+  do
+    /bin/echo -n "
+Dump to file or printer? [F|p] ->"
+    read OUTPUT
+
+    case $OUTPUT in
+    "?")
+    	echo "
+Dumping to a file will produce a raster file, which can then
+be manipulated as you wish.
+Dumping to a printer will print whatever portion of the screen
+you select.  Options will follow allowing printer selection,
+image sizing, rotation, and inversing."
+    	FLAG=n
+    ;;
+
+    ""|F*|f*)
+    	FLAG=n
+
+    	while [ "$FLAG" = "n" ]
+    	do
+      	  /bin/echo -n "
+Filename to dump to? [ras.${NUM}.$$] ->"
+      	  read DOUT
+
+      	  case $DOUT in
+      	  "?")
+          	echo "
+The filename you specify will be created in your
+current working directory unless a full path is
+given.  It is ASSUMED you have write permission
+for this filename."
+      		FLAG=n
+          ;;
+      	  "")
+          	DOUT=ras.${NUM}.$$
+     	 	echo "
+Dumping raster to $DOUT"
+      		FLAG=y
+      	  ;;
+      	  *)
+  		echo "
+Dumping raster to $DOUT"
+  		FLAG=y
+      	  ;;
+      	  esac
+        done
+    	echo "
+Swipe out a portion of the screen you want by pressing and holding
+the left mouse button."
+    	dumpregion > $DOUT
+    	FLAG=y
+    ;;
+    p*|P*)
+    	FLAG=n
+
+    	while [ "$FLAG" = "n" ]
+    	do
+    	  /bin/echo -n "
+Printer to dump to? [default] ->"
+  	  read DOUT
+  	  DOUT=${DOUT:-ps}
+
+  	  case $DOUT in
+	  "?")
+		echo "
+The printer you specify should be a locally attached printer,
+and is one of:"
+echo $PRINTERS
+		FLAG=n
+	  ;;
+	  datapro*)
+		FLAG=n
+    		while [ "$FLAG" = "n" ]
+    		do
+		  /bin/echo -n "
+Dataproducts printers support both 8.5x11 and 11X17 inch sheets.
+Which would you like? [8.5x11] ->"
+  		  read SHEET
+
+  		  case $SHEET in
+		  "?")
+			echo "
+Use '8' for the 8.5x11 size paper,
+or '11' for the 11x17"
+			FLAG=n
+		  ;;
+  		  ""|8*)
+		  	SHEET="lower"
+			FLAG=y
+		  ;;
+  		  *)
+			SHEET="upper"
+			FLAG=y
+		  ;;
+  		  esac
+		done
+		FLAG=y
+	  ;;
+	  *)	
+		echo $PRINTERS|grep $DOUT >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+		  echo "
+Sorry, I don't know about $DOUT as a printer.
+Use one of:"
+		  echo $PRINTERS
+		else
+		  echo "
+If you need 11X17 use datapro next time."
+		fi
+		FLAG=y
+	  ;;
+	  esac
+
+	done
+
+	FLAG=n
+	while [ "$FLAG" = "n" ]
+	do
+	  /bin/echo -n "
+Inverse image? [y|N] ->"
+	  read INVERT
+
+	  case $INVERT in
+	  "?")
+		echo "
+If you want black background with white text,
+(and lots of toner waste:-) you should inverse
+the image for printing."
+		FLAG=n
+	  ;; 
+	  ""|N*|n*)
+		OPTIONS="-i"
+		FLAG=y
+	  ;;
+	  *)
+		FLAG=y
+	  ;;
+	  esac
+	done
+
+	FLAG=n
+	while [ "$FLAG" = "n" ]
+	do
+	  /bin/echo -n "
+Portrait, Lanscape, or Automatic orientation? [A|p|l] ->"
+	  read ORIENT
+	  case $ORIENT in
+	  "?")
+		echo "
+Automatic orientation is printed to make best use of paper."
+		FLAG=n
+	  ;;
+	  P*|p*)
+		OPTIONS="$OPTIONS -p"
+		FLAG=y
+	  ;;
+	  L*|l*)
+		OPTIONS="$OPTIONS -l"
+		FLAG=y
+	  ;;
+	  *)
+		FLAG=y
+	  ;;
+	  esac
+	done
+
+	FLAG=n
+	while [ "$FLAG" = "n" ]
+	do
+	  /bin/echo -n "
+Size the image? [y|N] ->"
+
+	  read RESIZE
+	  case $RESIZE in
+	  "?")
+		echo "
+Normally, the image is resized to use the entire page,
+while maintaining the proper aspect ratio.
+
+If you've selected 11x17, however, you can resize
+upto 10x16.
+
+If you select image sizing, you will be prompted
+for the x dimension.  The y dimension will be properly
+calculated based on the aspect ratio."
+		FLAG=n
+	  ;;
+	  ""|N|n)
+		FLAG=y
+	  ;;
+	  *)	
+		typeset -i TXDIM XDIM
+		RESIZE=""
+		FLAG=n
+		while [ "$FLAG" = "n" ]
+		do
+		  /bin/echo -n "
+X dimension, in inches:"
+		  read TXDIM
+		  if [ "$TXDIM" = "?" ]
+		  then
+		    echo "
+When supplying the dimension, remember to
+consider your image orientation.  Specifying
+an X dimension of 12 inches on 11x17 paper in
+portrait mode will not work!"
+		    FLAG=n
+		  else
+		    #XDIM="TXDIM * 72"
+		    OPTIONS="$OPTIONS -X${TXDIM}"
+		    FLAG=y
+		  fi
+		done
+		FLAG=y
+	  ;;
+	  esac
+	done
+
+	echo "
+Dumping raster to $DOUT"
+	echo "
+Swipe out a portion of the screen you want by
+pressing and holding the left mouse button."
+
+	if [ "$SHEET" = "upper" ]
+	then
+	  (
+	  echo "%!"
+	  echo "statusdict begin 11x17tray end"
+	  dumpregion | rasfilter8to1 | psraster $OPTIONS
+	  echo "statusdict begin lettertray end"
+	  ) | lpr -P$DOUT
+	else
+	  echo "dumpregion | rasfilter8to1 | psraster $OPTIONS | lpr -P$DOUT"
+	  dumpregion | rasfilter8to1 | psraster $OPTIONS | lpr -P$DOUT
+	fi
+	FLAG=y
+    ;;
+    *)	echo "
+ERROR: output format undefined.."
+	FLAG=y
+    ;;
+    esac
+  done
+  /bin/echo -n "
+Another? [Y|n] ->"
+  read AGAIN
+  case $AGAIN in
+  ""|Y*|y*)
+	ANOTHER=y
+  ;;
+  *)
+	ANOTHER=n
+  ;;
+  esac
+  NUM="NUM + 1"
+done

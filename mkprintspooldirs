@@ -1,0 +1,5 @@
+#!/bin/ksh
+for dir in `cat /etc/printcap|grep "^	:sd="|sed 's/.*:sd=//'|sed 's/:.*//'`
+do
+	mkdir $dir
+done

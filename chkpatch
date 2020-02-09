@@ -1,0 +1,109 @@
+#!/bin/ksh
+#
+# chkpatch checks the rev of patches on a system to the latest available.
+#
+# Requires a file called <release>.recommended.readme.sorted in $INFO (which
+# defaults to ~bquayle/info/patch)  File is ASCII listing of latest available
+# patches.
+#
+INFO=${INFO:-~bquayle/info/patch}
+THIS_HOST=`hostname`
+SDATE=`date +%m%d%y`
+typeset -i COUNT
+
+while getopts :r:g:l:o: flags
+do
+  case $flags in
+    r)
+          TARGET=$OPTARG
+        ;;
+    g)  
+          GOLD=$OPTARG
+        ;;
+    l)  
+          TLISTING=$OPTARG
+	  LOCAL=1
+        ;;
+    o)  
+          OS=$OPTARG
+        ;;
+    ?)  
+        echo "USAGE:chkpatch [-r hostname] [-g gold-listing-filename]  [-l local-patch-listing-filename] [-o OS rev]"
+	exit 1
+        ;;
+  esac
+done
+
+shift $(($OPTIND - 1 ))
+
+if [ -z "$TARGET" ]
+then
+    echo "Host to analyze? [`hostname`] \c"
+    read TARGET
+    TARGET=${TARGET:-`hostname`}
+fi
+
+TLISTING=${TLISTING:-/tmp/${TARGET}.patchlog.${SDATE}}
+
+echo "Working on $TARGET..."
+if [ "$TARGET" != "THIS_HOST" ] && [ "$LOCAL" != "1" ]
+then
+	STATUS=`ping $TARGET 2 >/dev/null 2>&1;echo $?`
+	if [ $STATUS -eq 0 ]
+	then
+		STATUS=`rpcinfo -T tcp $TARGET >/dev/null 2>&1;echo $?`
+		if [ $STATUS -eq 0 ]
+		then
+			STATUS=`rsh $TARGET /bin/sun >/dev/null 2>&1;echo $?`
+			if [ $STATUS -ne 0 ]
+			then
+				echo "Sorry, you'll need rsh access to $TARGET to use this remotely!"
+				exit 1
+			else
+				OS=`rsh ${TARGET} uname -r`
+				rsh $TARGET "showrev -p"|awk '{print $2}' > $TLISTING
+			fi
+		fi
+	fi
+else
+	OS=${OS:-`uname -r`}
+	if [ "$TARGET" = "THIS_HOST" ]
+	then
+		showrev -p |awk '{print $2}'> $TLISTING
+	fi
+fi
+
+GOLD=${GOLD:-${INFO}/${OS}.recommended.readme.sorted}
+
+if [ ! -f "${GOLD}" ]
+then
+	echo "Sorry, can't find the golden patch listing"
+	echo "I was looking for ${GOLD}"
+	echo "Use 'chkpatch -r <filename>' to specify a non-default location"
+	exit 1
+fi
+
+for i in `cat $GOLD|cut -f1 -d"-"`
+do
+  CURRENT=`grep $i ${GOLD}|awk '{print $1}'`
+  grep $i $TLISTING >/dev/null 2>&1
+  if [ $? -ne 0 ]
+  then
+    echo "$CURRENT isn't installed on $TARGET"
+  else
+    INS=`grep $i $TLISTING`
+    COUNT=`echo $INS|wc -w|sed 's/  *//g'`
+    if [ $COUNT -gt 1 ]
+    then
+        echo "$COUNT copies of patch $i are installed on $TARGET.  This is probably not good."
+    fi
+    for INST in $INS
+    do
+        grep $INST $GOLD >/dev/null 2>&1
+        if [ $? -ne 0 ]
+        then
+          echo "$INST is installed on $TARGET, but the latest rev is ${CURRENT}"
+        fi
+    done
+  fi
+done

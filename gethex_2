@@ -1,0 +1,20 @@
+#!/bin/ksh
+if [ $# -ne 1 ]
+then
+	echo "USAGE:gethex [ip_address|hostname]"
+	exit 1
+fi
+IPNUM=$*
+TIPNUM=`echo $IPNUM|grep [a-z]`
+if [ "$TIPNUM" = "$IPNUM" ]
+then
+	IPNUM=`ypmatch $IPNUM hosts|awk '{print $1}'`
+fi
+IFS=.
+for TEMP in ${IPNUM}
+do
+		NUM="${NUM}`echo $TEMP |awk '{printf "%x\n", $1}'`"
+done
+IFS=" "
+UKNUM=`echo $NUM|tr [a-z] [A-Z]`
+echo "Hex representation of $IPNUM is $UKNUM"

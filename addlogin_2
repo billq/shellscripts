@@ -1,0 +1,392 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)addlogin V2.3			
+#                   @(#)Copyright (c) 1995 William R. Quayle
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             quayle@switch.rockwell.com                       #
+#                                                                              #
+################################################################################
+#               
+# addlogin - adds a login to the Rockwell SSD UNIX environment               
+#               
+################################################################################
+MASTER="yooper"
+HOME_SERVERS="chaos cetus"
+OUR_DOMAIN="switch.rockwell.com"
+PASSWD_FILE="/etc/security/passwd"
+GROUP_FILE="/etc/security/group"
+ALIAS_FILE="/etc/security/aliases"
+PHONE_BOOK="/usr/local/lib/phonebook.email.parse"
+DEPTNUM2NAME="/usr/local/lib/deptnum2name"
+ERR="ERROR:$0:"
+EDITOR=${EDITOR:-vi}
+UNAME=`/bin/hostname`
+OPER=`/usr/ucb/whoami`
+TEMPLATE_DIR=/home/admin/adm/lib/samples
+if [ "$UNAME" != "$MASTER" ] || [ "$OPER" != "root" ]
+then
+	echo $ERR"Not logged in as root to $MASTER"
+	exit 1
+fi
+
+setmail () {
+USER_NAME=$1
+/bin/echo -n "
+Enter the mail server for ${USER_NAME},
+	a) switch.rockwell.com		(Opus or Lemont)
+	b) sserver.switch.rockwell.com	(Secaucus)
+	c) tserver.switch.rockwell.com	(Tucker)
+	d) cmserver.switch.rockwell.com	(Costa Mesa)
+	e) gpserver.switch.rockwell.com	(Grand Prairie)
+	f) mcserver.switch.rockwell.com	(Mclean)
+	g) ukswitch.rockwell.com	(London)
+	h) remnet			(Novell/Corporate)
+	i) other
+
+	(default is switch.rockwell.com) : "
+read MAIL_MACHINE
+MAIL_MACHINE=${MAIL_MACHINE:-switch.rockwell.com}
+case ${MAIL_MACHINE} in
+	a|A|switch.rockwell.com)	MAIL_MACHINE=switch.rockwell.com	;;
+	b|B|sserver.switch.rockwell.com) MAIL_MACHINE=sserver.switch.rockwell.com	;;
+	c|C|tserver.switch.rockwell.com) MAIL_MACHINE=tserver.switch.rockwell.com	;;
+	d|D|cmserver.switch.rockwell.com) MAIL_MACHINE=cmserver.switch.rockwell.com	;;
+	e|E|gpserver.switch.rockwell.com) MAIL_MACHINE=gpserver.switch.rockwell.com	;;
+	f|F|mcserver.switch.rockwell.com) MAIL_MACHINE=mcserver.switch.rockwell.com	;;
+	g|G|ukswitch.rockwell.com)	MAIL_MACHINE=ukswitch.rockwell.com	;;
+	h|H|remnet)	MAIL_MACHINE=switchng.remnet.rockwell.com	;;
+	*)	/bin/echo -n "
+Enter the name of the mail server: "
+		read MAIL_MACHINE		;;
+esac
+ALIAS=${USER_NAME}@${MAIL_MACHINE}
+	}
+
+ANOTHER="yes"
+while [ "$ANOTHER" = "yes" ]; do
+	/bin/echo -n "
+Enter the new users last name: "
+	read LAST_NAME
+	/bin/echo -n "
+Enter the new users first name: "
+	read FN
+	grep -s -i ${LAST_NAME}_${FN} ${PHONE_BOOK}
+	if [ $? -eq 0 ]
+	then
+		/usr/local/bin/ephone ${LAST_NAME}_${FN}
+		/bin/echo -n "
+Is this the user? [Y|n] "
+		read GOTIT
+		case $GOTIT in
+		""|Y*|y*)	set `grep -i ${LAST_NAME}_${FN} ${PHONE_BOOK}`
+				REAL_NAME=`echo $1|cut -f1 -d";"`
+				DEPT=`echo $2`
+				PHONE=`echo $1|cut -f3 -d";"`
+				USER_NAME=`echo $1|cut -f2 -d";"|sed 's/\@.*//'`
+				while [ "`ypcat passwd|cut -f1 -d:|fgrep -x $USER_NAME`" != "" ]
+				do 
+					/bin/echo -n "
+User name, $USER_NAME, already in use.
+
+	 Please choose a unique login for $REAL_NAME: "
+					read USER_NAME
+				done
+				ALIAS=`echo $1|cut -f2 -d";"`
+				echo $ALIAS|grep -s unknown
+				if [ $? -eq 0 ]
+				then
+					setmail $USER_NAME
+				fi
+				;;
+		*)		echo "Adding user in manual mode."
+				continue
+				;;
+		esac
+	else
+		/bin/echo -n "
+Enter the users Middle Initial: (<CR> for none) "
+		read MI
+		if [ "X$MI" = "X" ]
+		then
+			RMI=""
+		else
+			RMI="${MI}._"
+		fi
+		REAL_NAME="${FN}_${RMI}${LAST_NAME}"
+		/bin/echo -n "
+Enter the users Department Number: (ie: 933-651) "
+		read DEPT
+		/bin/echo -n "
+Enter the users Phone Extension: (four digits for Opus/Lemont, comnet for other ) "
+		read PHONE
+		/bin/echo -n "
+Enter the new users login: "
+		read USER_NAME
+		while [ "`ypcat passwd|cut -f1 -d:|fgrep -x $USER_NAME`" != "" ]
+		do 
+			/bin/echo -n "
+User name, $USER_NAME, already in use.
+
+	 Please choose a unique login for $REAL_NAME: "
+			read USER_NAME
+		done
+		setmail $USER_NAME
+	fi
+	SUB_DEPT=`echo $DEPT|cut -f2 -d"-"`
+	PCOMM="`grep $SUB_DEPT $DEPTNUM2NAME|cut -f2 -d:`"
+	/bin/echo -n "
+Enter any comment regarding ${REAL_NAME}: (default: $PCOMM) "
+	read COMM
+	COMM=${COMM:-$PCOMM}
+	RCOMM="`echo $COMM|sed 's/ /_/g'`"
+	GECOS=${REAL_NAME},${DEPT},${PHONE},${RCOMM}
+	echo
+	/bin/echo -n "
+
+Enter the HOME DIRECTORY FILESYSTEM for the user.
+
+The home filesystem should be one of the following:
+
+/home/spectrum	Spectrum Engineering
+/home/galaxy	Galaxy Engineering
+/home/cti	Computer/Telephony Intregration Engineering
+/home/hardware	Drafting, CAD/CAM, Hardware Engineering
+/home/admin	System administration
+/home/mfg	Manufacturing (Lemont Rd.)
+/home/testeng	Test Engineering (Lemont Rd.)
+/home/sales	Sales, Marketing
+/home/support	Customer Service, Technical Support, Field Service
+/home/mis	Personnel, Human Resources, Finance, Accounting
+/home/docs	Documentation, Technical Publications, Document Control
+
+(EX: admin) :"
+	read DIRNAME
+	echo $DIRNAME|grep -s home
+	if [ $? -ne 0 ]
+	then
+		DIRNAME=/home/$DIRNAME
+	fi
+	df $DIRNAME > /dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		echo "
+
+Bad directory name, $DIRNAME, please choose a home directory for $USER_NAME
+based on the following:
+
+/home/spectrum	Spectrum Engineering
+/home/galaxy	Galaxy Engineering
+/home/cti	Computer/Telephony Intregration Engineering
+/home/hardware	Drafting, CAD/CAM, Hardware Engineering
+/home/admin	System administration
+/home/mfg	Manufacturing (Lemont Rd.)
+/home/testeng	Test Engineering (Lemont Rd.)
+/home/sales	Sales, Marketing
+/home/support	Customer Service, Technical Support, Field Service
+/home/mis	Personnel, Human Resources, Finance, Accounting
+/home/docs	Documentation, Technical Publications, Document Control
+
+Restarting..."
+		sleep 4
+		ANOTHER=yes
+		continue
+	else
+		DIRNAME=${DIRNAME}/${USER_NAME}
+	fi
+	if [ "${UID}" = "" ]
+	then
+		typeset -i UID NEXT_UID
+		UID=`ypcat passwd|cut -f3 -d: | grep -v 6553[0-9]|sed 's/^/ /'|sort -n | tail -1`
+	else
+		UID="UID + 1"
+	fi
+	echo "
+The following is the next available uid in this environment:
+"
+	NEXT_UID="UID + 1"
+	echo $NEXT_UID
+	echo "
+The choice of a uid should be made so that the following criterion
+are met:
+
+	o The uid must be synchronized between all logins the user
+	  has on the local machines.
+
+	o The uid must be unique between platforms. 
+	  (If user1 has a uid of 6666 on serverA, user2 cannot have
+	  6666 on serverB)
+
+Realizing this, please chose a uid for $USER_NAME."
+	/bin/echo -n "
+	(Default $NEXT_UID) : "
+	read BOGUS
+	case $BOGUS in
+	"")	UID=$NEXT_UID
+		;;
+	*)	UID=$BOGUS
+		;;
+	esac
+	ENTRY=${USER_NAME}::${UID}:${UID}:${GECOS}:${DIRNAME}:/bin/ksh
+	echo "
+Password file will have the following entry appended:
+
+$ENTRY"
+	echo "
+Alias file will have the following entry appended:
+
+${USER_NAME}: ${ALIAS} "
+	/bin/echo -n "
+O.K., we're ready to do the real work...
+
+Do you want to install $USER_NAME as a new user? -> [Y|n] "
+	read GOFORIT
+	case $GOFORIT in
+	""|Y*|y*)
+		while [ -f ${PASSWD_FILE}.lck ] 	
+		do
+			echo "Password file is currently being edited by `cat ${PASSWD_FILE.lck`, sleeping..."
+			sleep 60
+		done
+			echo ${ENTRY}>>$PASSWD_FILE
+		while [ -f ${GROUP_FILE}.lck ] 	
+		do
+			echo "Group file is currently being edited by `cat ${GROUP_FILE.lck`, sleeping..."
+			sleep 60
+		done
+			echo "${USER_NAME}::${UID}:${USER_NAME}">>$GROUP_FILE
+		while [ -f ${ALIAS_FILE}.lck ] 	
+		do
+			echo "Alias file is currently being edited by `cat ${ALIAS_FILE.lck`, sleeping..."
+			sleep 60
+		done
+			echo "${USER_NAME}: ${ALIAS}">>$ALIAS_FILE
+			;;
+	*)		echo "Nothing done for ${USER_NAME}"
+			sleep 2
+			clear
+			ANOTHER=yes
+			continue
+			;;
+	esac
+	echo "Updating the NIS databases for `domainname`..."
+	cd /var/yp;make
+	echo "
+
+	NOTICE - While we are functioning in multiple domains, the NIS databases
+	will *NOT* be in sync for this user until a netedit is done.  Currently
+	this only applies to the aliases and group file, as the password file
+	is not in sync.
+
+	"
+	/bin/echo -n "Add another user? [y|N]: "
+	read ANOTHER
+	case $ANOTHER in
+		n*|N*|"") ANOTHER="no"	;;
+		y*|Y*)	ANOTHER="yes" ;;
+		*) echo "$ERR expecting y or n.  Exiting."
+		sleep 2
+		   exit 1               ;;
+	esac
+	USER_LIST="${USER_NAME} ${USER_LIST}"
+done
+for USER_NAME in $USER_LIST
+do
+	DIRNAME=`grep "^$USER_NAME" $PASSWD_FILE|cut -f6 -d:`
+	PARENT=`dirname $DIRNAME`
+	UID=`grep "^$USER_NAME" $PASSWD_FILE|cut -f3 -d:`
+	touch ${PARENT}/add_login_test_file >/dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		/bin/echo -n "     ERROR!!
+
+No write permissions in $PARENT. This can be resolved by
+changing the export permissions on the home directory server.
+This script will pause, waiting for you to fix this.  If
+you want to exit, interrupt (usually ^C). When you have
+finished fixing the exports file on the server, hit a return
+to continue.
+
+	-> "
+		
+	else
+		rm ${PARENT}/add_login_test_file
+	fi
+	if [ ! -d $DIRNAME ]
+	then
+		echo " Making login directory: $DIRNAME"
+		mkdir $DIRNAME
+		echo " Changing owner of $DIRNAME to $USER_NAME "
+		/etc/chown $UID $DIRNAME
+		echo " Changing group of $DIRNAME to $USER_NAME "
+		chgrp $UID $DIRNAME
+		echo " Changing mode of $DIRNAME to 755"
+		chmod 755 $DIRNAME
+		chmod g+s $DIRNAME
+	else
+		echo "$DIRNAME already exists!"
+	fi
+	echo "Checking $DIRNAME:"
+	/usr/5bin/ls -dl $DIRNAME
+	/usr/5bin/echo "Installing default dot files: \c"
+	for file in .profile .kshrc .rhosts .toolset
+	do
+		if [ ! -f $DIRNAME/${file} ]
+		then
+			/usr/5bin/echo "${file}, \c"
+			cp ${TEMPLATE_DIR}/sample${file} $DIRNAME/${file}
+			/etc/chown ${UID}.${UID} $DIRNAME/${file}
+			chmod 640 $DIRNAME/${file}
+		else
+			echo "$DIRNAME/${file} exists!"
+		fi
+	done
+	echo "done."
+	/bin/echo -n "
+We will now give the new user a password.  When prompted
+for an old password hit return.  The new password should
+be their first initial, last initial, and phone number 
+(4-digit extension only).  (i.e. wq8623) This password
+will be automatically expired, so that the user will be
+prompted to change it immediately upon first login.
+
+	Hit return to proceed, or type \"no\" to skip this
+	step: "
+	read ASSIGN
+	case $ASSIGN in
+	""|Y*|y*)	passwd -F $PASSWD_FILE $USER_NAME
+			#passwd -x 60 -F $PASSWD_FILE $USER_NAME
+			#passwd -e -F $PASSWD_FILE $USER_NAME
+			;;
+	*)		echo "No password assigned."
+			;;
+	esac
+done
+echo "
+Check the passwd, group, and alias files.
+
+Manual intervention is required to allow you to add users to appropriate
+groups, or make modifications to automated entries. Make sure you do the NIS
+make on the file when asked."
+/bin/echo -n "
+Hit RETURN >"
+read DUMMY
+netedit passwd group aliases
+exit 0

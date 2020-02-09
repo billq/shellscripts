@@ -1,0 +1,64 @@
+#!/bin/ksh
+# pageme -h host -r reason
+# To add additional codes, edit the commented out portions
+# of the two case statements below. First digit is the
+# problem code, second and third is the host.
+# ERRORCODE	PROBLEM
+#    000	unknown host, unknown problem
+#    101	hercules down
+#    102	raven down
+#    103	yooper down
+#    104	trooper down
+#    105	chaos down
+#    106	other host down
+#    201	other problem with hercules
+#    202	other problem with raven
+#     .         .
+#     .         get the idea?
+#     .         .
+USAGE="USAGE pageme -h host -r reason"
+if [ $# -lt 1 ]
+then
+	echo $USAGE
+	exit 1
+fi
+set -- `getopt h:r:? $*`
+for i in $*
+do
+  case $i in
+  -h)  HOST="$2"; shift 2          ;;
+  -r)  REASON="$2"; shift 2        ;;
+  -\?) echo "$USAGE 2" >&2; exit 1 ;;
+  esac
+done
+case $HOST in
+hercules)		STRING="01"	;;
+raven)		STRING="02"	;;
+yooper)	STRING="03"	;;
+trooper)		STRING="04"	;;
+chaos)	STRING="05"	;;
+#host)		STRING="06"	;;
+#host)		STRING="07"	;;
+#host)		STRING="08"	;;
+#host)		STRING="09"	;;
+#host)		STRING="10"	;;
+#host)		STRING="11"	;;
+*)		STRING="00"	;;
+esac
+case $REASON in
+down)		STRING="1$STRING"	;;
+#reason)	STRING="2$STRING"	;;
+#reason)	STRING="3$STRING"	;;
+#reason)	STRING="4$STRING"	;;
+#reason)	STRING="5$STRING"	;;
+#reason)	STRING="6$STRING"	;;
+#reason)	STRING="7$STRING"	;;
+#reason)	STRING="8$STRING"	;;
+#reason)	STRING="9$STRING"	;;
+*)	STRING="0$STRING"	;;
+esac
+echo "AT" > /dev/ttyb
+sleep 1
+echo "ATDT*9,6437972,,,,,,,,,${ERRORCODE}#" > /dev/ttyb
+sleep 15
+exit

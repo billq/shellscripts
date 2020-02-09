@@ -1,0 +1,23 @@
+#!/bin/ksh
+
+for SLE in `ypcat hosts|grep sle.b|awk '{print $2}'|sort -u|grep -v "\-"|grep -v "s$"|grep -v qb`
+
+do
+  rcp ~bquayle/bin/run_ndd ${SLE}:/tmp/run_ndd
+  echo "
+-------------------------------------------------------------------
+                $SLE
+-------------------------------------------------------------------" >> ~bquayle/log/gb2_ndd/sle
+  rsh $SLE "/tmp/run_ndd" >> ~bquayle/log/gb2_ndd/sle
+done
+
+run_ndd () {
+for SPEC in tcp udp icmp hme ip arp
+do
+  for PARAM in `ndd /dev/$SPEC ?|awk '{print $1}'|grep -v "\?"|grep -v "_status"|grep -v "_hash"|grep -v "_report"`
+  do
+    echo "$PARAM :\c"
+    ndd /dev/$SPEC $PARAM 
+  done
+done
+}

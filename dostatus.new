@@ -1,0 +1,18 @@
+set -x
+TODAY=`date +%y%m%d`
+PUB_DIR=/home/apdv1/osg/public_html/group/status
+SRC_DIR=~bquayle/public_html/OSG_WEB/group/status
+DFILE=~bquayle/public_html/OSG_WEB/group/status/today
+
+LAST_WEEK=`cat $DFILE`
+echo $TODAY > $DFILE
+
+if [ -f $PUB_DIR/weekly_status.html ]
+then
+  cp $PUB_DIR/weekly_status.html $PUB_DIR/${LAST_WEEK}_status.html
+fi
+if [ -f $SRC_DIR/weekly_status.html ]
+then
+  cp $SRC_DIR/weekly_status.html $PUB_DIR/weekly_status.html
+fi
+

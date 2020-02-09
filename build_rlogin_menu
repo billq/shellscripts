@@ -1,0 +1,58 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1993 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             quayle@switch.rockwell.com                       #
+#                                                                              #
+################################################################################
+#	build_rlogin_menus
+#
+# duh - builds rlogin menus
+#
+MENU_DIR=/usr/local/include/xmenus
+for i in 116 117 118 119 120 121 122 123
+do
+	# Do xterms
+	ypcat hosts | grep "\.$i\." | grep "Sun"| grep -v "xhost" | grep -v "xterm" | awk '{printf "%s\txterm -j -rw -sl 1000 -sf -n %s -e rlogin %s\n",$2,$2,$2}' | sort > $MENU_DIR/${i}_net
+	echo "\"$i Workstations\"      END PIN">> $MENU_DIR/${i}_net
+ 	# Now do shelltools
+	ypcat hosts | grep "\.$i\." | grep "Sun"| grep -v "xhost" | grep -v "xterm" | awk '{printf "%s\tshelltool -Wl %s -WL %s -I \"rlogin %s\"\n",$2,$2,$2,$2}' | sort > $MENU_DIR/${i}_net.s
+	echo "\"$i Workstations\"      END PIN" >> $MENU_DIR/${i}_net.s
+done
+cat $MENU_DIR/*_net | grep -v "END PIN" | sort > $MENU_DIR/rlclients
+echo "\"Workstations a-z\"      END PIN" >> $MENU_DIR/rlclients
+for RANGE in a-e f-o p-s t-z
+do
+	cat $MENU_DIR/rlclients | grep "^[$RANGE]" | sort > $MENU_DIR/$RANGE.clients
+	echo "\"Workstations $RANGE\"	END PIN" >> $MENU_DIR/$RANGE.clients
+done
+cat $MENU_DIR/*_net.s | grep -v "END PIN" | sort > $MENU_DIR/rlclients.s
+echo "\"Workstations a-z\"      END PIN" >> $MENU_DIR/rlclients.s
+for RANGE in a-e f-o p-s t-z
+do
+	cat $MENU_DIR/rlclients.s | grep "^[$RANGE]" | sort > $MENU_DIR/$RANGE.clients.s
+	echo "\"Workstations $RANGE\"	END PIN" >> $MENU_DIR/$RANGE.clients.s
+done
+ypcat hosts | grep "Build" | grep "Sun"| awk '{printf "%s\txterm -j -rw -sl 1000 -sf -n %s -e rlogin %s\n",$2,$2,$2}' | sort > $MENU_DIR/build
+ypcat hosts | grep "Build" | grep "Sun"| awk '{printf "%s\tshelltool -Wl %s -WL %s -I \"rlogin %s\"\n",$2,$2,$2,$2}' | sort > $MENU_DIR/build.s
+echo "\"Build Workstations\"	END PIN" >> $MENU_DIR/build
+echo "\"Build Workstations\"	END PIN" >> $MENU_DIR/build.s

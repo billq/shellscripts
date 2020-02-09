@@ -1,0 +1,122 @@
+#!/usr/bin/sh
+#
+# bbaseline - bourne shell baseline tool. For use in performance tuning.
+#
+# This has been written for Solaris, but should run on any Unix/Linux with a 
+#  few obvious tweeks to the code. By default this logs 5 x 1 second samples
+#  for each command. The log contains unique grep'able codes, eg "VMSTAT1".
+#
+# 11-Sep-2004	ver 1.20	(check http://www.brendangregg.com)
+#
+#
+# USAGE: bbaseline [interval [count]] > logfile
+#    eg, 
+#        bbaseline > /var/log/baseline.`date +%Y%m%d_%H%M`     # create
+#        grep VMSTAT1 /var/log/baseline.20040105_0800          # read later
+#
+# The tests can be customised, such as to capture extra network interfaces 
+#  with "netstat -iI", or to run custom status commands. See the code below.
+#  Increase the interval to improve data consistancy, eg "bbaseline 15 2".
+#  bbaseline may be run hourly from crontab to a logging location.
+#
+#
+# SEE ALSO: 	sar - system activity recorder 
+#		gnuplot - noninteractive data plotter
+#
+# COPYRIGHT: Copyright (c) 2003, 2004 Brendan Gregg.
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version. 
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details. 
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation, 
+#  Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#  (http://www.gnu.org/copyleft/gpl.html)
+#
+# 07-Dec-2003	Brendan Gregg	Created this 
+
+
+#
+# --- Default Variables ---
+#
+interval=1			# default duration of each sample, seconds
+count=5				# number of samples for each command
+PATH=/usr/bin:/usr/sbin
+
+#
+# --- Command Line Arguments ---
+#
+if [ "x$1" = "x-h" -o "x$1" = "x--help" ]; then
+	echo >&2 "USAGE: $0 [interval [count]]"
+	echo >&2 "   eg,\n       $0"' > baseline.`date +%Y%m%d_%H%M`'
+	exit 1
+fi
+[ "$1" != "" ] && interval=$1
+[ "$2" != "" ] && count=$2
+
+#
+#  --- MAIN, Run Tests ---
+#
+while read tag code command
+do
+	if [ "$tag" != ":" ]; then continue; fi
+	eval $command 2>&1 | sed "s/^/$code: /"
+	echo
+done < $0
+exit
+
+
+#
+#  --- Define Tests ---
+#
+#  New tests can be added by following the format ": CODE command",
+#  with an appropriate unique code for greping later. The following
+#  must be the only lines that begin with ":", and are executed
+#  in the same order.
+#
+: UNAME1 uname -a
+: DATE1 date
+: UPTIME1 uptime
+: PS1 ps -ef
+: PS2 /usr/ucb/ps -auxww
+: PS3 ps -eo pid,rss,vsz,args
+: DF1 df -k
+: PSRINFO1 psrinfo -v
+: SWAP1 swap -l
+: SWAP2 swap -s
+: VMSTAT1 vmstat $interval $count
+: VMSTAT2 vmstat -p $interval $count
+: VMSTAT3 vmstat -s $interval $count
+: IOSTAT1 iostat $interval $count
+: IOSTAT2 iostat -xnmp $interval $count
+: IOSTAT3 iostat -xPnce $interval $count
+: IOSTAT4 iostat -eE
+: NETSTAT1 netstat -i
+: NETSTAT2 netstat -i $interval $count
+: NETSTAT3 netstat -an
+: NETSTAT4 netstat -s
+: NETSTAT5 netstat -m
+: MPSTAT1 mpstat $interval $count
+: SARa sar -a $interval $count
+: SARb sar -b $interval $count
+: SARd sar -d $interval $count
+: SARc sar -c $interval $count
+: SARq sar -q $interval $count
+: SARu sar -u $interval $count
+: SARg sar -g $interval $count
+: SARp sar -p $interval $count
+: SARv sar -v $interval 1
+: SARw sar -w $interval $count
+: SAR1 sar
+: SYSDEF1 sysdef | sed '/System Configuration/,$!d'
+: DATE2 date
+: UPTIME2 uptime
+

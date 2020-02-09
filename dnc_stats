@@ -1,0 +1,13 @@
+adb -k /vmunix /dev/mem << EOF
+=n"Directory Name Cache Statistics Since Last Boot"
+="-----------------------------------------------"
+nosize/D"Directory Name Cache Size"
+nostats/D"cache hits"n
++/D"cache misses"n
++/D"number of enters into cache"n
++/D"number of enters tried when already cached"n
++/D"long names tried to enter"n
++/D"long names tried to look up"n
++/D"time LRU list empty"n
++/D"number of purges of cache"
+EOF

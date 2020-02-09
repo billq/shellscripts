@@ -1,0 +1,14 @@
+#!/bin/sh
+killproc() {            # kill the named process(es)
+        pid=`/usr/bin/ps -e |
+             /usr/bin/grep $1 |
+             /usr/bin/sed -e 's/^  *//' -e 's/ .*//'`
+        [ "$pid" != "" ] && kill $pid
+}
+if [ $# -lt 1 ]
+then
+	echo "Usage: killproc name"
+	exit 1
+else
+	killproc $1
+fi

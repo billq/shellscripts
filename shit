@@ -1,0 +1,35 @@
+#!/bin/ksh
+typeset -i T
+while true
+do
+	T=0
+	R=`echo $RANDOM`
+	if [ $R -gt 1000 ]
+	then
+		R=$((R % 1000))
+	fi
+	if [ $R -gt 100 ]
+	then
+		R=$((R % 100))
+	fi
+	if [ $R -gt 10 ]
+	then
+		A=$((R % 10))
+	fi
+	while [ "$T" -lt "$R" ]
+	do
+		case $A in
+		1) echo "\tshit." ;;
+		2) echo "\t\tshit." ;;
+		3) echo "\t\t\tshit." ;;
+		4) echo "\t\t\t\tshit." ;;
+		5) echo "\t\t\t\t\tshit." ;;
+		6) echo "\t\t\t\t\t\tshit." ;;
+		7) echo "\t\t\t\t\t\t\tshit." ;;
+		8) echo "\t\t\t\t\t\t\t\tshit." ;;
+		9) echo "\t\t\t\t\t\t\t\t\tshit." ;;
+		esac
+		T=$((T + 1))
+	done
+	sleep 2
+done

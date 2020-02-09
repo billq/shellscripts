@@ -1,0 +1,35 @@
+#!/bin/ksh
+HOSTS="leo yooper spam1 zeus spam2 screen publish bijou"
+EDITOR=${EDITOR:-vi}
+AB_CARDCATALOG=${AB_CARDCATALOG:-/net/`hostname`/export/share/ab_cardcatalog}
+>/tmp/abfound
+>/tmp/ab_cardcatalog
+for i in $HOSTS
+do
+  if [ -d /net/$i/opt ]
+  then
+    for j in `ls /net/$i/opt` 
+    do
+      if [ -f /net/$i/opt/$j/ab_cardcatalog ]
+      then
+        /usr/xpg4/bin/grep -q $j /tmp/abfound
+	case $? in
+	0)
+	  continue
+	;;
+	*)
+          cat /net/$i/opt/$j/ab_cardcatalog | grep -v "^#" | sed 's/=\/opt/=\/net\/'$i'\/opt/g'|awk -F: '{printf(":%s: \\\n:version=: \\\n:%s: \\\n:%s: \\\n:%s: \\\n:%s: \n",$1,$2,$3,$4,$5)}' >> /tmp/ab_cardcatalog
+	  echo $j >> /tmp/abfound
+	;;
+	esac
+      fi
+    done
+  fi
+done
+echo "Done finding all answerbooks on hosts:"
+echo $HOSTS
+echo "Popping you into $EDITOR to check the ab_cardcatalog file."
+echo "You should copy or write this file to $AB_CARDCATALOG when finished"
+echo "Hit return to proceed ->\c"
+read go
+vi /tmp/ab_cardcatalog

@@ -1,0 +1,15 @@
+#!/bin/ksh
+typeset -i SEED MAX
+SEED=`date +%S`
+ls /usr/add-on/rtools/images/colorrfiles>~/.imagelist
+MAX=`cat ~/.imagelist | wc -l`
+while [ SEED -ge MAX ]
+do
+	SEED=SEED/2
+done
+ed ~/.imagelist >/dev/null 2>&1 << EOF
+${SEED}w .currentimage
+q
+EOF
+cat .currentimage|sed 's/^/\/usr\/add-on\/rtools\/images\/colorrfiles\//'
+rm .currentimage

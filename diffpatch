@@ -1,0 +1,92 @@
+#!/bin/ksh
+#
+# diffpatch checks the rev of patches on a pair of systems.
+#
+#
+THIS_HOST=`hostname`
+SDATE=`date +%m%d%y`
+typeset -i COUNT
+
+case $# in
+    2)  
+          HOST_0=$1
+          HOST_1=$2
+        ;;
+    *)  
+        echo "USAGE:diffpatch hostname_0 hostname_1"
+        echo "diffpatch checks the rev of patches on two systems"
+	exit 1
+        ;;
+esac
+
+for TARGET in $HOST_0 $HOST_1
+do
+	TLISTING=/tmp/patches.${TARGET}.$$
+
+	echo "Working on $TARGET..."
+	if [ "$TARGET" != "THIS_HOST" ]
+	then
+		STATUS=`ping $TARGET 2 >/dev/null 2>&1;echo $?`
+		if [ $STATUS -eq 0 ]
+		then
+			STATUS=`rpcinfo -T tcp $TARGET >/dev/null 2>&1;echo $?`
+			if [ $STATUS -eq 0 ]
+			then
+				STATUS=`rsh $TARGET -l root /bin/sun >/dev/null 2>&1;echo $?`
+				if [ $STATUS -ne 0 ]
+				then
+					echo "Sorry, you'll need rsh access to $TARGET to use this remotely!"
+					exit 1
+				else
+					rsh $TARGET -l root "showrev -p"|awk '{print $2}'|sort -u > $TLISTING
+				fi
+			else
+				echo "Sorry, $TARGET is pingable, but doesn't answer an rpcinfo."
+				exit 1
+			fi
+		else
+			echo "Sorry, $TARGET seems to be among the dearly departed at this time."
+			exit 1
+		fi
+	else
+		if [ "$TARGET" = "THIS_HOST" ]
+		then
+			showrev -p |awk '{print $2}'|sort -u > $TLISTING
+		fi
+	fi
+	
+done
+diff /tmp/patches.${HOST_0}.$$ /tmp/patches.${HOST_0} >/dev/null 2>&1
+case $? in
+2)
+echo "
+-----------------------------------------------------------------------
+List of patches missing on ${HOST_1}
+-----------------------------------------------------------------------
+"
+for i in `cat /tmp/patches.${HOST_0}.$$`
+do
+	fgrep -s $i /tmp/patches.${HOST_1}.$$
+	if [ $? -ne 0 ]
+	then
+		echo $i
+	fi
+done
+echo "
+-----------------------------------------------------------------------
+List of patches missing on ${HOST_0}
+-----------------------------------------------------------------------
+"
+for i in `cat /tmp/patches.${HOST_1}.$$`
+do
+	fgrep -s $i /tmp/patches.${HOST_0}.$$
+	if [ $? -ne 0 ]
+	then
+		echo $i
+	fi
+done
+;;
+*)
+echo "Done."
+;;
+esac

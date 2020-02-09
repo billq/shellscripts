@@ -1,0 +1,17 @@
+#!/bin/ksh
+TC=0
+RC=0
+for i in `cat /home/osg/etc/hosts.sun`
+do
+ RC=`rsh $i 'test -d /opt/tibco;echo $?'`
+ if [ "$RC" = "0" ]
+ then
+  TC=$((TC+1))
+  RC=`rsh $i 'ps -ef|grep rvd 1>/dev/null;echo $?'`
+  if [ "$RC" = "0" ]
+  then
+   box $i >> /tmp/tibhosts
+  fi
+ fi
+done
+mailx -s"Tib hosts" ctaylor@cme.com < /tmp/tibhosts 

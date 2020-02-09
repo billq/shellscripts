@@ -1,0 +1,8 @@
+xterm -bg yellow -fg darkmagenta -ms darkmagenta -sb -sl 50000 -ls -g 80x42 -T hhqaap1 -n hhqaap1 -e rlogin hhqaap1 -l root &
+xterm -bg yellow -fg darkmagenta -ms darkmagenta -sb -sl 50000 -ls -g 80x42 -T hhqaap2 -n hhqaap2 -e rlogin hhqaap2 -l root &
+xterm -bg yellow -fg darkmagenta -ms darkmagenta -sb -sl 50000 -ls -g 80x42 -T hhqadb1 -n hhqadb1 -e rlogin hhqadb1 -l root &
+#xterm -bg yellow -fg darkmagenta -ms darkmagenta -sb -sl 50000 -ls -g 80x42 -T hhqadb2 -n hhqadb2 -e rlogin hhqadb2 -l root &
+xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -T hhprap1 -n hhprap1 -e rlogin hhprap1 -l root &
+xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -T hhprap2 -n hhprap2 -e rlogin hhprap2 -l root &
+xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -T hhprdb1 -n hhprdb1 -e rlogin hhprdb1 -l root &
+#xterm -bg darkmagenta -fg yellow -ms yellow -sb -sl 50000 -ls -g 80x42 -T hhprdb2 -n hhprdb2 -e rlogin hhprdb2 -l root &

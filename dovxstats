@@ -1,0 +1,13 @@
+for i in `df -k|grep vx|awk '{print $1}'|awk -F"/" '{print $NF}'`
+do
+	for j in v p s d
+	do
+		/usr/sbin/vxstat -${j} ${i}
+		echo "Hit enter for next -> \c"
+		read go
+	done
+done
+for i in `df|grep vx|awk '{print $1}'`
+do
+	/usr/sbin/vxtunefs ${i}
+done

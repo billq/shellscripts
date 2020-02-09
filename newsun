@@ -1,0 +1,112 @@
+#!/bin/ksh
+PATH=/usr/5bin:$PATH
+LISTDIR=$HOME/lib/info/sun
+LISTFILE=$LISTDIR/info
+TMPDIR=/tmp
+TMPFILE=$TMPDIR/suninfoA.new
+NLISTFILE=$TMPDIR/suninfoA.tmp
+REPLY=N
+while
+	case "$REPLY" in
+		N | n)	REPLY=""
+			;;
+		"" | y | Y)	cat $LISTFILE $TMPFILE | sort >>$NLISTFILE
+				mv $NLISTFILE $LISTFILE
+				rm $TMPFILE
+				exit 0
+			;;
+		*)	echo "error, illegal reply $REPLY."
+			echo "Please re-enter \c"
+			read REPLY
+			;;
+	esac
+test "$REPLY" = ""
+do
+clear
+echo "got a new sun? [y]\c "
+read ANS
+case $ANS in
+""|Y*|y*)   echo "
+	NAME: \c "
+        read NAME
+        INTERNET_ADDRESS=`getinfo hosts|grep "$NAME "|awk '{print $1}'`
+        ETHERNET_ADDRESS=`getinfo ethers|grep $NAME|awk '{print $1}'|sed 's/:/./g'`
+	if [ "$INTERNET_ADDRESS" = "" ]
+	then
+        	echo "
+	INTERNET ADDRESS: \c "
+	        read INTERNET_ADDRESS
+	fi
+	if [ "$ETHERNET_ADDRESS" = "" ]
+	then
+		echo "
+	ETHERNET ADDRESS: \c "
+		read ETHERNET_ADDRESS
+		ETHERNET_ADDRESS=`echo $ETHERNET_ADDRESS |sed 's/:/./g'`
+	fi
+	echo "
+	SYSTEM SERIAL NUMBER: \c "
+	read SERIAL_NUMBER
+	echo "
+	LOCATION: \c "
+	read LOCATION
+	echo "
+	MODEL: \c "
+	read MODEL
+	echo "
+	Server or Client? [s|C] \c "
+	read S_OR_C
+	case $S_OR_C in
+	S*|s*)	
+		echo "
+	DISK SIZE: \c "
+		read DISK_SIZE
+		echo "
+	USER LOGIN PARTITIONS:
+(comma separated list,
+ ie, /home/spot,/fddi,/c2) 
+
+	->\c "
+		read USER_PARTITIONS
+		echo "
+	Does $NAME have an owner?
+	(Does it sit on someone's desk?) [Y|n]
+
+	-> \c "
+		read YUP
+		case $YUP in
+		""|Y*|y*)	
+			echo "
+	OWNER: 
+(password file format!
+ i.e. Quayle, W.R.)
+
+	->\c "
+			read OWNER
+	     	;;
+	     	*)
+			OWNER=XXXXXX
+	     	;;
+		esac
+	BOOT_SERVER=XXXXXX
+	;;
+	C*|c*|"")	
+		echo "
+	BOOT SERVER: \c "
+		read BOOT_SERVER
+		DISK_SIZE=XXXXXX
+	;;
+	esac
+	echo $NAME:$INTERNET_ADDRESS:$ETHERNET_ADDRESS:$SERIAL_NUMBER:$DISK_SIZE:$LOCATION:$MODEL:$BOOT_SERVER:$OWNER:$USER_PARTITIONS|sed 's/ /_/g'|sed 's/:/	/g'>>$TMPFILE
+	;;
+	*)      echo "
+		bye!"
+		sleep 3
+		exit
+	;;
+	esac
+	clear
+	echo "
+	All done? [Y] \c"
+	read REPLY
+done

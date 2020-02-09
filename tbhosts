@@ -1,0 +1,19 @@
+#!/bin/ksh
+ypcat hosts|grep 118|grep Testbed|grep Sun:3/[5,6,8]|grep -v watson | grep -v xhost|awk '{print $2,$1}'|sed 's/\./ /g'|nawk '{printf "%x%x%x%x\t%s\n", $2,$3,$4,$5,$1}' | tr [a-z] [A-Z] > /tmp/tbhosts
+for HOST in `cat /tmp/tbhosts|tr [A-Z] [a-z]|awk '{print $2}'`
+do
+	CAPS_HOST="`echo $HOST|tr [a-z] [A-Z]`"
+	MODEL="`ypcat hosts|grep $HOST|awk '{print $4}'|cut -f2 -d:|cut -f2 -d/`"
+	case $MODEL in
+	50|60)	TYPE=sun3	;;
+	80)	TYPE=sun3x	;;
+	*)	echo "type unsupported"; exit 1	;;
+	esac
+	ENET="`grep $CAPS_HOST /tmp/tbhosts | cut -f1`"
+	if [ ! -f /tftpboot/$ENET ]
+	then
+		cd /tftpboot
+		echo "ln -s /tftpboot/boot.${TYPE}.sunos.4.1.1 $ENET"
+		ln -s /tftpboot/boot.${TYPE}.sunos.4.1.1 $ENET
+	fi
+done

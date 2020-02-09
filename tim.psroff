@@ -1,0 +1,98 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#! /bin/sh
+#
+# "@(#) psroff   version 1.2     (2/17/86 10:57:12)"
+# transcript/sh/psroff.sh
+#
+# run ditroff in an environment to print on a PostScript printer
+#
+# pstroff - ditroff | psdit [| psrev] [| lpr]
+#
+# RCSID: $Header: psroff.sh,v 1.2.1.1 85/05/19 16:59:49 shore Exp $
+# RCSLOG:
+# $Log:	psroff.sh,v $
+#Revision 1.2.1.1  85/05/19  16:59:49  shore
+#version for sun
+#
+# a seperate option was made for the '-h' option.
+# With lpr on the sun, the '-h' option dosn't work unless
+# it is the last option.
+#
+#		EMD.
+#
+# full pathnames were used to reference ditroff, psdit and psrev to accomodate
+# rshd not invoking a login shell that sets up its PATH to that of the user. CWH.
+#
+prgmpath=/usr/local/bin
+burstpage=""		# default, no '-h' option (print banner)
+ditroff="$prgmpath/ditroff"
+psdit="$prgmpath/psdit"
+psrev="$prgmpath/psrev"
+reverse=0
+nospool= dopt= fil= spool= dit=
+printer=-P${PRINTER-PostScript}
+while test $# != 0
+do
+	case "$1" in
+	-v)	reverse=1 ;;
+	-V)	reverse=0 ;;
+	-t)	nospool=1 ;;
+	-Tpost)	;;
+	-T*)	echo only -Tpost is valid 1>&2 ; exit 2 ;;
+	-h)	burstpage="-h";;
+	-#*|-m)	spool="$spool $1" ;;
+	-P*)	printer=$1 ;;
+	-C)	spool="$spool $1 $2" ; shift ;;
+	-J)	spool="$spool $1 $2" ; jobname=$2 ; shift ;;
+	-L) psdit="$psdit $1" ;;
+	-)	fil="$fil $1" ;;
+	-*)	dopt="$dopt $1" ;;
+	*)	fil="$fil $1" ; jobname=${jobname-$1} ;;
+	esac
+	shift
+done
+if test "$jobname" = "" ; then
+	spool="$spool -J Ditroff"
+fi
+spool="/usr/ucb/lpr $printer $spool $burstpage"
+if test "$fil" = "" ; then
+	fil="-"
+fi
+dit="$ditroff -Tpost $dopt $fil "
+
+if test "$reverse" = "1" ; then
+	if test "$nospool" = "1" ; then
+		$dit | $psdit | $psrev
+	else
+		$dit | $psdit | $psrev | $spool
+	fi
+elif test "$nospool" = "1" ; then
+	$dit | $psdit
+else
+	$dit | $psdit | $spool
+fi

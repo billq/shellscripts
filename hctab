@@ -1,0 +1,23 @@
+#!/bin/ksh
+BASE=$HOME/docs/txt
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	if [ $# -lt 1 ]
+	then
+		echo "File to search for? \n"
+		read FILES
+	else
+		FILES=$*
+	fi
+	for FILE in $FILES
+	do
+		egrep -i $FILE $BASE/hctab
+	done
+	echo "Another file? [Y/n] \n"
+	read ANOTHER
+	case $ANOTHER in
+	""|Y*|y*)	ANOTHER=Y	;;
+	*)		ANOTHER=N	;;
+	esac
+done

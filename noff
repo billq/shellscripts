@@ -1,0 +1,110 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                       billq@technologist.com                                #
+#                                                                              #
+################################################################################
+PATH=/usr/bin:/var/adm/bin:/usr/local/bin:/usr/ucb:/usr/5bin:/usr/etc:/usr/local/lib/tran
+MAIL="N"
+if [ "$1" = "-mail" ]
+then
+MAIL="Y"
+AGAIN="Y"
+while [ "$AGAIN" = "Y" ]
+do
+	/bin/echo -n "Please enter the base directory to peruse? -> "
+	read FILESYS
+	/bin/echo -n "How old is old (in days)? -> "
+	read LIMIT
+	if [ -d $FILESYS ]
+	then
+		cd $FILESYS
+		echo > OLDFILES >/dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			echo "Sorry, you must be logged in as root to the machine that has $FILESYS on it's resident disk!"
+			exit 1
+		fi
+		rm OLDFILES
+		echo "Getting a list of oldfiles in $FILESYS, please stand by."
+		find $FILESYS -xdev -atime +$LIMIT -exec du -s {} \; >> /tmp/OLDFILES.$$
+		if [ -s /tmp/OLDFILES.$$ ]
+		then
+			cat /tmp/OLDFILES.$$ | awk '
+        { s += $1 }
+        END {print "The total oldspace used is", s }
+        ' | tee -a /var/tmp/OF.summary
+			for USER in `ls`
+			do
+				if [ "`grep $FILESYS/$USER /tmp/OLDFILES.$$|wc -l|sed 's/  *//g'" != "0" ]
+				then
+					/bin/echo -n "$USER has "|tee -a /var/tmp/OF.summary
+					cat /tmp/OLDFILES.$$|grep $FILESYS/$USER|awk '
+						{ s += $1 }
+						END {printf "%d kilobytes in old files.\n", s }
+						'|tee -a /var/tmp/OF.summary
+					cat /tmp/OLDFILES.$$|grep $FILESYS/$USER > /var/tmp/OF.lst.$USER
+					chown $USER /var/tmp/OF.lst.$USER
+					chgrp susers /var/tmp/OF.lst.$USER
+					chmod 460 /var/tmp/OF.lst.$USER
+					echo "A listing of ${USER}'s old files has been saved in /var/tmp/OF.lst.${USER}."
+					if [ "$MAIL" = "Y" ]
+					then
+						Mail -s "Old file listing" $USER < /var/tmp/OF.lst.${USER}
+					fi
+				fi
+			done
+		else
+			echo "No old files in $FILESYS"
+		fi
+		rm /tmp/OLDFILES.$$
+	else
+		echo "Sorry, can't seem to find $FILESYS.  I do need a full path."
+	fi
+	/bin/echo -n "Do you want to check another filesystem? [Y|n] -> "
+	read AGAIN
+	case $AGAIN in
+	Y*|y*|"")	AGAIN="Y"	;;
+	*)		AGAIN="N" ;;
+	esac
+done
+else
+	ME=`logname`
+	USAGE="USAGE: off -d dir -a age -mail"
+	set -- `getopt d:a:m: $* >/dev/null 2>&1`
+	if [ $? != 0 ]
+	then
+		echo $USAGE
+		exit 2
+	fi
+	for OPT in $*
+	do
+		case $OPT in
+		-d)     DIR="$2";          shift 2;;
+		-a)     AGE="$2";          shift 2;;
+		-m)	MAIL="Y";	   shift 2;;
+		esac
+	done
+	find $DIR -xdev -atime +${AGE} -exec du -s {} \;>>/tmp/OLDFILES.$ME
+	Mail -s "off run on $i" $ME < /tmp/OLDFILES.$ME
+fi

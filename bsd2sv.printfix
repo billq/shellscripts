@@ -1,0 +1,238 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+lpsystem -t bsd yooper
+lpsystem -t bsd zeus
+lpsystem -t bsd raven
+lpsystem -t bsd camelot
+lpsystem -t bsd cetus
+lpsystem -t bsd london
+lpsystem -t s5 rserver
+lpsystem -t s5 cmserver
+lpsystem -t s5 gpserver
+lpsystem -t s5 sserver
+lpsystem -t s5 tserver
+lpsystem -t s5 mcserver
+
+
+
+
+
+
+
+lpadmin -p cps -s yooper!cps
+enable cps
+accept cps
+lpadmin -p hlp -s zeus!hlp
+enable hlp
+accept hlp
+lpadmin -p hpgl -s raven!hpgl
+enable hpgl
+accept hpgl
+lpadmin -p hp_22 -s yooper!hp_22
+enable hp_22
+accept hp_22
+lpadmin -p hp_23 -s yooper!hp_23
+enable hp_23
+accept hp_23
+lpadmin -p hp_24 -s yooper!hp_24
+enable hp_24
+accept hp_24
+lpadmin -p hp24-txt -s yooper!hp24-txt
+enable hp24-txt
+accept hp24-txt
+lpadmin -p hp_26 -s yooper!hp_26
+enable hp_26
+accept hp_26
+lpadmin -p text -s yooper!text
+enable text
+accept text
+/etc/init.d/lp stop
+/etc/init.d/lp start
+lpadmin -p hp4a-txt -s yooper!hp4a-txt
+enable hp4a-txt
+accept hp4a-txt
+lpadmin -p hp4a -s yooper!hp4a
+enable hp4a
+accept hp4a
+lpadmin -p nec1 -s yooper!nec1
+enable nec1
+accept nec1
+lpadmin -p np0 -s yooper!np0
+enable np0
+accept np0
+lpadmin -p oempr1 -s yooper!oempr1
+enable oempr1
+accept oempr1
+lpadmin -p oempr2 -s yooper!oempr2
+enable oempr2
+accept oempr2
+lpadmin -p pcl02 -s yooper!pcl02
+enable pcl02
+accept pcl02
+lpadmin -p pcl03 -s yooper!pcl03
+enable pcl03
+accept pcl03
+lpadmin -p pcl04 -s yooper!pcl04
+enable pcl04
+accept pcl04
+lpadmin -p pcl05 -s yooper!pcl05
+enable pcl05
+accept pcl05
+lpadmin -p pcl06 -s yooper!pcl06
+enable pcl06
+accept pcl06
+lpadmin -p pcl07 -s yooper!pcl07
+enable pcl07
+accept pcl07
+lpadmin -p pcl08 -s yooper!pcl08
+enable pcl08
+accept pcl08
+lpadmin -p pcl09 -s yooper!pcl09
+enable pcl09
+accept pcl09
+lpadmin -p pcl10 -s yooper!pcl10
+enable pcl10
+accept pcl10
+/etc/init.d/lp stop
+/etc/init.d/lp start
+lpadmin -p pcl12 -s yooper!pcl12
+enable pcl12
+accept pcl12
+lpadmin -p pcl14 -s yooper!pcl14
+enable pcl14
+accept pcl14
+lpadmin -p pcl16 -s yooper!pcl16
+enable pcl16
+accept pcl16
+lpadmin -p pcl17 -s yooper!pcl17
+enable pcl17
+accept pcl17
+lpadmin -p pcl19 -s yooper!pcl19
+enable pcl19
+accept pcl19
+lpadmin -p pcl20 -s yooper!pcl20
+enable pcl20
+accept pcl20
+lpadmin -p p2-txt -s yooper!p2-txt
+enable p2-txt
+accept p2-txt
+lpadmin -p p3-txt -s yooper!p3-txt
+enable p3-txt
+accept p3-txt
+lpadmin -p p4-txt -s yooper!p4-txt
+enable p4-txt
+accept p4-txt
+lpadmin -p p5-txt -s yooper!p5-txt
+enable p5-txt
+accept p5-txt
+lpadmin -p p6-txt -s yooper!p6-txt
+enable p6-txt
+accept p6-txt
+lpadmin -p p7-txt -s yooper!p7-txt
+enable p7-txt
+accept p7-txt
+lpadmin -p p8-txt -s yooper!p8-txt
+enable p8-txt
+accept p8-txt
+lpadmin -p p9-txt -s yooper!p9-txt
+enable p9-txt
+accept p9-txt
+lpadmin -p p10-txt -s yooper!p10-txt
+enable p10-txt
+accept p10-txt
+/etc/init.d/lp stop
+/etc/init.d/lp start
+lpadmin -p p12-txt -s yooper!p12-txt
+enable p12-txt
+accept p12-txt
+lpadmin -p p14-txt -s yooper!p14-txt
+enable p14-txt
+accept p14-txt
+lpadmin -p p16-txt -s yooper!p16-txt
+enable p16-txt
+accept p16-txt
+lpadmin -p p17-txt -s yooper!p17-txt
+enable p17-txt
+accept p17-txt
+lpadmin -p p19-txt -s yooper!p19-txt
+enable p19-txt
+accept p19-txt
+lpadmin -p p20-txt -s yooper!p20-txt
+enable p20-txt
+accept p20-txt
+lpadmin -p rw -s yooper!rw
+enable rw
+accept rw
+lpadmin -p ti1 -s yooper!ti1
+enable ti1
+accept ti1
+lpadmin -p ti5 -s camelot!ti5
+enable ti5
+accept ti5
+lpadmin -p ti6 -s yooper!ti6
+enable ti6
+accept ti6
+lpadmin -p cmp_3 -s cmserver!cmp_3
+enable cmp_3
+accept cmp_3
+lpadmin -p gpp_1 -s gpserver!gpp_1
+enable gpp_1
+accept gpp_1
+lpadmin -p np1 -s cetus!np1
+enable np1
+accept np1
+lpadmin -p uk -s london!uk
+enable uk
+accept uk
+lpadmin -p mcp_1 -s mcserver!mcp_1
+enable mcp_1
+accept mcp_1
+/etc/init.d/lp stop
+/etc/init.d/lp start
+lpadmin -p HP_LJ4 -s rserver!HP_LJ4
+enable HP_LJ4
+accept HP_LJ4
+lpadmin -p Epson_FX100 -s rserver!Epson_FX100
+enable Epson_FX100
+accept Epson_FX100
+lpadmin -p HP_500 -s rserver!HP_500
+enable HP_500
+accept HP_500
+lpadmin -p HP_LJ4 -s rserver!HP_LJ4
+enable HP_LJ4
+accept HP_LJ4
+lpadmin -p Panasonic -s rserver!Panasonic
+enable Panasonic
+accept Panasonic
+lpadmin -p sp_1 -s sserver!sp_1
+enable sp_1
+accept sp_1
+lpadmin -p hp_1 -s tserver!hp_1
+enable hp_1
+accept hp_1
+/etc/init.d/lp stop
+/etc/init.d/lp start

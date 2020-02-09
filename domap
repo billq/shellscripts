@@ -1,0 +1,7 @@
+#!/bin/ksh
+TEMPLATES=$HOME/lib/templates
+HEADER=${TEMPLATES}/osgheader.html
+cat $HEADER|sed 's/MY_TITLE/Site Map/'>map.html
+find . -iname '*html'|sed 's/^\.\///'|gawk '{printf ("<A TARGET=\"body\" HREF=\"%s\">%s</A><BR>\n",$1,$1)}'>>map.html
+echo "</BODY>" >> map.html
+echo "</HTML>" >> map.html

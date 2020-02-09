@@ -1,0 +1,30 @@
+#!/usr/lbin/ksh
+DATE=`date +%d%y%m`
+echo $DATE
+rusers $SUNS >> /tmp/status.$DATE&
+/bin/echo -n "		ENTER LOGIN: "
+read LOGIN
+until [ "$LOGIN" = "" ]
+do
+	USERINFO=`ypcat passwd|grep "^$LOGIN"|sed 's/ /_/g'|sed 's/:/	/g'`
+	set $USERINFO
+	if [ "$6" = "/u/$1" ]
+	then
+		NEW4=`ls -l /u/$1|awk '{printf("%s", $10) }'`
+		USERINFO="$1	$5	$3	$NEW4"
+	fi
+	MAIL=`ypmatch $1 aliases`
+	MACHINE=`echo $MACHINESTATS|grep $1|cut -f1 -d" "`
+	USERINFO="${USERINFO}	${MAIL}"
+	echo $USERINFO|awk '{printf("\nLOGIN:\t%s\t\tREAL NAME:\t%s\nUID:\t%s\t\tLOGIN DIR:\t%s\nMAIL:\t%s\n", $1,$2,$3,$4,$5) }'
+	/bin/echo "
+Currently logged in on: 
+	
+$MACHINE"
+	if [ "$USERINFO" = "" ]
+	then
+		rsh ih4sh "USERINFO=`ypcat passwd|grep "^$LOGIN"|sed 's/ /_/g'|sed 's/:/	/g'|awk '{printf("%s,%s,%s,%s\n", $1,$5,$3,$6) }'|sed 's/,/ /g'`"
+	fi
+	/bin/echo -n "Login: "
+	read LOGIN
+done

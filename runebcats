@@ -1,0 +1,8 @@
+#!/bin/ksh
+PATH=/usr/epoch/EB/bin:/usr/epoch/bin:$PATH
+for i in `ebreport history -item hercules:/export/fcs/dvl/src|grep unsorted|awk '{print $4}'|sort`
+do
+	ebcatsort $i
+	ebtreegen -fv $i
+	ebcatcomp $i
+done

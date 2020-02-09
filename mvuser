@@ -1,0 +1,60 @@
+#!/bin/ksh
+ANOTHER=Y
+while [ "$ANOTHER" = "Y" ]
+do
+	/bin/echo -n "Enter user login name: "
+	read USER
+	echo "Is this your victim? "
+	ypmatch $USER passwd
+	/bin/echo -n "Y or N :" 
+	read YES
+	case $YES in 
+	Y*|y*)
+		echo "O.K., using $USER.  Let's get some info..."
+		ephone $USER
+		OHOME=`ypmatch $USER passwd|awk -F: '{print $6}'`
+		/bin/echo -n "
+$USER currently has $OHOME setup as their
+home directory.  Where do you want them to go?
+
+Pick one of the following partitions:
+
+1	/home/spectrum  Spectrum Engineering
+2	/home/galaxy    Galaxy Engineering
+3	/home/cti       Computer/Telephony Intregration Engineering
+4	/home/hardware  Drafting, CAD/CAM, Hardware Engineering
+5	/home/admin     System administration
+6	/home/mfg       Manufacturing (Lemont Rd.)
+7	/home/testeng   Test Engineering (Lemont Rd.)
+8	/home/sales     Sales, Marketing
+9	/home/support   Customer Service, Technical Support, Field Service
+10	/home/mis       Personnel, Human Resources, Finance, Accounting
+11	/home/docs      Documentation, Technical Publications, Document Control
+
+DON'T type in the \"/home\" stuff, only the NUMBER of the new home
+filesystem for the user: "
+		read NHOME
+		mvheir $OHOME ${NHOME}/${USER}
+	;;
+	n*|N*) 
+		echo "Panic, data fault, syncing disks"
+		sleep 2
+		echo "[2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] [2] "
+		sleep 3
+		echo "[2] [2] [2] [2] [2] [2] [2] [2] [1] [1] [1] [1] [1] [1] [1] [1] "
+		sleep 1
+		echo "disk sync failed."
+		sleep 1
+		echo "formating disks..."
+		sleep 10
+		echo "heh, heh.  gotcha."
+		continue
+	;;
+	esac
+	/bin/echo  -n "Move another sucker, er user? Y or N :"
+	read ANOTHER
+	case $ANOTHER in
+	Y*|y*) ANOTHER=Y	;;
+	*) ANOTHER=n		;;
+	esac
+done

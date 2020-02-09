@@ -1,0 +1,783 @@
+#!/bin/ksh
+#
+################################################################################
+#                   @(#)Copyright (c) 1992 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                    billq@technologist.com        			       #
+#                                                                              #
+################################################################################
+#
+# Procedure to determine tape availability
+#
+get_tape () {
+USABLE=no
+while [ $USABLE = no ]
+do
+	echo "
+------------------------------------------------------------------
+Testing availability of the drive...
+------------------------------------------------------------------
+"
+	$PREFIX $MT $TAPE status
+	echo "
+------------------------------------------------------------------
+If the above status line indicates the drive is currently in use,
+please type n at the following prompt.  You may pause at this point
+to wait for the current user to finish using the tape drive.
+------------------------------------------------------------------
+Is the drive available?
+	   [Y]  -> \c"
+	read AVAILABLE
+	echo "
+------------------------------------------------------------------"
+
+	case $AVAILABLE in
+	""|Y*|y*)
+		USABLE=yes
+	;;
+	n*|N*)
+		USABLE=no
+		echo "
+------------------------------------------------------------------
+sleeping for 2 minutes, then retrying...
+------------------------------------------------------------------"
+		sleep 120
+	;;
+	q*|Q*)
+		exit 1
+	;;
+	*)
+		echo "
+------------------------------------------------------------------
+Reply not understood, retrying...
+------------------------------------------------------------------"
+		USABLE=no
+	;;
+	esac
+done
+}
+#
+# find_tape is used to setup the tape devices
+#
+find_tape () {
+case $FLAVOR in
+SunOS)
+	MT="mt -f"
+	VID_NAME="/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	QTR_NAME="/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	HLF_NAME="/dev/nrmt0"
+;;
+IRIX)
+	MT="mt -t"
+	VID_NAME="/dev/mt/tps0d5nrns" # /dev/mt/tps0d5nrns /dev/mt/nrst8 /dev/mt/nrst9"
+	QTR_NAME="" #/dev/mt/nrst0 /dev/mt/nrst1 /dev/mt/nrst8 /dev/mt/nrst9"
+	HLF_NAME="" #/dev/mt/nrmt0"
+;;
+AIX)
+	MT="mt -t"
+	VID_NAME="" #/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	QTR_NAME="" #/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	HLF_NAME="" #/dev/nrmt0"
+;;
+ULTRIX)
+	MT="mt -f"
+	VID_NAME="" #/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	QTR_NAME="" #/dev/nrst0 /dev/nrst1 /dev/nrst8 /dev/nrst9"
+	HLF_NAME="" #/dev/nrmt0"
+;;
+*)
+	echo "YIKES!!! What kind of UNIX are you using???!!!???"
+	exit 1
+;;
+esac
+
+FLAG=0
+while [ "$FLAG" = "0" ]
+do
+	echo "
+------------------------------------------------------------------
+Which tape is to be used for the $NEXT on $HOST?
+
+	A) 1/4\" SCSI
+	B) 8mm SCSI
+	C) 1/2\" mag
+	D) other raw device
+
+		[A] -> \c"
+	read DRIVE
+	echo "
+------------------------------------------------------------------"
+	case $DRIVE in
+	A|""|a)
+		for TAPE in $VID_NAME
+		do
+			get_tape
+		done
+		FLAG=1
+	;;
+	B|b)
+		for TAPE in $QTR_NAME
+		do
+			get_tape
+		done
+		FLAG=1
+	;;
+	C|c)
+		for TAPE in $HLF_NAME
+		do
+			get_tape
+		done
+		FLAG=1
+	;;
+	D|d)
+		echo "
+------------------------------------------------------------------
+Please name the device -> \c"
+		read FULL_NAME
+		echo "
+------------------------------------------------------------------"
+		get_tape
+	;;
+	q|Q)
+		exit 0
+	;;
+	*)
+		echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME:Unknown response, $DRIVE.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!"
+	  FLAG=0
+	;;
+	esac
+done
+}
+
+preamble () {
+TAPE_MASTER=pogo
+ME=`/bin/hostname`
+FLAVOR=`/bin/uname -s`
+
+echo "
+------------------------------------------------------------------
+Welcome to billq's tape reading/writing/duplication script.
+
+Before getting down to the dirty work, lets find a few things out.
+
+Is one tape drive a remote drive?
+	[Y] -> \c"
+read REMOTE
+case $REMOTE in
+""|Y*|y*) 
+	NEXT=SOURCE
+	while [ "$NEXT" != "NONE" ]
+	do
+		echo "
+------------------------------------------------------------------
+What is the name of the remote host? 
+
+[$TAPE_MASTER]  -> \c"
+		read RMTHOST
+		echo "
+------------------------------------------------------------------"
+
+		if [ "$RMTHOST" = "" ]
+		then
+			RMTHOST=$TAPE_MASTER
+		fi
+
+		PREFIX="rsh $RMTHOST"
+		$PREFIX /bin/true >/dev/null 2>&1
+		CANT_REACH=$?
+
+		while [ "$CANT_REACH" != "0" ]
+		do
+			echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+		ERROR:$0:Remote execution denied on $RMTHOST
+
+		If you will be using an alias i.d. for rsh, enter that i.d.,
+		else enter Q to quit, and fix your .rhosts file
+
+		-> \c"
+			echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!"
+			read ALIAS
+			case $ALIAS in
+			""|Q)
+				exit 1
+			;;
+			*)
+				$PREFIX -l $ALIAS /bin/true >/dev/null 2>&1
+				CANT_REACH=$?
+				if [ "$CANT_REACH" = "0" ]
+				then
+					PREFIX="$PREFIX -l $ALIAS"
+				else
+					echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+		ERROR:$0:Remote execution still denied on $RMTHOST
+
+		exiting with return code 1.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!"
+				fi
+			;;
+			esac
+		done
+		FLAVOR="`$PREFIX /bin/uname -s`"
+		HOST=$RMTHOST
+		find_tape
+		echo "
+------------------------------------------------------------------
+Is $TAPE on $RMTHOST to be used for:
+
+	A: Reading
+	B: Writing
+	C: Both
+
+[C]  -> \c"
+		read TAPE_FUNCTION
+		echo "
+------------------------------------------------------------------"
+		case $TAPE_FUNCTION in
+		A*|a*)
+			SOURCE=$TAPE
+			NEXT=DESTINATION
+		;;
+		B*|b*)
+			DESTINATION=$TAPE
+			NEXT=SOURCE
+		;;
+		C*|c*|"")
+			SOURCE=$TAPE
+			DESTINATION=$TAPE
+			NEXT=NONE
+		;;
+		esac
+	done
+;;
+*) 
+	NEXT=SOURCE
+	while [ "$NEXT" != "NONE" ]
+	do
+		FLAVOR="`/bin/uname -s`"
+		HOST=$HOSTNAME
+		find_tape
+		echo "
+------------------------------------------------------------------
+Is $TAPE on $HOST to be used for:
+
+	A: Reading
+	B: Writing
+	C: Both
+
+[C]  -> \c"
+			read TAPE_FUNCTION
+			echo "
+------------------------------------------------------------------"
+			case $TAPE_FUNCTION in
+			A*|a*)
+				SOURCE=$TAPE
+				NEXT=DESTINATION
+			;;
+			B*|b*)
+				DESTINATION=$TAPE
+				NEXT=SOURCE
+			;;
+			C*|c*|"")
+				SOURCE=$TAPE
+				DESTINATION=$TAPE
+				NEXT=NONE
+			;;
+			esac
+	done
+;;
+esac
+
+	echo "
+------------------------------------------------------------------
+USING $SOURCE as the source tape device.
+USING $DESTINATION as the destination tape device.
+------------------------------------------------------------------"
+}
+readtape(){
+echo "
+------------------------------------------------------------------
+This script is to be used to read a tape for the purpose
+of making subsequent copies which are exact duplicates.
+The files produced by this script can be used to generate
+8mm, 1/4 in. cartridge, or 1/2 in. mag tapes.
+
+When this script asks you questions, a default answer 
+is shown in brackets next to the question.  To use the 
+default answer, press Return in response to the question. 
+Otherwise, type one of the other suggested responses. 
+([n] means 'no'; to answer 'yes' type 'y'.)  A \"q\" at any
+prompt will promptly exit.
+------------------------------------------------------------------
+"
+FLAG=1
+while [ "$FLAG" = "1" ]
+do
+	echo "
+------------------------------------------------------------------
+What is the destination directory? (full or relative path)
+
+	[.]  -> \c"
+	read TMPDIR
+echo "
+------------------------------------------------------------------"
+	case $TMPDIR in
+		""|".") TMPDIR="."
+		;;
+		q*|Q*)	exit 1
+		;;
+		*)	TMPDIR="$TMPDIR"
+		;;
+	esac
+	if [ ! -d $TMPDIR ]
+	then
+		echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME:No such directory, $TMPDIR
+	      Shall we create?
+
+	      [Y|n]  -> \c"
+	      read CREATDIR
+		echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	"
+		case $CREATDIR in
+		""|Y*|y*)	mkdir $TMPDIR
+			FLAG=$?
+		;;
+		*)	FLAG=1
+		;;
+		esac
+	else
+		FLAG=0
+	fi
+done
+while [ "$FLAG" = "0" ]
+do
+	echo "
+------------------------------------------------------------------
+What is the blocking factor?
+
+		[default] -> \c"
+	read BLOCKING
+	echo "
+------------------------------------------------------------------"
+	case $BLOCKING in
+		""|20) BLOCKING=20
+			FLAG=1
+		;;
+		q|Q) 	exit 0	;;
+		*) 	BLOCKING=$BLOCKING
+			FLAG=1
+		;;
+	esac
+done
+
+FLAG=0
+while [ "$FLAG" = "0" ]
+do
+
+	echo "
+------------------------------------------------------------------
+The following commands will be performed by $SCRIPTNAME to 
+prepare for creating duplicates of the tape:
+
+    $PREFIX $MT $DEVICE rewind
+    $PREFIX \"dd if=$SOURCE bs=${BLOCKING}b\" > $TMPDIR/file\"x\".$$
+
+O.K.? 		[Y] -> \c"
+	read GO
+echo "
+------------------------------------------------------------------"
+	case $GO in
+		""|Y*|y*)	FLAG=1	;;
+		n*|N*)		exit 1	;;
+		q*|Q*)		exit 1	;;
+		*)		FLAG=0	;;
+	esac
+
+done
+
+$PREFIX $MT $DEVICE rewind
+FLAG=$?
+if [ "$FLAG" = "0" ]; then
+	break
+fi
+if [ "$FLAG" = "" ]; then
+	echo "
+------------------------------------------------------------------
+	Insert the tape, then press Return to continue: "
+	read x
+	echo "
+------------------------------------------------------------------"
+	if [ "$x" = "Q*" -o "$x" = "q*" ]
+	then
+		exit 1
+	fi
+fi
+typeset -i FILENO
+FILENO=1
+TMPFILE=${TMPDIR}/file0${FILENO}.$$
+
+echo "
+------------------------------------------------------------------
+Reading FILE NUMBER $FILENO off of the tape.
+This may take several minutes...
+------------------------------------------------------------------
+"
+$PREFIX "dd if=$DEVICE bs=${BLOCKING}b" 2>/dev/null 1>$TMPFILE
+FLAG=$?
+if [ "$FLAG" != "0" ]; then
+	echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Could not read tape.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	"
+	rm -f $TMPFILE 2>/dev/null
+	exit 1
+fi
+while [ "$FLAG" = "0" ]
+do
+	FILENO="FILENO + 1"
+	if [ $FILENO -lt 10 ]
+	then
+		TMPFILE=${TMPDIR}/file0${FILENO}.$$
+	else
+		TMPFILE=${TMPDIR}/file${FILENO}.$$
+	fi
+	if [ "$BATCHMODE" != "0" ]
+	then
+		echo "
+------------------------------------------------------------------
+	Ready to read in file number $FILENO.
+		Would you like to read this file?
+
+		y - read the file
+		n - skip to the next one
+		q - quit reading
+
+		[Y]	-> \c"
+		read GO
+		echo "
+------------------------------------------------------------------"
+	else
+		GO=y
+	fi
+	case $GO in
+		""|Y*|y*)	echo "
+------------------------------------------------------------------
+Reading FILE NUMBER $FILENO off of the tape.
+This may take several minutes...
+------------------------------------------------------------------
+			"
+			$PREFIX "dd if=$DEVICE bs=${BLOCKING}b" 2>/dev/null 1>$TMPFILE
+			FLAG=$?
+			if [ "$FLAG" != "0" ]; then
+				echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Could not read tape.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+				"
+				rm -f $TMPFILE
+				exit 1
+			fi
+			df $TMPDIR
+			;;
+		n*|N*)		FLAG=0	
+			$PREFIX $MT $DEVICE fsf
+			;;
+		q*|Q*)		break 	
+			;;
+		*)		FLAG=0	;;
+	esac
+	if [ ! -s $TMPFILE ]
+	then
+		rm -rf $TMPFILE
+		FLAG=1
+	fi
+done
+	
+echo "
+------------------------------------------------------------------
+$SCRIPTNAME is now finished.
+You may now create duplicates of the tape.
+------------------------------------------------------------------
+"
+}
+
+writtape(){
+echo "
+------------------------------------------------------------------
+This script is to be used to write a duplicate tape. 
+The tape can be 8mm, 1/4 in. cartridge, or 1/2 in. mag tapes.
+------------------------------------------------------------------
+"
+FLAG=0
+while [ "$FLAG" = "0" ]
+do
+        echo "
+------------------------------------------------------------------
+Which directory contains the source you wish to write? 
+
+[$TMPDIR]
+     -> \c"
+	read SOURCE
+	echo "
+------------------------------------------------------------------
+	"
+	case $SOURCE in
+	"")	SOURCE=$TMPDIR
+		FLAG=1
+	;;
+	*)	
+		if [ ! -d $SOURCE ]
+		then
+			echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Could not access directory $SOURCE
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+			"
+			FLAG=0
+		elif [ "$SOURCE" = "." ]
+		then
+			SOURCE=`pwd`
+			FLAG=1
+		else
+			FLAG=1
+		fi
+	;;
+	esac
+done
+TMPDIR=$SOURCE
+FLAG=0
+
+while [ "$FLAG" = "0" ]
+do
+	echo "
+------------------------------------------------------------------
+What is the blocking factor?
+
+		[default] -> \c"
+	read BLOCKING
+	echo "
+------------------------------------------------------------------"
+	case $BLOCKING in
+		""|20) BLOCKING=20
+			FLAG=1
+		;;
+		q|Q) 	exit 0	;;
+		*) 	BLOCKING=$BLOCKING
+			FLAG=1
+		;;
+	esac
+done
+
+FLAG=0
+while [ "$FLAG" = "0" ]
+do
+	echo "
+------------------------------------------------------------------
+The following commands will be performed by $SCRIPTNAME to 
+prepare for creating duplicates of the tape:
+
+    $REMOTE $MT $DEVICE rewind
+    $REMOTE \"dd if=$TMPDIR/\"whatever\" bs=${BLOCKING}b\" > $DESTINATION
+
+O.K.? 		[Y] -> \c"
+	read GO
+	echo "
+------------------------------------------------------------------"
+	case $GO in
+		""|Y*|y*)	FLAG=1	;;
+		n*|N*)		exit 1	;;
+		q*|Q*)		exit 1	;;
+		*)		FLAG=0	;;
+	esac
+done
+echo "Rewinding $DEVICE...."
+$REMOTE $MT $DEVICE rewind
+FLAG=$?
+echo "done."
+if [ "$FLAG" = "0" ]; then
+	break
+fi
+if [ "$FLAG" = "" ]; then
+	echo "
+------------------------------------------------------------------
+	Insert the tape, then press Return to continue: "
+	read x
+echo "
+------------------------------------------------------------------"
+	if [ "$x" = "Q*" -o "$x" = "q*" ]
+	then
+		exit 1
+	fi
+fi
+typeset -i FILENO
+FILENO=0
+FLAG=0
+ALLFILES=`ls $TMPDIR`
+for FILENAME in `echo $ALLFILES`
+do
+	if [ -d $TMPDIR/$FILENAME ]
+	then
+		echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Can't write a heirarchy.  Try using
+	tar to create a tarfile of the contents of $FILENAME
+	first!
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+			"
+		break
+	fi
+	TMPFILE=$TMPDIR/$FILENAME
+	while [ "$FLAG" = "0" ]
+	do
+		FILENO="FILENO + 1"
+		if [ ! -f $TMPFILE ]
+		then
+			echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Where'd that file go?
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+			"
+			break
+		fi
+		if [ "$BATCHMODE" != "0" ]
+		then
+			echo "
+------------------------------------------------------------------
+	Ready to write $FILENAME (file number $FILENO).
+		Would you like to write this file?
+
+		y - write the file
+		n - skip to the next one
+		q - quit writting
+
+		[Y]	-> \c"
+			read GO
+			echo "
+------------------------------------------------------------------"
+		else
+			GO=y
+		fi
+		case $GO in
+		""|Y*|y*)	echo "
+------------------------------------------------------------------
+Writting $TMPFILE (NUMBER $FILENO) to the tape.
+This may take several minutes...
+------------------------------------------------------------------
+			"
+			#dd if=$TMPFILE bs=${BLOCKING}b |block -b 1024000>$DEVICE 2>/dev/null
+			dd if=$TMPFILE bs=${BLOCKING}b >$DEVICE 2>/dev/null
+			FLAG=$?
+			if [ "$FLAG" != "0" ]; then
+				echo "
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+	ERROR:$SCRIPTNAME: Could not write tape.
+-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!
+				"
+				exit 1
+			fi
+			FLAG=1
+		;;
+		n*|N*)	FLAG=1
+		;;
+		q*|Q*)	break 2
+		;;
+		*)	FLAG=0
+		;;
+		esac
+	done
+	FLAG=0
+done
+	
+echo "
+------------------------------------------------------------------
+All done! Tape rewinding...
+------------------------------------------------------------------
+"
+$MT $DEVICE rew
+}
+
+SCRIPTNAME=`basename $0`
+THISHOST=`hostname`
+umask 022
+case $* in
+	-a) 	BATCHMODE=0	;;
+	"") 	BATCHMODE=1	;;
+	*) echo "
+USAGE:$SCRIPTNAME [-a]
+
+	where -a will read/write all files
+		"
+		exit 1		;;
+esac
+
+case $SCRIPTNAME in
+	readtape)
+		preamble
+		readtape
+	;;
+	writtape)
+		preamble
+		ANOTHER=y
+		while [ "$ANOTHER" = "y" ]
+		do
+			writtape
+			echo "
+			Make another copy? [Y] -> \c"
+			read ANOTHER
+			case $ANOTHER in
+			""|Y*|y*)	ANOTHER=y
+			;;
+			*)		ANOTHER=n
+			;;
+			esac
+		done
+	;;
+	duptape)
+		preamble
+		readtape
+		ANOTHER=y
+		while [ "$ANOTHER" = "y" ]
+		do
+			writtape
+			echo "
+			Make another copy? [Y] -> \c"
+			read ANOTHER
+			case $ANOTHER in
+			""|Y*|y*)	ANOTHER=y
+			;;
+			*)		ANOTHER=n
+			;;
+			esac
+		done
+	;;
+	*) echo "IMPOSSIBLE!!!"	;;
+esac
+exit 0

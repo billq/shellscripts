@@ -1,0 +1,9 @@
+for i in `ypcat hosts|grep "^10.5"|awk '{print $2}'|sed 's/-.*//'|sort -u`
+do
+	ping $i 1 > /dev/null 2>&1
+	[[ $? -eq 0 ]] && {
+		echo "$i is alive"
+	} || {
+		echo "\t\t\t$i is dead"
+	}
+done

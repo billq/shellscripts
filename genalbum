@@ -1,0 +1,122 @@
+#!/bin/ksh
+PATH=/usr/local/bin:$PATH
+[[ -f "index.html" ]] && {
+	echo "Index exists, exiting"
+	exit 1
+}
+
+echo '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+<TITLE>Image Index</TITLE>
+<META HTTP-Equiv="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY bgcolor="#ffffff" text="#000000">
+<H1>The Quayle Image Archive</H1>
+<BR>
+...not real fancy, but it does the job...
+<BR>
+Enjoy!
+' > index.html
+
+HASDIRS=`find * -prune -type d | wc -l`
+[[ $HASDIRS -gt 0 ]] && {
+	echo '
+<HR>
+The links below are for other groups of related images.
+<HR>
+<UL>
+' >> index.html
+	for i in `ls`
+	do
+		[[ -d "$i" ]] && {
+			echo \<LI\>\<A HREF=$i\>$i\</A\>\</LI\> >> index.html
+		}
+	done
+	echo '</UL>' >> index.html
+}
+
+HASIMGS=`find * -prune -name "*.jpg" | wc -l`
+[[ $HASIMGS -gt 0 ]] && {
+	[[ ! -d ".thumbs" ]] && {
+		mkdir .thumbs
+	}
+	echo '
+<HR>
+Click on the thumbnails for the larger version of the image.
+<HR>
+<TABLE BORDER=1>
+<TR>
+' >> index.html
+
+	N=0
+	for i in `ls *.jpg`
+	do
+		WIDTH=`xli -identify $i|awk '{print $4}'|sed 's/x.*//'`
+		HEIGHT=`xli -identify $i|awk '{print $4}'|sed 's/^.*x//'`
+		[[ "$WIDTH" -gt "350" ]] || [[ "$HEIGHT" -gt "350" ]] && {
+			[[ "$WIDTH" -gt "$HEIGHT" ]] && {
+				FACTOR=$((WIDTH/20))
+			} || {
+				FACTOR=$((HEIGHT/20))
+			}
+			djpeg -gif -scale 1/$FACTOR -outfile .thumbs/${i%.jpg}.gif $i
+		} || {
+			djpeg -gif -scale 1/3 -outfile .thumbs/${i%.jpg}.gif $i
+		}
+		SRC=".thumbs/${i%.jpg}.gif"
+		WIDTH=`xli -identify $SRC|awk '{print $4}'|sed 's/x.*//'`
+		HEIGHT=`xli -identify $SRC|awk '{print $4}'|sed 's/^.*x//'`
+		NAME=`basename $i`
+		echo \<TD\>\<A HREF=$i\>\<IMG BORDER=\"0\" ALT=\"${NAME%.jpg}\" WIDTH=\"$WIDTH\" HEIGHT=\"$HEIGHT\" SRC=\"$SRC\"\>\</A\>\</TD\> >> index.html
+		((N+=1))
+		[[ $N -eq 5 ]] && {
+			echo "</TR><TR>" >> index.html
+			N=0
+		}
+	done
+	echo "
+</TR></TABLE>" >> index.html
+	}
+
+HASIMGS=`find * -prune -name "*.gif" | wc -l`
+[[ $HASIMGS -gt 0 ]] && {
+	[[ ! -d ".thumbs" ]] && {
+		mkdir .thumbs
+	}
+	N=0
+	echo "
+<TABLE BORDER=1>
+<TR>" >> index.html
+	for i in `ls *.gif`
+	do
+		WIDTH=`xli -identify $i|awk '{print $4}'|sed 's/x.*//'`
+		HEIGHT=`xli -identify $i|awk '{print $4}'|sed 's/^.*x//'`
+		[[ "$WIDTH" -gt "1000" ]] && {
+			WIDTH=$((WIDTH/100))
+			HEIGHT=$((HEIGHT/100))
+		}
+		[[ "$WIDTH" -gt "500" ]] && {
+			WIDTH=$((WIDTH/10))
+			HEIGHT=$((HEIGHT/10))
+		} || {
+			WIDTH=$((WIDTH/4))
+			HEIGHT=$((HEIGHT/4))
+		}
+		gifinter $i|gifrsize -S $WIDTH $HEIGHT > .thumbs/$i
+		SRC=".thumbs/$i"
+		WIDTH=`xli -identify $SRC|awk '{print $4}'|sed 's/x.*//'`
+		HEIGHT=`xli -identify $SRC|awk '{print $4}'|sed 's/^.*x//'`
+		NAME=`basename $i`
+		echo \<TD\>\<A HREF=$i\>\<IMG BORDER=\"0\" ALT=\"${NAME%.gif}\" WIDTH=\"$WIDTH\" HEIGHT=\"$HEIGHT\" SRC=\"$SRC\"\>\</A\>\</TD\> >> index.html
+		((N+=1))
+		[[ $N -eq 5 ]] && {
+			echo "</TR><TR>" >> index.html
+			N=0
+		}
+	done
+
+	echo "</TR></TABLE>" >> index.html
+}
+
+echo "</BODY></HTML>" >> index.html

@@ -1,0 +1,25 @@
+#!/bin/ksh
+#
+# This does a quick ping probe on a class C subnet.
+#
+if [ $# -ne 1 ]
+then
+	echo "USAGE:$0 ip_subnet_to_test"
+	exit 1
+fi
+SUBNET=$1
+typeset -i ADDR
+ADDR=0
+
+ping ${SUBNET}.0 >/dev/null 2>&1
+if [ $? -ne 0 ]
+then
+	echo "Can't seem to get to ${SUBNET}.0"
+	exit 1
+fi 
+ADDR=${ADDR}+1
+while [ $ADDR -lt 255 ]
+do
+	ping ${SUBNET}.${ADDR} 2
+	ADDR=${ADDR}+1
+done

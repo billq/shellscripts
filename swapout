@@ -1,0 +1,14 @@
+#!/bin/ksh
+# catch swapping and report
+#
+limit=2
+vmstat -S 5 | awk "
+NR==2	 { print \$0 }
+NR<=2	 { next }
+NR!=10 { print \$0 }
+/avm/	{next }
+	{ if (\$9 > 0) { npo++ }
+	  if (\$7 > 0) { npo++ }
+	  if (npo > 2) { print \$0 }
+	  if (\$9 == 0) {npo = 0}
+	}"

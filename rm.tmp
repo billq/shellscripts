@@ -1,0 +1,24 @@
+#!/bin/ksh
+#
+# NOTE: /tmp, /var/tmp, and /usr/tmp are all the same directory
+#       due to links.  Don't modify this without talking to Scott
+#       Forsberg first.
+#
+HOST=`hostname`
+case $HOST in
+ih4ehz)
+	rm -fr /var/tmp/[!l]*
+	rm -fr /var/tmp/?[!o]*
+;;
+ih4sh|ih4ehw)
+	rm -fr /tmp/*
+	rm -fr /var/tmp/*
+;;
+ih4elab|ih4ehwa)
+	rm -fr /tmp/*
+;;
+ih4epd)
+	rm -fr /tmp/*
+	rm -fr /usr/tmp/*
+;;
+esac

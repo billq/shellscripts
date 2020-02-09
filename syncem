@@ -1,0 +1,45 @@
+#!/bin/bash
+LogFile=$HOME/tmp/sync.log
+DateStamp=$(date +%s)
+if [ -f "$LogFile" ]
+then
+  mv $LogFile ${LogFile}.$DateStamp
+fi
+Me=$(hostname -s)
+case $Me in
+stanley)
+  TARGET="delta:/srv/home/billq"
+	SRC="/home/billq/"
+;;
+atlas)
+  TARGET="delta:/srv/media"
+	SRC="/srv/media/"
+;;
+delta)
+  TARGET="192.168.1.248:/home/billq"
+	SRC="/srv/home/billq/"
+;;
+*)
+  echo "No config found for $Me!" |tee -a $LogFile
+;;
+esac
+if [ "$#" = "1" ]
+then
+  if [ -d "$SRC/$1" ]
+	then
+	  SRC="${SRC}${1}/"
+	  TARGET="${TARGET}/${1}"
+	fi
+fi
+
+if [ -f "$SRC/sync" ]
+then
+  for d in $(cat $SRC/sync)
+  do
+    rsync -HAXvahu --log-file=$LogFile ${SRC}/$d ${TARGET} 
+  done
+else
+  rsync -HAXvahu --exclude=".*" --exclude=".*/" --exclude="Desktop" --log-file=$LogFile ${SRC} ${TARGET} 
+fi
+
+cat $LogFile|mail -s "sync log from $(hostname)" bill.quayle@gmail.com

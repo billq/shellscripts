@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# $0 - a simple /usr/sbin/$0 wrapper
+#
+ME=`/bin/hostname`
+PROG=`basename $0`
+if [ "$1" != "$ME" ]
+then
+	/bin/echo "USAGE: ${PROG} hostname"
+	exit 1
+else
+	/usr/sbin/${PROG}.orig
+fi

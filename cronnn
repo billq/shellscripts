@@ -1,0 +1,45 @@
+#!/bin/ksh
+for i in /var/spool/cron/crontabs/*
+do
+ BN=`basename $i`
+ ((`crontab -l $BN|grep -v "^#"|sort -n +1|wc -l`)) && {
+ echo "Looking at $BN crontab"
+ crontab -l $BN|grep -v "^#"|sort -n +1|sed 's/ /:/'|sed 's/ /:/'|sed 's/ /:/'|sed 's/ /:/'|sed 's/ /:/'|sed 's/,/ and /g'|nawk -F: '
+   {
+    HOUR = $2;
+    MINUTE = $1;
+    DOM = $3;
+    MOY = $4;
+    DOW = $5;
+   }
+   HOUR == "*"  { HOUR = "every hour," }
+   MINUTE == "*"  { MINUTE = "every minute," }
+   DOM == "*"  { DOM = "every day of the month," }
+   MOY == "*"  { MOY = "every month of the year," }
+    MOY == "1" { MOY = "January" }
+    MOY == "2" { MOY = "February" }
+    MOY == "3" { MOY = "March" }
+    MOY == "4" { MOY = "April" }
+    MOY == "5" { MOY = "May" }
+    MOY == "6" { MOY = "June" }
+    MOY == "7" { MOY = "July" }
+    MOY == "8" { MOY = "August" }
+    MOY == "9" { MOY = "September" }
+    MOY == "10" { MOY = "October" }
+    MOY == "11" { MOY = "November" }
+    MOY == "12" { MOY = "December" }
+   DOW == "*"  { DOW = "on every day of the week," }
+    DOW == "0" { DOW = "on Sunday," }
+    DOW == "1" { DOW = "on Monday," }
+    DOW == "2" { DOW = "on Tuesday," }
+    DOW == "3" { DOW = "on Wednesday," }
+    DOW == "4" { DOW = "on Thursday," }
+    DOW == "5" { DOW = "on Friday," }
+    DOW == "6" { DOW = "on Saturday," }
+   {
+    printf("\tAt %s:%s %s %s %s we run %s\n",HOUR,MINUTE,DOW,DOM,MOY,$6)
+   }
+   '
+   read go
+  }
+done

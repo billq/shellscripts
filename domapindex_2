@@ -1,0 +1,75 @@
+#!/bin/ksh
+BASEDIR=/etc/security
+rm -f /tmp/mapindex2 /tmp/mapindex3
+cd $BASEDIR
+for BASE in `cat auto.master|awk '{print $1}'`
+do
+	case $BASE in
+	"/-")
+		cat auto.direct|\
+		grep -v local|\
+		grep -v fcs|\
+		grep -v hdw_eng|\
+		sed 's/-[a-z]*//'|\
+		sed 's/,[a-z]*//'|\
+		sed 's/	/:/g'|\
+		sed 's/::/:/g'|\
+		sed 's/\&$//'|\
+		sed 's/:/:direct:/'|\
+		sed 's/::/:/g'|\
+		sed 's/:$//'\
+		>>/tmp/mapindex2
+		for DIR in "/usr/local" "/fcs" "/hdw_eng"
+		do
+			if [ "${DIR}" = "/usr/local" ]
+			then
+				GDIR="/local"
+			else
+				GDIR=${DIR}
+			fi
+			EDIR=`echo $DIR|sed 's/\//\\\\\//g'`
+			cat auto.direct|\
+			grep $GDIR|\
+			sed 's/-[a-z]*//'|\
+			sed 's/,[a-z]*//'|\
+			sed 's/^	/'${EDIR}/|\
+			sed 's/	/:/g'|\
+			sed 's/::/:/g'|\
+			sed 's/\&$//'|\
+			sed 's/:/:direct:/'|\
+			sed 's/::/:/g'|\
+			sed 's/\\$//'|\
+			sed '/^'${EDIR}'$/d'|\
+			sed 's/:$//'\
+			>>/tmp/mapindex2
+		done
+	;;
+	"/net")	continue
+	;;
+	*)
+		NAME=`echo $BASE|sed 's/\///'`
+		MAP=auto.$NAME
+		cat $MAP|\
+		sed 's/-[a-z]*//'|\
+		sed 's/,[a-z]*//'|\
+		sed s/^/\\${BASE}\\//|\
+		sed 's/	/:/g'|\
+		sed '/\*/d'|\
+		sed 's/\&$//'|\
+		sed s/:/:$NAME:/|\
+		sed 's/::/:/g'|\
+		sed 's/:$//'\
+		>>/tmp/mapindex2
+	esac
+done
+for LINE in `cat /tmp/mapindex2`
+do
+	GREPPER="`echo $LINE|cut -f1 -d:`:"
+	COMMENT=`grep "^$GREPPER" $BASEDIR/dirdefs|cut -f2 -d:`
+	echo ${LINE}:${COMMENT} >> /tmp/mapindex3
+done
+cp /etc/security/mapindex /home/admin/adm/log/nislog
+mv /tmp/mapindex3 /etc/security/mapindex
+cd /var/yp
+make
+exit 0

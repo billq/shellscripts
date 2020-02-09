@@ -1,0 +1,29 @@
+Tape module - internal software results:
+Execute result: -505.
+Produce tape result: 0.
+Write separate tapes result: 0.
+Write separate tracks result: 0.
+Write separate groups/contiguous result: 0.
+Verify separate tapes result: 0.
+Verify separate tracks result: 0.
+Verify separate groups/contiguous result: 0.
+Write track result: 0.
+Verify track result: 0.
+Write track data result: 0.
+Verify track data result: 0.
+Read image result: 0.
+Tape device driver results:
+  Initialize driver results: 0, 0.
+  Open driver results: -1001, 3.
+  Test unit results: 0, 0.
+  Rewind tape results: 0, 0.
+  Request sense results: 0, 0.
+  Read results: 0, 0.
+  Write results: 0, 0.
+  Write file mark results: 0, 0.
+  Space results: 0, 0.
+  Mode select results: 0, 0.
+  Mode sense results: 0, 0.
+  Unload tape results: 0, 0.
+  Close driver results: 0, 0.
+  Sense key returned by tape unit (hex) = 0h.

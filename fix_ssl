@@ -1,0 +1,10 @@
+#create ssl certificate 
+mkdir /etc/apache2/ssl 
+/usr/sbin/make-ssl-cert /usr/share/ssl-cert/ssleay.cnf /etc/apache2/ssl/apache.pem
+cd /etc/apache2/sites-available
+cp default ssl
+edit ssl # add SSLEngine On SSLCertificateFile /etc/apache2/ssl/apache.pem
+#enable site
+a2ensite ssl
+#you also need to change in ssl ... VirtualHost *:80 to... VirtualHost *:443 
+#restart/reload apache

@@ -1,0 +1,8 @@
+for i in `ypcat hosts|grep "xyp[e,6]"|grep "terminal server"|awk '{print $2}'`
+do
+	ping $i >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		telnet $i
+	fi
+done

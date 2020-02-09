@@ -1,0 +1,42 @@
+#!/bin/ksh
+PATH=/usr/local/bin:$PATH
+FIRST=`ls *.jpg|sort -n|sed 's/.jpg//'|head -1`
+LAST=`ls *.jpg|sort -n|sed 's/.jpg//'|tail -1`
+for i in `ls *.jpg`
+do
+	HTML=${i%.jpg}.html
+	IMGNUM=${i%.jpg}
+	PREVIMG=$((IMGNUM-1))
+	NEXIMG=$((IMGNUM+1))
+	echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">
+<HTML>
+<HEAD>
+<TITLE>Image Index</TITLE>
+<META HTTP-Equiv=\"Content-Type\" CONTENT=\"text/html; charset=iso-8859-1\">
+</HEAD>
+<BODY bgcolor=\"#ffffff\" text=\"#000000\">
+<IMG BORDER=\"0\" ALT=\"${NAME%.jpg}\" SRC=\"$i\">
+<TABLE BORDER=0 ALIGN=CENTER>
+<TR>
+" > $HTML
+	if [ "$IMGNUM" = "$FIRST" ]
+	then
+		echo "
+<TD><A HREF=${NEXIMG}.html><IMG BORDER=0 SRC=/images/icons/right.gif></A></TD>" >> $HTML
+	elif [ "$IMGNUM" = "$LAST" ]
+	then
+		echo "
+<TD><A HREF=${PREVIMG}.html><IMG BORDER=0 SRC=/images/icons/left.gif></A></TD>
+<TD><A HREF=${FIRST}.html><IMG BORDER=0 SRC=/images/icons/forward.gif></A></TD>" >> $HTML
+	else
+		echo "
+<TD><A HREF=${PREVIMG}.html><IMG BORDER=0 SRC=/images/icons/left.gif></A></TD>
+<TD><A HREF=${NEXIMG}.html><IMG BORDER=0 SRC=/images/icons/right.gif></A></TD>
+<TD><A HREF=${FIRST}.html><IMG BORDER=0 SRC=/images/icons/forward.gif></A></TD>" >> $HTML
+	fi
+	echo "
+</TR>
+</TABLE>
+</BODY></HTML>
+" >> $HTML
+done

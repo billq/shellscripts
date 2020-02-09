@@ -1,0 +1,52 @@
+#! /bin/sh
+#
+# @(#)ypxfr_1perweek
+#
+# ypxfr_1perweek - Do weekly NIS map check/updates
+
+#	Revision History:
+#	
+#	07-03-95; markos;	create for switch domain usage
+#
+
+PATH=/bin:/usr/bin:/usr/etc:/usr/etc/yp:$PATH
+export PATH
+
+NISMASTER=yooper
+
+# set -xv
+ypxfr  -f -h $NISMASTER bootparams
+ypxfr  -f -h $NISMASTER netid.byname
+ypxfr  -f -h $NISMASTER netmasks.byaddr
+ypxfr  -f -h $NISMASTER networks.byaddr
+ypxfr  -f -h $NISMASTER networks.byname
+ypxfr  -f -h $NISMASTER protocols.byname
+ypxfr  -f -h $NISMASTER protocols.bynumber
+ypxfr  -f -h $NISMASTER publickey.byname
+ypxfr  -f -h $NISMASTER rpc.bynumber
+ypxfr  -f -h $NISMASTER services.byname
+ypxfr  -f -h $NISMASTER timezone.byname
+ypxfr  -f -h $NISMASTER ypservers
+#
+# custom maps after this line
+ypxfr  -f -h $NISMASTER auto.apl
+ypxfr  -f -h $NISMASTER auto.apps
+ypxfr  -f -h $NISMASTER auto.archive
+ypxfr  -f -h $NISMASTER auto.db
+ypxfr  -f -h $NISMASTER auto.direct
+ypxfr  -f -h $NISMASTER auto.dskld
+ypxfr  -f -h $NISMASTER auto.fcs
+ypxfr  -f -h $NISMASTER auto.hdw_eng
+ypxfr  -f -h $NISMASTER auto.home
+ypxfr  -f -h $NISMASTER auto.hosts
+ypxfr  -f -h $NISMASTER auto.interleaf
+ypxfr  -f -h $NISMASTER auto.master
+ypxfr  -f -h $NISMASTER auto.master.x86
+ypxfr  -f -h $NISMASTER auto.opt.i86pc.4
+ypxfr  -f -h $NISMASTER auto.opt
+ypxfr  -f -h $NISMASTER auto.parts
+ypxfr  -f -h $NISMASTER auto.project
+ypxfr  -f -h $NISMASTER auto.release
+ypxfr  -f -h $NISMASTER auto.tools
+ypxfr  -f -h $NISMASTER devicecfg
+ypxfr  -f -h $NISMASTER cdxhostdb

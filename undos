@@ -1,0 +1,11 @@
+#!/bin/ksh
+PATH=/usr/local/bin:$PATH
+for i in `ls`
+do
+	OLD=$i
+	NEW=`echo $i|tr "[:upper:]" "[:lower:]"`
+	if [ "$OLD" != "$NEW" ] && [ ! -f "$NEW" ]
+	then
+		mv $OLD $NEW
+	fi
+done

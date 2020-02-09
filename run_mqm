@@ -1,0 +1,2 @@
+TERM=xterm; export TERM
+/usr/epoch/bin/mqm

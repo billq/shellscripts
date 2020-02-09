@@ -1,0 +1,17 @@
+#!/usr/lbin/ksh
+#		
+#
+typeset -i NUM
+for NUM in 1 2 3
+do
+	PREFHEX=$PREFHEX`grep $MASTER /etc/hosts|awk '{print $1}'|cut -f$NUM -d"."|awk '{printf "%x\n", $1}'`
+	NUM="NUM + 1"
+done
+for i in $SUNS
+do
+	getinfo hosts|grep $i|awk '{printf ("%s\t%s\n", $2, $1)}'|grep "$i	">/tmp/hosts
+	HEXNO=`grep "$i	" /tmp/hosts|awk '{print $2}'|cut -f4 -d"."|awk '{printf "%x\n", $1}'`
+	FULLHEX=${PREFHEX}${HEXNO}
+	FULLHEX=`echo $FULLHEX|tr [a-z] [A-Z]`
+	echo "The hex representation of $i is $FULLHEX"
+done

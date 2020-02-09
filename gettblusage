@@ -1,0 +1,84 @@
+#!/bin/ksh
+# This shell gathers daily system table usage.  Should be run out of cron,
+# with something like:
+# 0 7 * * * /usr/add-on/adm/bin/tblchk 1800 22 >/dev/null 2>&1
+# This will provide a table check once every 30 minutes (60*30=1800)
+# beginning at 7:00 A.M. for 22 iterations (ends at 5:30 P.M.)
+# This script will work with the getstats script. See the header of
+# that script for its usage.
+#
+# A wee bit of this script is based on a script publised in
+# System Performance Tuning by Mike Loukides.
+#
+PATH=$PATH:/usr/lbin:/usr/add-on/adm/bin:/usr/add-on/exptools/bin:/usr/etc:/usr/add-on/local/bin
+HOSTNAME=`hostname`
+DATE=`date +%h%d%y`
+REPT=$HOSTNAME.tbl
+LOG=`logdir troot`/log/usage
+RECORD=$LOG/$REPT
+TMPRECORD=`logdir troot`/tmp/${HOSTNAME}/tblusage
+USAGE="USAGE: $0 sleep_time num_of_iterations"
+
+if [ $# != 2 ]
+then
+	echo $USAGE
+	exit
+fi
+if [ ! -d $LOG ]
+then
+	mkdir $LOG 2>/tmp/fail.mail
+fi
+if [ $? != 0 ]
+then
+	Mail -s "tblchk cannot create log" root < /tmp/fail.mail
+fi
+
+CNT=0
+NUM=$2
+typeset -i CNT NUM
+
+while [ $CNT -lt $NUM ]
+do
+	pstat -T | sed 's/\// /g'| awk '
+/files/{ if ($1 > files) {
+	files = $1
+	print "max files", files, "out of", $2, "or", 100*files/$2,"percent"
+	}
+}
+/inodes/{ if ($1 > inodes) {
+	inodes = $1
+	print "max inodes", inodes, "out of", $2, "or", 100*inodes/$2,"percent"
+	} 
+}
+/processes/{ if ($1 > processes) {
+	processes = $1
+	print "max processes", processes, "out of", $2, "or", 100*processes/$2,"percent"
+	} 
+}
+/swap/{ if ($1 > swap) {
+	swap = $1
+	print "max swap", swap, "out of", $2, "or", 100*swap/$2,"percent"
+	} 
+}' >> $TMPRECORD
+	sleep $1
+	CNT=CNT+1
+done 
+
+if [ "`date +%w`" = "0" ]
+then
+	typeset -i HOLD TRI
+
+	for i in files inodes processes swap
+	do
+		HOLD=0
+		for TRI in `cat $TMPRECORD|grep $i|sed 's/  / /g'|cut -f3 -d" "`
+		do
+			if [ $TRI -gt $HOLD ]
+			then
+				HOLD=$TRI
+			fi
+		done
+		cat $TMPRECORD | grep "$i $HOLD" | head -1 >> $RECORD
+	done
+	rm $TMPRECORD
+fi

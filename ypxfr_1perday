@@ -1,0 +1,31 @@
+#! /bin/sh
+#
+# @(#)ypxfr_1perday
+#
+# ypxfr_1perday - Do daily NIS map check/updates
+
+#	Revision History:
+#	
+#	07-03-95; markos;	copy from /usr/etc/yp standard file and 
+#				edit for switch domain usage
+#
+
+PATH=/bin:/usr/bin:/usr/etc:/usr/etc/yp:$PATH
+export PATH
+
+NISMASTER=yooper
+
+# set -xv
+ypxfr  -f -h $NISMASTER mail.byaddr
+ypxfr  -f -h $NISMASTER mail.aliases
+ypxfr  -f -h $NISMASTER passwd.byname
+ypxfr  -f -h $NISMASTER passwd.byuid
+ypxfr  -f -h $NISMASTER group.byname
+ypxfr  -f -h $NISMASTER group.bygid 
+ypxfr  -f -h $NISMASTER hosts.byname
+ypxfr  -f -h $NISMASTER hosts.byaddr
+ypxfr  -f -h $NISMASTER ethers.byname
+ypxfr  -f -h $NISMASTER ethers.byaddr
+ypxfr  -f -h $NISMASTER netgroup
+ypxfr  -f -h $NISMASTER netgroup.byuser
+ypxfr  -f -h $NISMASTER netgroup.byhost

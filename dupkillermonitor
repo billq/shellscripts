@@ -1,0 +1,9 @@
+TARGET=$1
+while true
+do
+  CURRENT=`wc -l /tmp/sumsfile|awk '{print $1}'`
+  PC=$((CURRENT * 100 / $TARGET))
+  echo -e "$CURRENT/$TARGET ($PC %) complete \c"
+  sleep 60
+  echo -e "\r\c"
+done

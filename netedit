@@ -1,0 +1,84 @@
+#!/bin/ksh
+# @(#)netedit          1.0 (William R. Quayle) 01/10/00
+################################################################################
+#                   @(#)Copyright (c) 2000 CME & William R. Quayle             #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                          billq@technologist.com                              #
+#                                                                              #
+################################################################################
+################################################################################
+[[ -f /home/osg/cfg/osg_env ]] && . /home/osg/cfg/osg_env
+SECUREDIR=/var/yp/src
+BACKDIR=/var/adm/log/yp
+typeset NUM NNUM
+
+[[ "`/usr/ucb/whoami`" != "root" ]] && {
+	echo "This can only be run as root"
+	exit 1
+}
+
+(( $# -lt 1 )) && {
+	print -u2 "USAGE: $0 filename ..."
+	print -u2 "where filename is one of the NIS map master files (i.e. passwd, hosts, ethers, etc...)"
+	exit 1
+}
+
+[[ -d $SECUREDIR ]] && {
+	cd $SECUREDIR
+} || {
+	print -u2 "Can't access $SECUREDIR"
+	exit 1
+}
+
+for FILE in $*
+do
+	[[ ! -f "$FILE" ]] && {
+		echo "Hmmm, can't seem to find $FILE"
+		break
+	}
+	while [ -f "${FILE}.lck" ]
+	do
+		OTHER=`cat ${SECUREDIR}/${FILE}.user`
+		echo "Sorry, $FILE is currently being edited by $OTHER, sleeping..."
+		sleep 30
+	done
+
+	echo "Backing up and locking out $FILE"
+	sleep 1
+	touch ${FILE}.lck
+	logname > ${FILE}.user
+	echo "`logname` edited ${FILE} on `date`">>${BACKDIR}/netedit.hist
+	cp ${FILE} ${BACKDIR}/${FILE}.`date +%Y_m_d_T`
+	vi ${FILE}
+done
+echo "Do the NIS make? [Y|n] \c"
+read ANS
+case $ANS in
+""|Y*|y*)
+	cd /var/yp
+	/usr/ccs/bin/make
+;;
+*)
+	echo "Skipping make"
+;;
+esac
+exit 0

@@ -1,0 +1,5 @@
+FMHOME=/usr/local/src/frame
+export FMHOME
+PATH=${FMHOME}/bin:$PATH
+cd $HOME/docs/frame
+$FMHOME/bin/maker

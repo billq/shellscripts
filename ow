@@ -1,0 +1,125 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+/bin/echo -n "Slow, Medium, or Fast?
+
+	[S] -> "
+read LEVEL
+case $LEVEL in
+M*|m*)	cp ~/.medium ~/.initopenwin	;;
+F*|f*)	cp ~/.fast ~/.initopenwin	;;
+""|S*|s*)	cp ~/.slow ~/.initopenwin	;;
+esac
+export DISPLAY FONTPATH FRAMEBUFFER HELPPATH LD_LIBRARY_PATH
+export MANPATH NEWSSERVER OPENWINHOME PATH XAPPLRESDIR
+
+# error message function
+err () {
+	echo "`basename $0`: $@" 1>&2
+	exit 1
+}
+
+# default DISPLAY is :0
+DISPLAY=":0"
+
+# default FRAMEBUFFER is /dev/fb if not in the environment.
+FRAMEBUFFER=${FRAMEBUFFER-"/dev/fb"}
+
+NOAUTH=1
+AUTH=
+
+# Add to the path variable named by $1 the component $2.  $3 must be
+# "append" or "prepend" to indicate where the component is added.
+addpath () {
+    eval value=\"\$$1\"
+    case "$value" in
+	*:$2:*|*:$2|$2:*|$2)
+	    result="$value"
+	    ;;
+	"")
+	    result="$2"
+	    ;;
+	*)
+	    case "$3" in
+		p*)
+		    result="$2:${value}"
+		    ;;
+		*)
+		    result="${value}:$2"
+		    ;;
+	    esac
+    esac
+    eval $1=$result
+    unset result value
+}
+
+# convenience routine which appends a string to a path.
+append () {
+    addpath "$1" "$2" append
+}
+
+# convenience routine which prepends a string to a path.
+prepend () {
+    addpath "$1" "$2" prepend
+}
+
+# Derive the $NEWSSERVER variable from the digit in $DISPLAY
+newsport=`expr "$DISPLAY" : '.*:\([0-9][0-9]*\)' + 2000`
+NEWSSERVER=`$OPENWINHOME/bin/newsserverstr $newsport`
+
+# add $OPENWIN/mumble to several related environment variables.
+prepend LD_LIBRARY_PATH		$OPENWINHOME/lib
+prepend PATH			$OPENWINHOME/bin/xview
+prepend PATH			$OPENWINHOME/bin
+append	FONTPATH		$OPENWINHOME/lib/fonts
+append	HELPPATH		$OPENWINHOME/lib/help
+
+XAPPLRESDIR=$OPENWINHOME/lib/X11/app-defaults
+
+XINITRC=~/.xinitrc
+
+#
+# Create magic cookie for authentication, and write server and client files.
+#
+AUTHFNAME=$HOME/.xnews.`hostname`$DISPLAY
+$OPENWINHOME/lib/mkcookie $AUTHFNAME
+AUTH="-auth $AUTHFNAME"
+
+# Get rid of our function definitions because a bug in some versions of
+# the SunOS sh will turn their names into environment variables otherwise.
+unset err addpath append prepend
+
+# confirm framebuffer configuration
+if [ -x $OPENWINHOME/bin/xn_ck_fbs ]; then
+    $OPENWINHOME/bin/xn_ck_fbs $PASSTHRU
+fi
+
+# start up xinit and thus the server.
+$OPENWINHOME/bin/xinit -- ${SERVER-$OPENWINHOME/bin/xnews} $DISPLAY $PASSTHRU $AUTH 
+
+rm -f $AUTHFNAME
+
+exit 0

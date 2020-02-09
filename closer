@@ -1,0 +1,94 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+
+# Use this script to force sockets in FIN_WAIT_2 state to close.
+# It works by setting the 2MSL timer in the TCP Protocol Control Block (PCB)
+# to a non-zero value.  The kernel then begins to decrement this value until
+# it reaches zero, at which point the kernel forces a close on the socket and
+# deletes the TCP PCB.  If both sides of the connection are hung, clearing one
+# side will possibly clear the other.
+
+# MSLOFFSET is the offset in the tcpcb record for the 2MSL timer.
+# <netinet/tcp_var.h> describes the tcpcb record.
+# This value is the number of bytes offset, expressed in hexadecimal.
+
+MSLOFFSET=10
+
+# TIMETODEATH is the number of half seconds until the connection is 
+# closed.  This value is expressed in decimal and must be greater
+# than zero.
+
+TIMETODEATH=06
+
+# Display netstat to get PCB addresses (first column).
+echo 'Active connections
+PCB      Proto Recv-Q Send-Q  Local Address      Foreign Address    (state)'
+#netstat -A | fgrep FIN_WAIT_2
+netstat -A | fgrep CLOSE_WAIT
+
+echo
+echo 'PCB address to terminate? '
+read addr
+echo
+
+# Use adb on kernel to display the PCB of the specified address
+adb -k /vmunix /dev/mem << SHAR_EOF
+$addr\$<tcpcb
+\$q
+SHAR_EOF
+
+# Check to see if this was the correct address and PCB. state should be
+# 8 for LAST_ACK, 9 for FIN_WAIT_2
+echo
+echo 'state = 9 = FIN_WAIT_2'
+echo 'Is this the correct PCB (y/n)? '
+read ans
+echo
+case $ans in
+  [Yy]*)
+	;;
+  *)
+	echo 'No Changes.'
+	exit
+	;;
+esac
+
+# Use adb on kernel to set the 2MSL timer for the PCB
+adb -k -w /vmunix /dev/mem << SHAR_EOF
+$addr+$MSLOFFSET/w 0t$TIMETODEATH
+\$q
+SHAR_EOF
+
+# Use these lines in place of the above for testing the script.
+#adb -k  /vmunix /dev/mem << SHAR_EOF
+#$addr+$MSLOFFSET/x 
+#\$q
+#SHAR_EOF
+
+echo
+echo 'Connection will be terminated in `expr $TIMETODEATH / 2` seconds.'
+echo 

@@ -1,0 +1,148 @@
+#!/bin/ksh
+case $MACH_OS in
+IRIX)
+	ECHO="echo"
+	MT="mt -t"
+	;;
+SunOS)
+	ECHO="/usr/5bin/echo"
+	MT="mt -f"
+	;;
+*)
+	echo "Sorry, copytape isn't supported or tested on an $MACH_OS yet."
+	exit 1
+	;;
+esac
+TMP_FILE=no_such_animal
+STATUS=no_such_animal
+RMT_STATUS=no_such_animal
+/bin/df
+#
+# Source tape/machine setup
+#
+until [ -w $TMP_FILE ]
+do
+	$ECHO "\n\tPlease enter a full path for the temp file name\n\t:\c"
+	read TMP_FILE
+	echo "" > $TMP_FILE >/dev/null 2>&1
+	DIR="`dirname $TMP_FILE`"
+	FILE="`basename $TMP_FILE`"
+done
+until [ $STATUS = 0 ]
+do
+	$ECHO "\n\tPlease enter the full name of the source tape drive\n\t:\c"
+	read SRC_TAPE
+	echo ""
+	$MT $SRC_TAPE status
+	STATUS=$?
+	$ECHO "\n\tRewind the tape? [Y|n} \n\t:\c"
+	read RWND
+	case $RWND in
+	""|Y*|y*) $MT $SRC_TAPE rew ;;
+	*) echo "No rewind." ;;
+	esac
+done
+$ECHO "\n\tPlease enter the blocking factor on the source tape\n\t:\c"
+read SRC_BLK
+#
+# Target tape/machine setup
+#
+$ECHO "\n\tIs the target drive on a remote machine? [Y|n] \n\t:\c"
+read RMT
+case $RMT in
+Y*|y*|"")
+	$ECHO "\n\tWhat is the name of the remote machine? \n\t:\c"
+	read RMT_HOST
+	PREFIX="rsh $RMT_HOST"
+	if [ "`$PREFIX true 2>&1" = "" ]
+	then
+		if [ "$PREFIX /bin/df $DIR 2>/dev/null | grep nfs" = "" ]
+		then
+			$ECHO "$DIR must be mounted on $RMT_HOST.  It is not
+			mounted at $DIR.  Please enter the mount point for
+			$DIR on $RMT_HOST, or an X to exit\n\t:\c"
+			read RMT_DIR
+			case $RMT_DIR in
+			X|x) exit 1	;;
+			*) if [ "$PREFIX /bin/df $DIR 2>/dev/null | grep nfs" = "" ]
+				then
+					$ECHO "Still can't find $RMT_DIR.  Giving up."
+					exit 1
+				fi
+			;;
+			esac
+		else
+			RMT_DIR=$DIR
+		fi
+		PARSE_LINE="$PREFIX uname -a"
+		case `echo $PARSE_LINE|grep SunOS >/dev/null` in
+		"") RMT="mt -t"	;;
+		*)  RMT="mt -f" ;;
+		esac
+	else
+		$ECHO "You don't have remote access to ${RMT_HOST}! Terminating."
+		exit 1
+	fi
+;;
+*)
+	PREFIX=""
+	RMT=$MT
+	RMT_HOST=`hostname`
+;;
+esac
+until [ $RMT_STATUS = 0 ]
+do
+	$ECHO "\n\tPlease enter the full name of the target tape drive\n\t:\c"
+	read TRGT_TAPE
+	$PREFIX $RMT $TRGT_TAPE status 1>/dev/null
+	RMT_STATUS=$?
+	$ECHO "\n\tRewind the tape? [Y|n} \n\t:\c"
+	read RWND
+	case $RWND in
+	""|Y*|y*) $PREFIX $MT $SRC_TAPE rew ;;
+	*) echo "No rewind." ;;
+	esac
+done
+$ECHO "\n\tPlease enter the blocking factor on the target tape\n\t:\c"
+read TRGT_BLK
+#
+# Now do the copy
+#
+$ECHO "\n\nReady to copy a tape mounted on $SRC_TAPE with a blocking
+factor of $SRC_BLK to $TRGT_TAPE on $RMT_HOST with a blocking factor
+of $TRGT_BLK.\n\tO.K. to proceed? [Y|n]\n\t:\c"
+read GO_FOR_IT
+case $GO_FOR_IT in
+""|Y*|y*)
+	typeset -i FILENO
+	FILENO=1
+	echo "Reading tape"
+	dd if=$SRC_TAPE ibs=${SRC_BLK}b of=$TMP_FILE
+	while [ -s $TMP_FILE ]
+	do
+		echo "Writting tape"
+		$PREFIX "cd $RMT_DIR;dd if=$FILE of=$TRGT_TAPE obs=${TRGT_BLK}b"
+		rm $TMP_FILE
+		echo "Done with file $FILENO."
+		FILENO=FILENO+1
+		echo "Reading tape"
+		dd if=$SRC_TAPE ibs=${SRC_BLK}b of=$TMP_FILE
+	done
+	echo "All done with tape copy!"
+	;;
+*)
+	echo "Exiting."
+	exit 1
+	;;
+esac
+$ECHO "\n\tRewind tapes and take offline? [Y|n]\n\t:\c"
+read OFFLN
+case $OFFLN in
+""|Y*|y*)
+	$PREFIX $MT $TRGT_TAPE offline
+	$MT $SRC_TAPE offline
+	;;
+*)
+	echo "Bye!"
+	;;
+esac

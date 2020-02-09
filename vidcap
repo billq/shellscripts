@@ -1,0 +1,1 @@
+ffmpeg -i "$(find ~/.mozilla -regex '.*Cache.*' -a -not -regex '.*_CACHE_.*' -printf '%T+ %p\n' | sort -n | awk '{ print $2 }' | xargs file | grep -i "Video" | tail -1 | awk -F : '{ print $1 }')" -vcodec msmpeg4v2 -b 200 -ab 64 -ar 22050 /tmp/video.avi

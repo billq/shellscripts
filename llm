@@ -1,0 +1,13 @@
+#!/bin/ksh
+# catch swapping and report
+#
+while true
+do
+	uptime|rev|cut -f1-3 -d" "|rev|sed 's/,//g' | awk '
+	{ 
+	  if ($1 > 10) {printf ("hi load 1 minute:\t%12s\n", $1) }
+	  if ($2 > 10) {printf ("hi load 5 minute:\t%12s\n", $2) }
+	  if ($3 > 10) {printf ("hi load 15 minute:\t%12s\n", $3) }
+	}'
+	sleep 60
+done

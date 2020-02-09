@@ -1,0 +1,359 @@
+#!/bin/ksh
+#
+ERR="ERROR:$0:"
+BNAME=`/bin/hostname`
+OPER=`/usr/ucb/whoami`
+PATH=/usr/5bin:$PATH
+DB=/usr/add-on/adm/lib/info/sun/info
+
+/usr/add-on/adm/bin/amirootonserver
+if [ $? -ne 0 ]
+then
+	exit 1
+fi
+
+REPEAT="yes"
+while [ "$REPEAT" = "yes" ]
+do
+##############################################initialize
+	GOFORIT=""
+	CLIENT=""
+	DESTMACH=""
+	DESTMACHR=""
+	DESTDISK=""
+	DESTDIR=""
+	DISKS=""
+	REALLOGIN=""
+	REALDIR=""
+	SOURCEMACH=""
+	ANS=""
+	NAME=""
+	BOOTSERVER=""
+##############################################initialize
+	echo "
+----------------------------------------------------------------------
+What is the name of the user to be moved?
+		[q to quit]
+				-> \c"
+	read NAME
+echo "----------------------------------------------------------------------"
+	if [ "$NAME" = "q" ]
+	then
+		echo "Exiting..."
+		exit 1
+	fi
+	if [ `getinfo passwd|grep -ci "$NAME"` -gt 1 ]
+	then
+		echo "
+######################################################################
+  The following are the lines mached by grepping for
+  $NAME in /etc/passwd.
+######################################################################
+"
+		getinfo passwd|grep -i $NAME|cut -d: -f6
+		echo "
+----------------------------------------------------------------------
+  Please enter the actual directory to be moved.
+				-> \c"
+		read NAME
+echo "----------------------------------------------------------------------"
+	fi
+	REALLOGIN=`getinfo passwd|grep -i "$NAME"| cut -f1 -d: `
+	REALDIR=`getinfo passwd|grep -i "$NAME"| cut -f6 -d: `
+	if [ "$1" = "-d" ]
+	then
+		echo "REALLOGIN = "$REALLOGIN
+		echo "REALDIR = "$REALDIR
+	fi
+	if [ "$REALDIR" = "" ]
+	then
+		echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  $NAME not found in the password file
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+		continue
+	fi
+	if [ ! -d "$REALDIR" ]; then
+		echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Cannot find $NAME. There must exist an entry
+  for this user in the yppasswd file, and the user must have a
+  home directory.  Re-enter name of user to move.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+		continue
+	fi
+	REALNAME=`getinfo passwd|grep -i "$REALDIR"| cut -f5 -d: |sed 's/[0-9]*-//'|sed 's/(.*//'`
+	CLIENT=`grep "$REALNAME" $DB|awk '{print $1}'`
+	if [ "$CLIENT" = "" ]
+	then
+		echo "
+######################################################################
+  $REALNAME currently has no client, but does have the directory
+  $REALDIR. 
+######################################################################
+"
+	else
+		BOOTSERVER=`grep "$CLIENT" $DB|awk '{print $8}'`
+		DESTMACH=$BOOTSERVER
+		DISKS=`grep "^$DESTMACH" $DB|awk '{print $10}'|sed 's/,/ /g'`
+		if [ "$DISKS" = "" ]
+		then
+			echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ERROR: The machine you have chosen is not in The Administrator
+database.  If you have a machine called $DESTMACH, it should be
+added to the database via the \"newsun\" command, then re-run this
+script.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+			sleep 30
+			exit 1
+		fi
+		echo "
+######################################################################
+  $REALNAME owns $CLIENT, which boots off of $BOOTSERVER. 
+  $BOOTSERVER has local disks $DISKS, and $REALLOGIN should
+  have a home directory on one of these disks.  $REALLOGIN currently
+  is logging in to the directory $REALDIR.  You should,
+  therefore, be using $BOOTSERVER as your DESTINATION MACHINE;
+  this will be used as default, unless you override with the next
+  prompt.
+######################################################################
+"
+	fi
+	if [ "$DESTMACH" = "" ]
+	then
+		DESTMACH="No Default"
+	fi
+	FLAG=1
+	while [ "$FLAG" = "1" ]
+	do
+		echo "
+----------------------------------------------------------------------
+  Which is the destination machine of the user to be moved?
+	($SERVERS)
+					[$DESTMACH] -> \c"
+	read DESTMACHR
+echo "----------------------------------------------------------------------"
+
+		case $DESTMACHR in
+		"")				;;
+		"No Default") FLAG=1;break	;;
+		*)	DESTMACH=$DESTMACHR	;;
+		esac
+		grep "$DESTMACH" $DB > /dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			FLAG=0
+			DISKS=`grep "$DESTMACH" $DB|awk '{print $10}'|sed 's/,/ /g'`
+		else
+			FLAG=1
+			echo "
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ERROR: The machine you have chosen is not in The Administrator
+database.  If you have a machine called $DESTMACH, it should be
+added to the database via the \"newsun\" command, then re-run this
+script.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+		fi
+	done
+
+	REALDIRD=`dirname $REALDIR`
+	SOURCEMACH=`grep "$REALDIRD" $DB|awk '{print $1}'`
+	if [ "$SOURCEMACH" = "" ]
+	then
+		echo "
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ERROR: The source machine is not in The Administrator database.  
+I don't know where the user partition $REALDIR is!!
+The Administrator database, $DB,
+should be modified with this new information.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+	fi
+	if [ "$BNAME" = "$SOURCEMACH" ]
+	then
+			PREFIX="rsh $DESTMACH"
+			PREFIXX=""
+	else
+			PREFIX=""
+			PREFIXX="rsh $SOURCEMACH"
+	fi
+	echo "
+######################################################################
+$DESTMACH has usr partitions $DISKS, which have dfs as follows:
+
+`$PREFIX df $DISKS`
+######################################################################
+
+----------------------------------------------------------------------
+Which will be the parent directory of the user on the new machine?
+
+	i.e.  one of $DISKS
+				-> \c"
+	read DESTDISK
+echo "----------------------------------------------------------------------"
+	set $DISKS
+	if [ `echo "$DISKS"|grep -c "$DESTDISK"` = "0" ]
+	then
+		echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Your disk should be something like $DISKS, not $DESTDISK...restarting...
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+		continue
+	fi
+	echo "
+----------------------------------------------------------------------
+Let's make sure I've got this right...You want to move
+
+  $REALDIR to $DESTDISK/`basename $REALDIR`...right?
+		[Y|n] 	-> \c"
+	read GOFORIT
+echo "----------------------------------------------------------------------"
+	case $GOFORIT in
+	""|Y*|y*) echo "
+######################################################################
+  WORKING .....
+######################################################################
+"
+	typeset -i FREESPACE BLOCKS
+	BLOCKS=`$PREFIXX du -s $REALDIR|cut -f1 -d"	"`
+	FREESPACE=`$PREFIX df $DESTDISK|tail -1|sed 's/  */:/g'|cut -f4 -d":"`
+	if [ "$BLOCKS" -gt "$FREESPACE" ]
+	then
+		echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Available free space on $DESTDISK is $FREESPACE.  Current disk
+  usage for $REALLOGIN is $BLOCKS.  Please chose a less populated
+  filesystem.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+		continue
+	else
+		echo "
+######################################################################
+  Working on the move, please be patient.
+######################################################################
+"
+	fi
+	DESTDIR=$DESTDISK/`basename $REALDIR`
+	if [ "$BNAME" = "$DESTMACH" -a "$BNAME" = "$SOURCEMACH" ]
+	then
+		mkdir $DESTDIR
+		/etc/chown $REALLOGIN $DESTDIR
+		chgrp $REALLOGIN $DESTDIR
+		cd $REALDIR
+		find . -depth -print | cpio -pdum $DESTDIR
+		cd /
+		echo "
+######################################################################
+  The move has completed.  I'll leave it up to you and $NAME
+  to verify and remove $REALDIR
+######################################################################
+			"
+	else
+		case $BNAME in
+		$DESTMACH)
+			mkdir $DESTDIR
+			/etc/chown $REALLOGIN $DESTDIR
+			chgrp $REALLOGIN $DESTDIR
+			rsh $SOURCEMACH 'cd '$REALDIR'; tar -cfB - .'| (cd $DESTDIR; tar -xvfBp -)
+			cd /
+		echo "
+######################################################################
+  The move has completed.  I'll leave it up to you and $NAME
+  to verify and remove $REALDIR
+######################################################################
+			"
+			;;
+		$SOURCEMACH)
+			rsh $DESTMACH "mkdir $DESTDIR" > /dev/null 2>&1
+			rsh $DESTMACH "/etc/chown $REALLOGIN $DESTDIR" > /dev/null 2>&1
+			rsh $DESTMACH " chgrp $REALLOGIN $DESTDIR" > /dev/null 2>&1
+			cd $REALDIR; tar -cbfB 126 - .| (rsh $DESTMACH 'cd '$DESTDIR'; dd of='${REALLOGIN}.tar' obs=126b') > /dev/null 2>&1
+			rsh $DESTMACH 'cd '$DESTDIR';tar -xvfp '${REALLOGIN}'.tar '
+			rsh $DESTMACH 'rm '$DESTDIR/${REALLOGIN}.tar' > /dev/null 2>&1'
+			cd /
+		echo "
+######################################################################
+  The move has completed.  I'll leave it up to you and $NAME
+  to verify and remove $REALDIR
+######################################################################
+			"
+			;;
+		*)		echo "
+######################################################################
+   You must be logged in to either $SOURCE or $DESTINATION to
+   utilize this move. 
+######################################################################
+"
+			exit 1
+			;;
+	esac
+	fi
+			echo "
+######################################################################
+  You must now edit the password file to reflect the changes
+  in login directory for $REALLOGIN.
+	To remind you...
+  $REALDIR has been moved to $DESTDISK/`basename $REALDIR`
+######################################################################
+
+----------------------------------------------------------------------
+Please hit C/R when you are ready to edit...
+
+			-> \c"
+			read DUMMY
+echo "----------------------------------------------------------------------"
+		case `domainname` in
+		"noname")	vipw
+				;;
+		*)		if [ "`ypwhich`" = "$BBNAME" ]
+				then
+					vipw
+					cd /var/yp
+					make passwd
+				else
+					echo "
+######################################################################
+  As you are not logged in to the YP master, I will rlog you in to
+  edit the password file.  After logging in, execute vipw, followed
+  by a cd to /var/yp, and do a make passwd.
+######################################################################
+"
+					rlogin `ypwhich`
+				fi
+				;;
+		esac
+			;;
+	*)	echo "
+######################################################################
+Bailing out!
+######################################################################
+"
+			;;
+	esac
+echo "
+----------------------------------------------------------------------
+Any more users to move?
+		[y|N] -> \c"
+	read ANS
+echo "----------------------------------------------------------------------"
+	case $ANS in
+		y*|Y*)	REPEAT="yes"
+			;;
+		""|n*|N*)	REPEAT="no"
+			;;
+		*)		echo $ERR"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		Reply not understood, exiting with code 1.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+			exit 1
+			;;
+	esac
+done

@@ -1,0 +1,56 @@
+#!/bin/ksh
+#
+# finds $1 running on any/all suns and runs $2 if it is
+#
+USAGE="`basename $0` -p process -c command"
+
+while getopts :p:c: g
+do
+        case $g in
+        p)      proc=$OPTARG  ;;
+        c)      cmd=$OPTARG  ;;
+        \?)     echo "$USAGE"
+                exit 2  ;;
+        esac
+done
+shift $(($OPTIND - 1))
+if [[ -z $proc ]] || [[ -z $cmd ]] ;then
+	echo $USAGE
+	exit 1
+fi
+for i in `suns`
+do
+echo "doing $i"
+	ypmatch $i hosts >/dev/null 2>&1
+	if [ $? -eq 0 ]
+	then
+		ping $i 1 >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			STRINGA=`rsh $i -l root "ps -ef|grep $proc"|grep -v grep`
+			if [ "$STRINGA" = "permission denied" ]
+			then
+				echo "$i has a bad .rhosts"
+			elif [ "$STRINGA" != "" ]
+			then
+				echo "$proc is running on ${i}:"
+				echo "$STRINGA"
+				echo "Run ${cmd} on ${i}? \c"
+				read RUNNIT
+				case $RUNNIT in
+				Y*|y*)	
+				rsh $i -l root ${cmd}
+				;;
+				*)
+				echo "skipping..."
+				;;
+				esac
+
+			fi
+		else
+			echo "$i not pingable"
+		fi
+	else
+		echo "$i not in hosts"
+	fi
+done

@@ -1,0 +1,62 @@
+#!/bin/ksh
+if [ $# -lt 3 ]
+then
+	echo "USAGE: pagesa user host_name problem_code [severity]
+Code| User         |  Host name | Problem
+--------------------------------------------------------
+1   |              |  hercules  | Down
+2   |              |  raven     | Disk Error
+3   | L. Carter    |  yooper    | Processor pegged > 1 hour
+4   | J. Chmelik   |  trooper   | Network problem
+5   | M. DiGiovanni|  chaos     | X terminal problem
+6   | C. Doyle     |  tbsun2    | Other (please call...)
+7   | K. Dutrow    |  bootes    |
+8   | Emergency    |  cetus     |
+9   | G. Gunderson |  london    |
+10  | J. LeClercq  |  rib       |
+11  | T. Markos    |  sally     |
+12  | J. Moy       |  chuck     |
+13  | D. Munson    |  snafu     |
+14  | B. Quayle    |  merlin    |
+15  |              |  patty     |
+16  | J. Good      |  peanut    |
+17  |              |  rmc       |
+18  |              |  rmcqb     |
+19  |              |  pigpen    |
+20  |              |  h2obug    |
+21  |              |  buddha    |
+22  |              |  drwho     |
+23  |              |  beaver    |
+24  |              |  ted       |
+97  |              |  network   |
+98  |              |  printer   |
+99  |              |  unknown   |
+
+The severity code may be used, but will default to '3'
+You may use a phone number in place of the severity code.
+
+Examples:
+To page Michele to inform her that Chaos has a disk error:
+
+pagesa 5 5 2
+
+To page the Sun Emergency pager when an unknown emergency occurs,
+and append your extension:
+
+pagesa 8 99 1 8623
+"
+exit 1
+fi
+PHONE_MASTER=/home/admin/adm/lib/admin.pagers
+PAGER=`grep ^$1 $PHONE_MASTER|awk '{print $2}'`
+if [ "$PAGER" = "" ]
+then
+	echo "Unknown user..."
+	exit 1
+fi
+if [ "`hostname`" = "raven" ]
+then
+	/usr/openwin/bin/toolwait -timeout 30 -display raven:0 echo ATDT${PAGER},,,,${2}*${3}*${4:-3}# > /dev/cua14
+else
+	rsh raven "/home/admin/adm/bin.script/pagesa $*"
+fi

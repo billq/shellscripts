@@ -1,0 +1,14 @@
+#!/bin/ksh
+find * -type d -print -prune|while read I
+do
+  NEWD=`echo "${I}"|tr ' ' '_'|tr -d '`'|tr -d '('|tr -d ')'|tr -d '['|tr -d ']'|tr -d '!'|tr -d '#'|tr -d ';'|tr -d '@'|tr -d '$'|tr -d '^'|tr -d '&'|tr -d '*'`
+  OLDD=`echo "${I}"`
+  [[ "$NEWD" != "$OLDD" ]] && {
+    mv "${OLDD}" ${NEWD} 2>/dev/null
+    [[ $? -ne 0 ]] && {
+      echo "The move of $OLDD to $NEWD failed.  Bailing out"
+      exit 1
+    }
+    echo "$OLDD fixed up to $NEWD"
+  }
+done

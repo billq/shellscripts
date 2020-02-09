@@ -1,0 +1,24 @@
+#!/bin/perl
+
+if ( $#ARGV != 0 ) {
+    print "usage: $0 <log file>\n";
+    exit
+}
+$logf=$ARGV[0];
+
+@logf=( `cat $logf` );  # read log f into an array
+
+foreach $line ( @logf ) {
+    $line=~s/\d+/#/g;   # digits to # signs
+    $count{$line}++;    # count repeats
+}
+
+@alpha=sort @logf;      # sort the errors
+
+$prev = 'null';         # remove duplicates
+@uniq = grep($_ ne $prev && ($prev = $_), @alpha);
+
+foreach $line (@uniq) { # uniq lines w counts
+    print "$count{$line}: ";
+    print "$line";
+}

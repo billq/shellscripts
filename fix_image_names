@@ -1,0 +1,15 @@
+N=1
+dir=`basename $PWD`
+for i in `ls *.jpg *.JPG *.JPEG *.jpeg 2>/dev/null`
+do
+ echo "mv $i ${dir}_${N}.jpg"
+ mv $i ${dir}_${N}.jpg
+ N=$((N + 1))
+done
+N=1
+for i in `ls *.gif *.GIF 2>/dev/null`
+do
+ echo "mv $i ${dir}_${N}.gif"
+ mv $i ${dir}_${N}.gif
+ N=$((N + 1))
+done

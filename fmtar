@@ -1,0 +1,4 @@
+#!/bin/ksh
+OFILE=$1
+FILE=`basename $OFILE`
+tar -cvf $FILE.tar $FILE

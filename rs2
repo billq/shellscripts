@@ -1,0 +1,68 @@
+#
+# rs2 - a cheesy little script to:
+#   -l -> rlogin to -h $host (a list of hosts - or uncomment for the list)
+#   -c -> copy a file ($2) over to -h \$host (or the list)
+#   -s -> run a shell ($2) on -h \$host (or the list)
+#
+while getopts :lc:s:h: flags
+do
+  case $flags in
+    l)
+          CMD=rlogin
+        ;;
+    c)  
+          CMD=rcp
+	  FILE=$OPTARG
+        ;;
+    s)  
+          CMD=rsh
+	  FILE=$OPTARG
+        ;;
+    h)
+          REMOTE=$OPTARG
+        ;;
+    ?)  
+        echo "USAGE: rs2 [-h remote_host] (-l|-c|-s)
+   -l -> rlogin to -h \$host (a remote host - or omit for all local suns)
+   -c -> copy a file (\$2) over to -h \$host (or all suns)
+   -s -> run a shell (\$2) on -h \$host (or all suns)"
+	exit 1
+        ;;
+  esac
+done
+
+shift $(($OPTIND - 1 ))
+
+REMOTE=${REMOTE:-"moby orca falcon condor hawk eagle sp1prod sp2prod db1prod db2prod db1qa db2qa db1dev hhqaap1 hhqaap2 hhqadb1 hhqadb2 giqaap1 giqaap2 giqadb1 giqadb2 byqadb1 byqadb2 gdprdb1 webjs shark marlin boa bridge1 bridge2 whale cobra puma cheetah lynx python"}
+for i in $REMOTE
+do
+	ping $i 2
+	if [ $? -eq 0 ]
+	then
+		case $CMD in
+		rlogin)
+			rlogin $i -l root
+		;;
+		rcp)
+			if [ -f "${FILE}" ]
+			then
+				rcp $FILE root@${i}:$FILE
+			else
+				echo "oops, can't find ${FILE}"
+				exit 1
+			fi
+		;;
+		rsh)
+			STATUS=`rsh ${i} -l root true >/dev/null 2>&1;echo $?`
+			if [ $STATUS -eq 0 ]
+			then
+				rsh ${i} -l root $FILE
+			else
+				echo "oops, can't rsh ${FILE} to $i"
+				rlogin $i -l root
+			fi
+		;;
+		esac
+	fi
+done
+

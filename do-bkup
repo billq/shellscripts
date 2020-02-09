@@ -1,0 +1,46 @@
+#!/bin/bash
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+ErrorFile=/tmp/$$.err
+MailTo='bill.quayle@gmail.com'
+
+touch $ErrorFile
+
+if [ ! -f "$HOME/.my.cnf" ]
+then
+  echo "No $HOME/.my.cnf file found!" |tee -a $ErrorFile
+  exit
+fi
+
+Backup_Drive=$(df -k|awk '$2 ~ /[0-9]/ {print $2,$NF}'|sort -n|tail -1|awk '{print $NF}')
+Backup_Dir=${Backup_Drive}-$(hostname)
+
+if [ -d "${Backup_Drive}/mysql_bkup" ]
+then
+  MYSQL_BKUP=${Backup_Drive}/mysql_bkup
+  mysqldump --flush-logs --all-databases 2>>$ErrorFile | gzip -c - > ${MYSQL_BKUP}/mysql.dump.all.`date -I`.gz 2>>$ErrorFile
+else
+  echo "$Backup_Drive/mysql_bkup does not exist!" >> $ErrorFile
+fi
+
+if [ -s $ErrorFile ]
+then
+  cat $ErrorFile
+fi
+
+Filesystems=$(df -k|awk '$1 ~ /\/dev/ {print $NF}'|grep -v "$Backup_Drive")
+
+if [ -d "${Backup_Dir}" ]
+then
+  for Filesystem in $Filesystems
+  do
+    rsync -qaxHAXSE --delete-delay --force $Filesystem ${Backup_Dir}
+  done
+else
+  echo "$Backup_Dir does not exist!" >> $ErrorFile
+fi
+
+if [ -s $ErrorFile ]
+then
+	mail -s "`hostname`:$0 error" $MailTo <$ErrorFile
+fi
+rm -f $ErrorFile

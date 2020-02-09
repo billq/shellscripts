@@ -1,0 +1,40 @@
+#!/bin/ksh
+#
+# This little beauty makes /export/dos/common/* readonly. Run out of cron
+# at about 5:00 AM.
+#
+# -billq
+
+rm -f /tmp/errorlog.$$
+
+if [ -d /export/dos/common ]
+then
+	cd /export/dos/common
+	find . -type d -exec chmod 755 {} \; -exec chown root.staff {} \;
+	find . -type f -exec chmod 644 {} \; -exec chown root.staff {} \;
+else
+	echo "/export/dos/common is MISSING!!!" >> /tmp/errorlog.$$
+fi
+if [ -d /export/cabinet/cash ]
+then
+	cd /export/cabinet/cash
+	find . -type d -exec chmod 750 {} \; -exec chown root.cabinet {} \;
+	find . -type f -exec chmod 640 {} \; -exec chown root.cabinet {} \;
+else
+	echo "/export/cabinet/cash is MISSING!!!" >> /tmp/errorlog.$$
+fi
+if [ -d /export/doc/prodmgmt ]
+then
+	cd /export/doc/prodmgmt
+	find . -type d -exec chmod 750 {} \; -exec chown root.prodmgmt {} \;
+	find . -type f -exec chmod 640 {} \; -exec chown root.prodmgmt {} \;
+else
+	echo "/export/doc/prodmgmt is MISSING!!!" >> /tmp/errorlog.$$
+fi
+#xcopy u:\prodmgmt y:\doc\mktg\prodmgmt\*.* /v /e /y
+#xcopy u:\cti_proj y:\cti_proj\*.* /v /e /y
+#xcopy y:\im u:\im\*.* /v /e /y
+#xcopy y:\product\spectrum\specdb v:\specdb\*.* /v /e /y
+#xcopy v:\ma x:\mktg\ma\*.* /v /e /y
+#xcopy u:\common\slides x:\mktg\slides\*.* /v /e /y
+#xcopy u:\common y:\common\*.* /v /e /y

@@ -1,0 +1,3 @@
+#!/bin/ksh
+find /export/ftp/waystation/* -mtime +7 -exec rm -fr {} \;
+cp /adm/lib/README.ftp /export/ftp/waystation/README

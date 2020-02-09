@@ -1,0 +1,19 @@
+#!/bin/ksh
+# Use this to update and sync the epoch catalogs for one or
+# two workitems. For updating a single Volume ID, use mkebcat.
+# wrq 9/14/94 1:32 A.M.
+PATH=/usr/epoch/bin:/usr/epoch/EB/bin:$PATH
+if [ $# -lt 1 ]
+then
+	echo "USAGE: runebcat _workitem_ _workitem_ ..."
+	exit 1
+fi
+for WORK_ITEM in $*
+do
+	for VOL_ID in `ebreport history -item $WORK_ITEM|grep unsorted|awk '{print $4}'|sort`
+	do
+		ebcatsort $VOL_ID
+		ebtreegen -fv $VOL_ID
+		ebcatcomp $VOL_ID
+	done
+done

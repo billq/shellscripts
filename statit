@@ -1,0 +1,6 @@
+for i in 9 8 7 6 5 4 3 2 1
+do
+echo "Your CPU was ${i}0% or more busy \c"
+grep "^[0-9]" vmstat.out|awk '{print $20 + $21}'|grep "$i[0-9]"|wc -l
+echo "times today"
+done

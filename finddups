@@ -1,0 +1,36 @@
+IAM=`pwd`
+for i in `ls`
+do
+ [[ -f $i ]] && {
+   NUM=`find $HOME -type f -name $i|wc -l`
+   [[ $NUM -gt 1 ]] && {
+     echo "------------------Checking out $i--------------------"
+     echo "Found $NUM copies of $i:"
+     find $HOME -type f -name $i
+     for file in `find $HOME -type f -name $i`
+     do 
+       [[ "$IAM/$i" != "$file" ]] && {
+         diff $i $file >/dev/null 2>&1
+         [[ $? -eq 0 ]] && {
+           echo "$i and $file are identical."
+           rm -i $file
+           rm -i $i
+         } || {
+           echo "$i and $file differ"
+           ls -l $i
+           ls -l $file
+           echo "Hit return for a diff"
+           read go
+           echo "diff $i $file"
+           diff $i $file | more
+           echo "sum $i $file"
+           sum $i $file | more
+           mv -i $i $file
+           rm -i $i
+           rm -i $file
+         }
+       }
+     done
+   } || echo "Only 1 copy of $i exists"
+ } || echo "$i isn't a regular file"
+done

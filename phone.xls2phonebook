@@ -1,0 +1,130 @@
+#!/bin/ksh
+#
+# This script converts the SSD phonebook, which has been dumped to disk
+# as an ASCI text file from MS Access, to the ephone/PCNFSpro Selectmail
+# Global Address Book format.
+#
+# Bill Q. wrote this ugly piece of crap.
+#
+if [ ! -f phonebk.txt ]
+then
+	echo "You have to run this from the directory that contains the phonebk.txt file."
+	exit
+fi
+cat phonebk.txt|\
+dos2unix|\
+sed 's/		*/	/g'|\
+grep -v "^[A-Z]	"|\
+grep -v "(see "|\
+sed 's/^	V\/M/VM/'|\
+sed 's/VM /VM-/'|\
+awk '{
+	if ($0 ~ /VM/)
+	{
+		printf("%s\t%s\n",last,$0);
+	}
+	else
+	{
+		if (last !~ /VM/)
+			print last;
+	}
+	last = $0;
+}
+END { print last}'|\
+sed 's/ [A-Z]\./_&/g'|\
+sed 's/_ /_/g'|\
+sed 's/\._ /\._/g'|\
+sed 's/ /_/'|\
+sed 's/ [A-Z] /_&/'|\
+sed 's/ [A-Z]	/_&/'|\
+sed 's/_ /_/'|\
+sed 's/(.*)//'|\
+sed '/^$/d'|\
+sed '/^VM/d'|\
+sed '/^OMBUD/d'|\
+sed '/^BellCore/d'|\
+awk -F"	" '{
+	if ($0 ~ /VM/)
+	{
+		printf("%s %s %s %s\n",$1,$2,$3,$4);
+	}
+	else
+	{
+		printf("%s %s %s VM-%s\n",$1,$2,$3,$2);
+	}
+} '|\
+sed 's/ /;@switch.rockwell.com;/'|\
+sed 's/ ;/;/g'> /tmp/phoneboo.unix
+#
+# Exiting at this point gives us everything but the email address.
+# (in one pipeline!!!!)
+# exit
+typeset -i MATCHES
+while read LINE 
+do
+	USER=`echo $LINE|sed 's/_/ /'|awk '{print $1}'|tr [A-Z] [a-z]`
+	if [ "$USER" = "" ]
+	then
+		continue
+	fi
+	if [ ${#USER} -gt 6 ]
+	then
+		SUSER=`echo $USER|awk '{
+	USER = $1
+	SUSER = substr(USER,1,8)
+	print SUSER
+	}'`
+		MUSER=`echo $USER|awk '{
+	USER = $1
+	MUSER = substr(USER,1,6)
+	print MUSER
+	}'`
+		NUSER=`echo $USER|awk '{
+	USER = $1
+	NUSER = substr(USER,3,6)
+	print NUSER
+	}'`
+		print -u2 "Long user name, $USER is now $SUSER"
+		print -u2 "Substring 1 user name, $USER is now $MUSER"
+		print -u2 "Substring 2 user name, $USER is now $NUSER"
+	else
+		SUSER=$USER
+	fi
+	FI=`echo $LINE|sed 's/_/ /'|sed 's/_/ /'|awk '{print $2}'|sed 's/[a-z][a-z].*//'|tr [A-Z] [a-z]`
+	MI=`echo $LINE|sed 's/_/ /'|sed 's/_/ /'|sed 's/_/ /'|awk '{print $3}'|sed 's/[a-z][a-z].*//'|tr [A-Z] [a-z]|sed 's/;.*//'`
+	FULLNAME="${USER}_${FI}"
+	print -u2 "Searching for $FULLNAME in passwd"
+	MATCHES=`ypcat passwd | grep -i $FULLNAME | wc -l|sed 's/^  *//'`
+	if [ $MATCHES -eq 1 ]
+	then
+		SEARCHLIST=`ypcat passwd | grep -i $FULLNAME|cut -f1 -d:`
+		print -u2 "One match - SEARCHLIST is $SEARCHLIST"
+	elif [ $MATCHES -gt 1 ]
+	then
+		SEARCHLIST=`ypcat passwd | grep -i $FULLNAME|cut -f1 -d:|grep -i $MUSER`
+		print -u2 "Multiple matches - SEARCHLIST is $SEARCHLIST"
+	else
+		if [ ${#MI} -eq 1 ]
+		then
+			SEARCHLIST="$SUSER ${FI}${SUSER} ${FI}${MI}${SUSER} ${MUSER} ${NUSER}"
+			print -u2 "No match - SEARCHLIST is $SEARCHLIST"
+		else
+			SEARCHLIST="$SUSER ${FI}${SUSER}"
+			print -u2 "No match - SEARCHLIST is $SEARCHLIST"
+		fi
+	fi
+	for SEARCH in $SEARCHLIST
+	do
+		print -u2 "Searching for $SEARCH"
+		ypmatch $SEARCH aliases > /dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			LINE=`echo $LINE|sed 's/@switch.rockwell.com/'$SUSER'@unknown/'`
+		else
+			email=`ypmatch $SEARCH aliases`
+			LINE=`echo $LINE|sed 's/@switch.rockwell.com/'"${email}"'/'|sed 's/; /;/'`
+			break
+		fi
+	done
+	echo $LINE
+done < /tmp/phoneboo.unix

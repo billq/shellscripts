@@ -1,0 +1,29 @@
+#!/bin/ksh
+if [ $# -eq 0 ]
+then
+	echo "USAGE:slideshow sleep_time"
+	exit 1
+fi
+SLEEPY_TIME=$1
+typeset -i SLEEPY_TIME
+if [ $SLEEPY_TIME -lt 600 ]
+then
+	echo "Sorry, you will be a network hog at < 600 seconds..."
+	SLEEPY_TIME=600
+fi
+if [ "$2" = "DEBUG" ]
+then
+	BUGOUT=""
+else
+	BUGOUT=/dev/null
+fi
+RDIR=/usr/local/include/images/backgrounds
+RIMAGE=`ls $RDIR`
+while true
+do
+  for i in $RIMAGE
+  do
+    xloadimage -onroot -fullscreen $RDIR/$i > $BUGOUT
+    sleep $1
+  done
+done

@@ -1,0 +1,147 @@
+#!/bin/ksh
+################################################################################
+#                   @(#)Copyright (c) 1997 William R. Quayle                   #
+#                             All Rights Reserved                              #
+################################################################################
+#                                                                              #
+# This is free software.  It comes  with absolutely  NO WARRENTY  expressed or #
+# implied.                                                                     #
+#                            USE AT YOUR OWN RISK!                             #
+#                                                                              #
+# Permission is granted to use, modify, and distribute copies of this software #
+# software  provided  the following conditions are met:                        #
+#                                                                              #
+#      1) that that the above copyright notice and this notice                 #
+#         are preserved in all copies and that due credit be given             #
+#         to the author.                                                       #
+#                                                                              #
+#      2) that any changes to this code are clearly commented                  #
+#         as such so that the author does get blamed for bugs                  #
+#         other than his own.                                                  #
+#                                                                              #
+#      Please send copies of changes and bug-fixes to:                         #
+#                                                                              #
+#                             billq@technologist.com                           #
+#                                                                              #
+################################################################################
+#!/bin/sh
+#
+# $Id: modem-reset,v 1.5 1992/09/13 10:31:56 emcguire Exp $
+#
+# Abstract:
+#	This script configures a modem, resetting to ROM (factory)
+#	defaults, making any desired changes, then saving the
+#	configuration to RAM.
+#
+# Revision history: $Log: modem-reset,v $
+#	Revision 1.5  1992/09/13  10:31:56  emcguire
+#	add Id
+#
+#	Revision 1.4  1992/09/13  10:29:29  emcguire
+#	add RTS/CTS information; add log entry
+#
+#	September 12, 1992, Ed McGuire.  Rewrite for reliable speed
+#		setting and more clarity.
+#
+# Dependencies:
+#	The modem is expected to be AT command compatible.  The
+#	following modems have been tested with this script.
+#	Deviations from factory settings of switches and jumpers are
+#	noted.
+#
+#	MultiTech MT1432EAB
+#		8-DIP #7 up (RTS functions normally)
+#	MultiTech MT932EAB
+#		8-DIP #1 up (DTR functions normally)
+#		8-DIP #7 up (RTS functions normally)
+#	MultiTech MT696EA
+#		8-DIP #1 up (DTR functions normally)
+#		8-DIP #7 up (RTS functions normally)
+#
+#	For combined indialing and outdialing, it is expected that
+#	the proper /dev/ttyXX and /dev/cuXX devices were created
+#	as explained in System & Network Administration.  Indialing
+#	is supported with entries in /etc/ttytab and /etc/gettytab
+#	for the /dev/ttyXX device, and outdialing should be performed
+#	on /dev/cuXX.
+#
+#	The ttytab record for the /dev/ttyXX identifies a getty class
+#	record.  The getty class must match the RS-232 speed of the
+#	modem (below) and operate 8-N-1.
+#
+# Policy:
+#	RS-232 SPEED.  This is the communication speed between the
+#	modem and the system's serial interface.  The modem is set to
+#	fastest speed supported by the system's serial interface or
+#	the modem.  This parameter is only relevant to indialing;
+#	outdialing may be done at any speed.
+#
+#	NO RESPONSE ANSWER.  This suppresses result codes when auto-
+#	answering.  This is desirable to avoid sending unwanted text
+#	to /usr/bin/login.
+#
+#	INACTIVITY TIMER.  The timer is set to 30 minutes.
+#
+#	CALL PROGRESS.  The modem looks for dial tone and for busy, and
+#	reports speed selected for connection.  This is the default for
+#	the 696E but not the 932 or 1432 series.
+#	
+#	DTR RESET.  The modem normally re-reads RAM when first turned
+#	on or when the AT Z command is received.  We set a flag which
+#	forces the modem to re-read RAM at the end of every
+#	connection.  If the modem were not reset between connections,
+#	outdials at a different speed than that used for indialing
+#	would break indialing, because the modem automatically speed
+#	matches the AT command, leaving it inconsistent with
+#	/etc/ttytab.
+#
+
+#
+# Function: send
+#	Write the AT command in the argument list with pauses for speed
+#	matching and reliable command completion.
+#
+
+send()
+{
+	echo -n A
+	sleep 1
+	echo T $*
+	sleep 1
+}
+
+#
+# Determine serial line speed based on system.
+#
+
+	case ` hostname ` in
+	mother)	SERIALSPEED=38400 ;;
+	fuller)	SERIALSPEED=38400 ;;
+	papa)	SERIALSPEED=38400 ;;
+	*)	echo 'add a line to modem-reset for' ` hostname ` ; exit 1 ;;
+	esac
+
+#
+# Direct output to modem, with -echo to avoid chatter.
+#
+
+	exec > /dev/cua0
+	stty -echo
+
+#
+# Reset modem to factory defaults.
+#	&W1	disable RAM
+#	Z	reset modem (from ROM)
+#
+
+	send \&W1 Z
+
+#
+# Set policy and put in RAM.
+#	S30=30	inactivity timer, 30 seconds
+#	$SBnnn	initial serial line speed
+#	Q2	no response answer
+#	X4	enhanced call progress
+#	&D3	DTR reset
+#	&W0	enable and write RAM
+#

@@ -1,0 +1,25 @@
+LogFile=$HOME/tmp/sync.log
+DateStamp=$(date +%s)
+if [ -f "$LogFile" ]
+then
+  mv $LogFile ${LogFile}.$DateStamp
+fi
+if [ -d /srv/home/billq ]
+then
+   REMOTE=/srv
+else
+   REMOTE=retank:/
+fi
+rsync -HAXva /home/billq/Documents $REMOTE/home/billq >$LogFile 2>&1
+rsync -HAXva /home/billq/scripts $REMOTE/home/billq >>$LogFile 2>&1
+rsync -HAXva /home/billq/media/photos/by_photographer/W.R.Quayle $REMOTE/home/billq/media/photos/by_photographer >>$LogFile 2>&1
+rsync -HAXva /home/billq/media/photos/memorials $REMOTE/home/billq/media/photos >>$LogFile 2>&1
+rsync -HAXva /home/billq/media/photos/stuff $REMOTE/home/billq/media/photos >>$LogFile 2>&1
+#rsync -HAXva /home/billq/media/Drawings $REMOTE/home/billq/media >>$LogFile 2>&1
+
+rsync -HAXva $REMOTE/home/billq/Documents /home/billq >$LogFile 2>&1
+rsync -HAXva $REMOTE/home/billq/scripts /home/billq >>$LogFile 2>&1
+rsync -HAXva $REMOTE/home/billq/media/photos/by_photographer/W.R.Quayle /home/billq/media/photos/by_photographer >>$LogFile 2>&1
+rsync -HAXva $REMOTE/home/billq/media/photos/memorials /home/billq/media/photos >>$LogFile 2>&1
+rsync -HAXva $REMOTE/home/billq/media/photos/stuff /home/billq/media/photos >>$LogFile 2>&1
+#rsync -HAXva $REMOTE/home/billq/media/Drawings /home/billq/media >>$LogFile 2>&1

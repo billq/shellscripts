@@ -1,0 +1,13 @@
+#!/bin/ksh
+while true
+do
+  if [ -f "filename" ]
+  then
+    mailx -s "your settlement report" user@there.com < filename
+    rm filename
+    exit
+  else
+    sleep 60
+  fi
+done
+

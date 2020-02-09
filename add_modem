@@ -1,0 +1,11 @@
+#!/sbin/sh
+LOGINMSG="If your name isn't Bill, don't login:"
+PORT="a"
+TTYSPEED="38400"
+chown uucp /dev/cua/a; chgrp tty /dev/cua/a
+chown root /dev/term/a; chgrp tty /dev/term/a
+/usr/sbin/pmadm -r -p zsmon -s tty$PORT
+/usr/sbin/pmadm -a -p zsmon -s tty$PORT -i root \
+-v `/usr/sbin/ttyadm -V` -fu -m "`/usr/sbin/ttyadm  \
+-p "$LOGINMSG" -d /dev/term/$PORT -s /usr/bin/login -l $TTYSPEED -b \
+-S n -m ldterm,ttcompat`" -y "dial in/out on serial port"
