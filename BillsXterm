@@ -1,1 +1,1 @@
-/usr/openwin/bin/xterm -bg black -fg yellow -ms yellow -sb -sl 50000 +ls
+xterm -bg black -fg yellow -ms yellow -sb -sl 50000 +ls
