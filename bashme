@@ -1,0 +1,35 @@
+#!/bin/bash
+TempDir=$(mktemp -d)
+echo "Data is in $TempDir"
+Count=0
+
+cd $TempDir && (
+
+# Make five files, 2M each
+  for i in {1..5}
+  do
+    dd if=/dev/zero of=myfile.$i bs=2M count=1
+  done
+
+
+  touch SomeFile
+
+  cat <<EOM >SOMEfile
+SOMEFILE
+some file
+SomeFile
+somefile
+EOM
+
+  cat SOMEfile|while read i
+  do
+    Count=$((Count + 1))
+    [ -f "$i" ] && echo "I am a file" || ( echo "I am not a file"; touch "$i";echo "I am now!")
+    echo "Count is $Count"
+    if (( $Count >= 2 ))
+    then
+      echo "This is a math test."
+    fi
+  done
+)
+rm -fr $TempDir
