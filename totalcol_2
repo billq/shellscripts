@@ -1,87 +1,67 @@
-#!/bin/ksh
+#!/bin/bash
 USAGE="USAGE:$0 [[-f file] [-c column] [-v]]
 
 totalcol will total a column of numbers.
 "
 if [ $# -eq 0 ]
 then
-	/bin/echo -n "What file? "
-	read F
-	/bin/echo -n "Which column to total? "
-	read C
+  /bin/echo -n "What file? "
+  read F
+  /bin/echo -n "Which column to total? "
+  read C
 else
-	case `arch` in
-	sun4)
-		while getopts f:c:v i 2>/dev/null
-		do
-		case $i in
-		f)     F="$OPTARG"	;;
-		c)     C="$OPTARG"	;;
-		v)     VERBOSE="y"	;;
-		\?)    echo "$USAGE"    
-			exit 2          ;;
-		esac
-		done
-		shift `expr $OPTIND - 1`
-	;;
-	sun3)
-		set -- `getopt f:c: $* 2>/dev/null`
-		if [ $? != 0 ]
-		then
-			echo "$USAGE"
-			exit 2
-		fi
-		for i in $*
-		do
-		case $i in
-		-f)     F="$2"; shift 2;;
-		-c)     C="$2";shift 2;;
-		-v)     VERBOSE="y";shift;;
-		esac
-		done
-	;;
-	esac
+  while getopts f:c:v i 2>/dev/null
+  do
+    case $i in
+    f)  F="$OPTARG"	;;
+    c)  C="$OPTARG"	;;
+    v)  VERBOSE="y"	;;
+    \?)  echo "$USAGE"    
+        exit 2          ;;
+    esac
+  done
+  shift `expr $OPTIND - 1`
 fi
 if [ -f "$F" ] && [ "$F" != "" ]
 then
-	if [ -n "$VERBOSE" ]
-	then
-		echo "Totaling the following:
+  if [ -n "$VERBOSE" ]
+  then
+    echo "Totaling the following:
 "
-		cat $F | nawk '
-		{ s += $COL }
-		{ print $COL }
-		END {print "The sum is", s }
-		' COL=$C
-	else
-		cat $F | nawk '
-		{ s += $COL }
-		END {print s }
-		' COL=$C
-	fi
+    cat $F | nawk '
+      { s += $COL }
+      { print $COL }
+      END {print "The sum is", s }
+      ' COL=$C
+  else
+    cat $F | nawk '
+      { s += $COL }
+      END {print s }
+      ' COL=$C
+  fi
 else
-	if [ -n "$VERBOSE" ]
-	then
-		echo "Totaling the following:
+  if [ -n "$VERBOSE" ]
+  then
+    echo "Totaling the following:
 "
-		while read line
-		do
-			echo $line | nawk '
-		{ s += $COL }
-		{ print $COL }
-		END {print "The sum is", s }
-		' COL=$C
-		done
-	else
-		while read line
-		do
-			echo $line >> /tmp/tc.$$
-		done
-		cat /tmp/tc.$$| nawk '
-		{ s += $COL }
-		END {print s }
-		' COL=$C
-		rm /tmp/tc.$$
-	fi
+    while read line
+    do
+      echo $line | nawk '
+        { s += $COL }
+        { print $COL }
+        END {print "The sum is", s }
+        ' COL=$C
+    done
+  else
+    while read line
+    do
+      echo $line >> /tmp/tc.$$
+    done
+    cat /tmp/tc.$$| nawk '
+      { s += $COL }
+      END {print s }
+      ' COL=$C
+    rm /tmp/tc.$$
+  fi
 	
 fi
